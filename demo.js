@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { Agent } from './src/core/Agent.js';
+import { AgentManager } from './src/core/AgentManager.js';
 import { MCPServer } from './src/mcp/MCPServer.js';
 
 // 加载环境变量
@@ -25,6 +26,8 @@ async function demo() {
       name: 'DemoAgent',
       thinkingMode: 'react',
       maxIterations: 3,
+      collaborationEnabled: true,
+      role: 'general',
       memory: {
         ttl: 1800,
         maxSize: 100
@@ -36,7 +39,18 @@ async function demo() {
       }
     });
 
-    console.log('✅ 智能体创建成功\n');
+    // 创建Agent管理器
+    console.log('🤝 创建Agent管理器...');
+    const agentManager = new AgentManager({
+      maxAgents: 5,
+      taskTimeout: 30000
+    });
+
+    // 注册智能体到管理器
+    const agentId = agentManager.registerAgent(agent, 'general');
+    agent.enableCollaboration(agentManager);
+
+    console.log('✅ 智能体和Agent管理器创建成功\n');
 
     // 创建MCP服务器
     console.log('📡 创建MCP服务器...');
@@ -77,7 +91,17 @@ async function demo() {
     console.log(`   名称: ${status.name}`);
     console.log(`   思考模式: ${status.thinkingMode}`);
     console.log(`   可用工具: ${status.availableTools}`);
+    console.log(`   协作模式: ${agent.collaborationEnabled ? '启用' : '禁用'}`);
+    console.log(`   角色: ${agent.role}`);
     console.log(`   MCP服务器: ws://${mcpServer.host}:${mcpServer.port}\n`);
+
+    // 显示协作统计
+    const collabStats = agent.getCollaborationStats();
+    console.log('🤝 协作统计:');
+    console.log(`   协作模式: ${collabStats.collaborationEnabled ? '启用' : '禁用'}`);
+    console.log(`   角色: ${collabStats.role}`);
+    console.log(`   协作历史: ${collabStats.collaborationHistoryLength}`);
+    console.log(`   协作记忆: ${collabStats.collaborationMemories}\n`);
 
     // 演示工具功能
     console.log('🛠️  演示工具功能:');
@@ -100,9 +124,25 @@ async function demo() {
 
     console.log('');
 
+    // 演示协作功能
+    console.log('🤝 演示协作功能:');
+    
+    // 创建协作任务
+    try {
+      const taskId = await agentManager.createCollaborativeTask('演示协作任务：分析当前时间并生成报告');
+      console.log(`   📋 创建协作任务: ${taskId}`);
+      
+      // 获取任务状态
+      const taskStatus = agentManager.getTaskStatus(taskId);
+      console.log(`   📊 任务状态: ${taskStatus.status}`);
+      
+    } catch (error) {
+      console.log(`   ❌ 协作任务创建失败: ${error.message}`);
+    }
+
     // 演示智能体对话（如果有API密钥）
     if (process.env.OPENAI_API_KEY) {
-      console.log('💬 演示智能体对话:');
+      console.log('\n💬 演示智能体对话:');
       
       const testInputs = [
         '你好，请介绍一下你自己',
@@ -120,7 +160,7 @@ async function demo() {
         }
       }
     } else {
-      console.log('💬 智能体对话演示（需要API密钥）:');
+      console.log('\n💬 智能体对话演示（需要API密钥）:');
       console.log('   请设置 OPENAI_API_KEY 环境变量来启用对话功能');
     }
 

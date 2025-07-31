@@ -20,6 +20,13 @@ export class Agent {
     
     this.conversationHistory = [];
     this.currentTask = null;
+    
+    // 协作相关属性
+    this.collaborationEnabled = config.collaborationEnabled || false;
+    this.agentManager = null;
+    this.role = config.role || 'general';
+    this.collaborationHistory = [];
+    this.peerAgents = new Map();
   }
 
   /**
@@ -275,5 +282,185 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
     this.conversationHistory = [];
     this.currentTask = null;
     this.memory.clear();
+    this.collaborationHistory = [];
+    this.peerAgents.clear();
+  }
+
+  /**
+   * 启用协作模式
+   */
+  enableCollaboration(agentManager) {
+    this.collaborationEnabled = true;
+    this.agentManager = agentManager;
+    console.log(`Agent ${this.name} 已启用协作模式`);
+  }
+
+  /**
+   * 禁用协作模式
+   */
+  disableCollaboration() {
+    this.collaborationEnabled = false;
+    this.agentManager = null;
+    console.log(`Agent ${this.name} 已禁用协作模式`);
+  }
+
+  /**
+   * 处理来自其他Agent的消息
+   */
+  async onMessage(message) {
+    if (!this.collaborationEnabled) {
+      return;
+    }
+
+    this.collaborationHistory.push({
+      ...message,
+      receivedAt: new Date()
+    });
+
+    // 根据消息类型处理
+    switch (message.type) {
+      case 'task_request':
+        await this.handleTaskRequest(message);
+        break;
+      case 'data_share':
+        await this.handleDataShare(message);
+        break;
+      case 'coordination':
+        await this.handleCoordination(message);
+        break;
+      case 'broadcast':
+        await this.handleBroadcast(message);
+        break;
+      default:
+        console.log(`Agent ${this.name} 收到消息: ${message.content}`);
+    }
+  }
+
+  /**
+   * 处理任务请求
+   */
+  async handleTaskRequest(message) {
+    const { content, from } = message;
+    
+    // 记录到记忆
+    this.memory.add('collaboration', {
+      type: 'task_request',
+      from,
+      content,
+      timestamp: new Date()
+    });
+
+    // 如果当前Agent空闲，可以接受任务
+    if (!this.currentTask) {
+      const response = await this.processInput(content, {
+        context: 'task_request',
+        from: from
+      });
+
+      // 发送响应
+      if (this.agentManager) {
+        await this.agentManager.sendMessage(this.name, from, response, 'task_response');
+      }
+    }
+  }
+
+  /**
+   * 处理数据共享
+   */
+  async handleDataShare(message) {
+    const { content, from } = message;
+    
+    // 将共享的数据添加到记忆
+    this.memory.add('collaboration', {
+      type: 'data_share',
+      from,
+      content,
+      timestamp: new Date()
+    });
+
+    console.log(`Agent ${this.name} 收到来自 ${from} 的数据共享`);
+  }
+
+  /**
+   * 处理协调消息
+   */
+  async handleCoordination(message) {
+    const { content, from } = message;
+    
+    // 记录协调信息
+    this.memory.add('collaboration', {
+      type: 'coordination',
+      from,
+      content,
+      timestamp: new Date()
+    });
+
+    console.log(`Agent ${this.name} 收到来自 ${from} 的协调消息`);
+  }
+
+  /**
+   * 处理广播消息
+   */
+  async handleBroadcast(message) {
+    const { content, from } = message;
+    
+    // 记录广播消息
+    this.memory.add('collaboration', {
+      type: 'broadcast',
+      from,
+      content,
+      timestamp: new Date()
+    });
+
+    console.log(`Agent ${this.name} 收到来自 ${from} 的广播: ${content}`);
+  }
+
+  /**
+   * 向其他Agent发送消息
+   */
+  async sendMessage(toAgentId, content, messageType = 'text') {
+    if (!this.collaborationEnabled || !this.agentManager) {
+      throw new Error('协作模式未启用');
+    }
+
+    return await this.agentManager.sendMessage(this.name, toAgentId, content, messageType);
+  }
+
+  /**
+   * 广播消息给所有Agent
+   */
+  async broadcastMessage(content, messageType = 'broadcast') {
+    if (!this.collaborationEnabled || !this.agentManager) {
+      throw new Error('协作模式未启用');
+    }
+
+    return await this.agentManager.broadcastMessage(this.name, content, messageType);
+  }
+
+  /**
+   * 请求其他Agent协助
+   */
+  async requestAssistance(toAgentId, request) {
+    return await this.sendMessage(toAgentId, request, 'task_request');
+  }
+
+  /**
+   * 共享数据给其他Agent
+   */
+  async shareData(toAgentId, data) {
+    return await this.sendMessage(toAgentId, data, 'data_share');
+  }
+
+  /**
+   * 获取协作统计信息
+   */
+  getCollaborationStats() {
+    return {
+      collaborationEnabled: this.collaborationEnabled,
+      role: this.role,
+      collaborationHistoryLength: this.collaborationHistory.length,
+      peerAgentsCount: this.peerAgents.size,
+      collaborationMemories: this.memory.getByType('collaboration').length
+    };
   }
 } 

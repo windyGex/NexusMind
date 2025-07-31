@@ -1,4 +1,5 @@
 import { Agent } from '../src/core/Agent.js';
+import { AgentManager } from '../src/core/AgentManager.js';
 import { MemoryManager } from '../src/core/MemoryManager.js';
 import { LLMClient } from '../src/core/LLMClient.js';
 import { ToolRegistry } from '../src/core/ToolRegistry.js';
@@ -267,6 +268,96 @@ async function runTests() {
     // 导入记忆
     memory.import(exported);
     testSuite.assertEqual(memory.size(), 2, '导入后大小应该是2');
+  });
+
+  // 测试AgentManager基本功能
+  testSuite.test('AgentManager - 基本功能', async () => {
+    const manager = new AgentManager();
+    
+    const agent1 = new Agent({ name: 'Agent1', llm: { apiKey: 'test-key' } });
+    const agent2 = new Agent({ name: 'Agent2', llm: { apiKey: 'test-key' } });
+    
+    const id1 = manager.registerAgent(agent1, 'worker');
+    const id2 = manager.registerAgent(agent2, 'coordinator');
+    
+    testSuite.assertEqual(manager.agents.size, 2, '应该注册2个Agent');
+    testSuite.assertNotNull(manager.getAgentStatus(id1), '应该能获取Agent状态');
+    testSuite.assertNotNull(manager.getAgentStatus(id2), '应该能获取Agent状态');
+    
+    manager.unregisterAgent(id1);
+    testSuite.assertEqual(manager.agents.size, 1, '应该只剩1个Agent');
+  });
+
+  // 测试协作任务
+  testSuite.test('AgentManager - 协作任务', async () => {
+    const manager = new AgentManager();
+    
+    const agent = new Agent({ name: 'TestAgent', llm: { apiKey: 'test-key' } });
+    const agentId = manager.registerAgent(agent, 'worker');
+    
+    const taskId = await manager.createCollaborativeTask('测试任务');
+    testSuite.assert(manager.tasks.has(taskId), '应该创建任务');
+    
+    const task = manager.getTaskStatus(taskId);
+    testSuite.assertEqual(task.status, 'pending', '任务状态应该是pending');
+  });
+
+  // 测试Agent协作功能
+  testSuite.test('Agent - 协作功能', async () => {
+    const manager = new AgentManager();
+    
+    const agent = new Agent({
+      name: 'CollaborativeAgent',
+      collaborationEnabled: true,
+      llm: { apiKey: 'test-key' }
+    });
+    
+    const agentId = manager.registerAgent(agent, 'worker');
+    agent.enableCollaboration(manager);
+    
+    testSuite.assert(agent.collaborationEnabled === true, '协作模式应该启用');
+    testSuite.assert(agent.agentManager === manager, '应该设置Agent管理器');
+    
+    const stats = agent.getCollaborationStats();
+    testSuite.assert(stats.collaborationEnabled === true, '协作统计应该正确');
+  });
+
+  // 测试Agent间通信
+  testSuite.test('AgentManager - Agent间通信', async () => {
+    const manager = new AgentManager();
+    
+    const agent1 = new Agent({ name: 'Agent1', llm: { apiKey: 'test-key' } });
+    const agent2 = new Agent({ name: 'Agent2', llm: { apiKey: 'test-key' } });
+    
+    const id1 = manager.registerAgent(agent1, 'sender');
+    const id2 = manager.registerAgent(agent2, 'receiver');
+    
+    // 测试发送消息
+    const message = await manager.sendMessage(id1, id2, '测试消息', 'text');
+    testSuite.assertNotNull(message.id, '消息应该有ID');
+    testSuite.assertEqual(message.from, id1, '发送方应该正确');
+    testSuite.assertEqual(message.to, id2, '接收方应该正确');
+    
+    // 测试广播消息
+    const broadcast = await manager.broadcastMessage(id1, '广播消息', 'broadcast');
+    testSuite.assertEqual(broadcast.to, 'all', '广播目标应该是all');
+  });
+
+  // 测试任务分配和执行
+  testSuite.test('AgentManager - 任务分配执行', async () => {
+    const manager = new AgentManager();
+    
+    const agent = new Agent({ name: 'WorkerAgent', llm: { apiKey: 'test-key' } });
+    const agentId = manager.registerAgent(agent, 'worker');
+    
+    const taskId = await manager.createCollaborativeTask('计算任务');
+    const assignment = await manager.assignTask(taskId, agentId);
+    
+    testSuite.assertEqual(assignment.status, 'assigned', '任务状态应该是assigned');
+    testSuite.assertEqual(assignment.agentId, agentId, 'Agent ID应该匹配');
+    
+    const agentStatus = manager.getAgentStatus(agentId);
+    testSuite.assertEqual(agentStatus.status, 'busy', 'Agent状态应该是busy');
   });
 
   // 运行所有测试

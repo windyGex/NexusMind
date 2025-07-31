@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { Agent } from './core/Agent.js';
+import { AgentManager } from './core/AgentManager.js';
 import { MCPServer } from './mcp/MCPServer.js';
 import { readFileSync } from 'fs';
 
@@ -12,8 +13,10 @@ dotenv.config();
 class AutoAgentApp {
   constructor() {
     this.agent = null;
+    this.agentManager = null;
     this.mcpServer = null;
     this.isRunning = false;
+    this.collaborationEnabled = false;
   }
 
   /**
@@ -28,6 +31,8 @@ class AutoAgentApp {
         name: process.env.AGENT_NAME || 'AutoAgent',
         thinkingMode: 'react', // 或 'cot'
         maxIterations: 10,
+        collaborationEnabled: true,
+        role: 'general',
         memory: {
           ttl: parseInt(process.env.MEMORY_TTL) || 3600,
           maxSize: parseInt(process.env.MAX_MEMORY_SIZE) || 1000
@@ -39,6 +44,19 @@ class AutoAgentApp {
           maxTokens: 1000
         }
       });
+
+      // 创建Agent管理器
+      this.agentManager = new AgentManager({
+        maxAgents: 10,
+        taskTimeout: 30000,
+        communicationTimeout: 10000
+      });
+
+      // 注册主智能体到管理器
+      this.agentManager.registerAgent(this.agent, 'general');
+
+      // 启用智能体协作模式
+      this.agent.enableCollaboration(this.agentManager);
 
       // 创建MCP服务器
       this.mcpServer = new MCPServer({
@@ -139,6 +157,9 @@ class AutoAgentApp {
       // 显示智能体状态
       this.displayAgentStatus();
 
+      // 设置协作事件监听
+      this.setupCollaborationEvents();
+
     } catch (error) {
       console.error('❌ 启动失败:', error);
       throw error;
@@ -203,6 +224,7 @@ class AutoAgentApp {
     const status = this.agent.getStatus();
     const memoryStats = this.agent.memory.getStats();
     const mcpStatus = this.mcpServer.getStatus();
+    const collaborationStats = this.getCollaborationStats();
 
     console.log('\n📊 智能体状态:');
     console.log(`   名称: ${status.name}`);
@@ -216,6 +238,27 @@ class AutoAgentApp {
     console.log(`   对话记忆: ${memoryStats.byType.conversation || 0}`);
     console.log(`   推理记忆: ${memoryStats.byType.reasoning || 0}`);
     console.log(`   任务记忆: ${memoryStats.byType.task || 0}`);
+    console.log(`   协作记忆: ${memoryStats.byType.collaboration || 0}`);
+
+    if (collaborationStats) {
+      console.log('\n🤝 协作状态:');
+      console.log(`   总Agent数: ${collaborationStats.manager.totalAgents}`);
+      console.log(`   活跃Agent: ${collaborationStats.manager.activeAgents}`);
+      console.log(`   忙碌Agent: ${collaborationStats.manager.busyAgents}`);
+      console.log(`   总任务数: ${collaborationStats.manager.totalTasks}`);
+      console.log(`   待处理任务: ${collaborationStats.manager.pendingTasks}`);
+      console.log(`   进行中任务: ${collaborationStats.manager.inProgressTasks}`);
+      console.log(`   已完成任务: ${collaborationStats.manager.completedTasks}`);
+      console.log(`   失败任务: ${collaborationStats.manager.failedTasks}`);
+      console.log(`   角色: ${collaborationStats.manager.roles.join(', ')}`);
+      
+      if (collaborationStats.agent) {
+        console.log(`   协作模式: ${collaborationStats.agent.collaborationEnabled ? '启用' : '禁用'}`);
+        console.log(`   当前角色: ${collaborationStats.agent.role}`);
+        console.log(`   协作历史: ${collaborationStats.agent.collaborationHistoryLength}`);
+        console.log(`   协作记忆: ${collaborationStats.agent.collaborationMemories}`);
+      }
+    }
 
     console.log('\n📡 MCP服务器状态:');
     console.log(`   地址: ws://${mcpStatus.host}:${mcpStatus.port}`);
@@ -245,6 +288,127 @@ class AutoAgentApp {
       this.agent.reset();
       console.log('🔄 智能体已重置');
     }
+  }
+
+  /**
+   * 设置协作事件监听
+   */
+  setupCollaborationEvents() {
+    if (!this.agentManager) return;
+
+    this.agentManager.on('agentRegistered', (agentInfo) => {
+      console.log(`🤝 新Agent已注册: ${agentInfo.id} (${agentInfo.role})`);
+    });
+
+    this.agentManager.on('agentUnregistered', (agentInfo) => {
+      console.log(`👋 Agent已注销: ${agentInfo.id}`);
+    });
+
+    this.agentManager.on('taskCreated', (task) => {
+      console.log(`📋 协作任务已创建: ${task.id}`);
+    });
+
+    this.agentManager.on('taskAssigned', (assignment) => {
+      console.log(`📤 任务已分配: ${assignment.taskId} -> ${assignment.agentId}`);
+    });
+
+    this.agentManager.on('taskCompleted', (task) => {
+      console.log(`✅ 协作任务完成: ${task.id}`);
+    });
+
+    this.agentManager.on('taskFailed', (task) => {
+      console.log(`❌ 协作任务失败: ${task.id}`);
+    });
+
+    this.agentManager.on('messageSent', (message) => {
+      console.log(`💬 消息已发送: ${message.from} -> ${message.to}`);
+    });
+
+    this.agentManager.on('messageBroadcast', (message) => {
+      console.log(`📢 广播消息: ${message.from} -> all`);
+    });
+  }
+
+  /**
+   * 创建协作任务
+   */
+  async createCollaborativeTask(description, options = {}) {
+    if (!this.agentManager) {
+      throw new Error('Agent管理器未初始化');
+    }
+
+    const taskId = await this.agentManager.createCollaborativeTask(description, options);
+    console.log(`📋 协作任务已创建: ${taskId}`);
+    return taskId;
+  }
+
+  /**
+   * 执行协作任务
+   */
+  async executeCollaborativeTask(taskId) {
+    if (!this.agentManager) {
+      throw new Error('Agent管理器未初始化');
+    }
+
+    console.log(`🚀 开始执行协作任务: ${taskId}`);
+    const result = await this.agentManager.executeCollaborativeTask(taskId);
+    return result;
+  }
+
+  /**
+   * 注册新的Agent
+   */
+  async registerNewAgent(agentConfig, role = 'general') {
+    if (!this.agentManager) {
+      throw new Error('Agent管理器未初始化');
+    }
+
+    const newAgent = new Agent({
+      ...agentConfig,
+      collaborationEnabled: true
+    });
+
+    const agentId = this.agentManager.registerAgent(newAgent, role);
+    newAgent.enableCollaboration(this.agentManager);
+
+    console.log(`🤝 新Agent已注册: ${agentId} (${role})`);
+    return { agentId, agent: newAgent };
+  }
+
+  /**
+   * 获取协作统计信息
+   */
+  getCollaborationStats() {
+    if (!this.agentManager) {
+      return null;
+    }
+
+    return {
+      manager: this.agentManager.getStats(),
+      agent: this.agent ? this.agent.getCollaborationStats() : null
+    };
+  }
+
+  /**
+   * 发送消息给其他Agent
+   */
+  async sendMessage(toAgentId, content, messageType = 'text') {
+    if (!this.agent) {
+      throw new Error('智能体未初始化');
+    }
+
+    return await this.agent.sendMessage(toAgentId, content, messageType);
+  }
+
+  /**
+   * 广播消息给所有Agent
+   */
+  async broadcastMessage(content, messageType = 'broadcast') {
+    if (!this.agent) {
+      throw new Error('智能体未初始化');
+    }
+
+    return await this.agent.broadcastMessage(content, messageType);
   }
 }
 
