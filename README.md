@@ -47,6 +47,7 @@ cp env.example .env
 # OpenAI API配置
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4
+OPENAI_BASE_URL=https://api.openai.com/v1
 
 # 智能体配置
 AGENT_NAME=AutoAgent

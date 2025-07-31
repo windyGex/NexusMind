@@ -171,7 +171,8 @@ async function runTests() {
       thinkingMode: 'cot',
       llm: {
         apiKey: process.env.OPENAI_API_KEY || 'test-key',
-        model: 'gpt-4'
+        model: 'gpt-4',
+        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
       }
     });
     
@@ -197,7 +198,8 @@ async function runTests() {
       maxIterations: 3,
       llm: {
         apiKey: process.env.OPENAI_API_KEY || 'test-key',
-        model: 'gpt-4'
+        model: 'gpt-4',
+        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
       }
     });
     

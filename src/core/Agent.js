@@ -127,12 +127,11 @@ export class Agent {
 
       // 解析思考过程
       const parsed = this.parseReActResponse(thought);
-      
       if (parsed.action) {
         // 执行工具调用
         try {
           const toolResult = await this.tools.execute(parsed.action, parsed.args);
-          currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: ${toolResult}\n`;
+          currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: ${JSON.stringify(toolResult)}\n`;
         } catch (error) {
           currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: 错误 - ${error.message}\n`;
         }

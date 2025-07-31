@@ -32,7 +32,8 @@ async function multiAgentCollaborationExample() {
       collaborationEnabled: true,
       llm: {
         apiKey: process.env.OPENAI_API_KEY || 'demo-key',
-        model: process.env.OPENAI_MODEL || 'gpt-4'
+        model: process.env.OPENAI_MODEL || 'gpt-4',
+        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
       }
     });
 
@@ -44,7 +45,8 @@ async function multiAgentCollaborationExample() {
       collaborationEnabled: true,
       llm: {
         apiKey: process.env.OPENAI_API_KEY || 'demo-key',
-        model: process.env.OPENAI_MODEL || 'gpt-4'
+        model: process.env.OPENAI_MODEL || 'gpt-4',
+        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
       }
     });
 
@@ -56,7 +58,8 @@ async function multiAgentCollaborationExample() {
       collaborationEnabled: true,
       llm: {
         apiKey: process.env.OPENAI_API_KEY || 'demo-key',
-        model: process.env.OPENAI_MODEL || 'gpt-4'
+        model: process.env.OPENAI_MODEL || 'gpt-4',
+        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
       }
     });
 
@@ -230,7 +233,8 @@ async function specializedRolesExample() {
         collaborationEnabled: true,
         llm: {
           apiKey: process.env.OPENAI_API_KEY || 'demo-key',
-          model: process.env.OPENAI_MODEL || 'gpt-4'
+          model: process.env.OPENAI_MODEL || 'gpt-4',
+          baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
         }
       });
 
@@ -290,7 +294,8 @@ async function dynamicTaskAssignmentExample() {
         collaborationEnabled: true,
         llm: {
           apiKey: process.env.OPENAI_API_KEY || 'demo-key',
-          model: process.env.OPENAI_MODEL || 'gpt-4'
+          model: process.env.OPENAI_MODEL || 'gpt-4',
+          baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
         }
       });
 

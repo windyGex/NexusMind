@@ -35,6 +35,7 @@ async function demo() {
       llm: {
         apiKey: process.env.OPENAI_API_KEY || 'demo-key',
         model: process.env.OPENAI_MODEL || 'gpt-4',
+        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
         temperature: 0.7
       }
     });

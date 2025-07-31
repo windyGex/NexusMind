@@ -147,12 +147,14 @@ export class ToolRegistry {
   /**
    * 执行工具
    */
-  async execute(toolName, args = {}) {
+  async execute(toolName, args) {
     const tool = this.getTool(toolName);
     if (!tool) {
       throw new Error(`工具不存在: ${toolName}`);
     }
-
+    if (!args) {
+      args = {};
+    }
     try {
       // 验证参数
       this.validateToolParameters(tool, args);
@@ -170,7 +172,7 @@ export class ToolRegistry {
   /**
    * 验证工具参数
    */
-  validateToolParameters(tool, args) {
+  validateToolParameters(tool, args = {}) {
     if (!tool.parameters) {
       return; // 没有参数定义，跳过验证
     }

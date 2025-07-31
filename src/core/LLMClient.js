@@ -8,6 +8,7 @@ export class LLMClient {
   constructor(config = {}) {
     this.client = new OpenAI({
       apiKey: config.apiKey || process.env.OPENAI_API_KEY,
+      baseURL: config.baseURL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
       dangerouslyAllowBrowser: false
     });
     
