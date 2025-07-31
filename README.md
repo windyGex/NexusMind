@@ -9,6 +9,7 @@
 - **短期记忆**: 基于缓存的记忆管理系统，支持相关性检索和时间衰减
 - **工具调用**: 可扩展的工具注册表，支持动态工具注册和执行
 - **MCP协议**: 完整的Model Context Protocol实现，支持外部工具集成
+- **多Agent协作**: 支持多个智能体协作完成任务，包括角色专业化、任务分配、Agent间通信
 
 ### 技术架构
 - **模块化设计**: 清晰的模块分离，易于扩展和维护
@@ -101,9 +102,33 @@ console.log(status);
 // 重置智能体
 app.resetAgent();
 
+// 多Agent协作功能
+// 创建协作任务
+const taskId = await app.createCollaborativeTask('分析市场趋势并制定营销策略');
+
+// 执行协作任务
+const result = await app.executeCollaborativeTask(taskId);
+console.log('协作任务结果:', result);
+
+// 注册新的Agent
+const { agentId, agent } = await app.registerNewAgent({
+  name: 'SpecialistAgent',
+  thinkingMode: 'cot',
+  role: 'specialist'
+}, 'analyst');
+
+// 发送消息给其他Agent
+await app.sendMessage(agentId, '需要你的专业分析', 'task_request');
+
+// 广播消息给所有Agent
+await app.broadcastMessage('项目进度更新', 'coordination');
+
+// 获取协作统计信息
+const collabStats = app.getCollaborationStats();
+console.log('协作统计:', collabStats);
+
 // 停止应用
 await app.stop();
-```
 
 ## 🏗️ 架构说明
 
@@ -162,6 +187,16 @@ await app.stop();
   - 客户端连接管理
   - 协议兼容性
 
+#### 7. AgentManager (Agent管理器)
+- **位置**: `src/core/AgentManager.js`
+- **功能**: 管理多个智能体的协作
+- **特性**:
+  - 多Agent注册和管理
+  - 协作任务创建和分配
+  - Agent间通信机制
+  - 角色专业化支持
+  - 任务执行监控
+
 ### 决策模式
 
 #### CoT (Chain of Thought)
@@ -173,6 +208,27 @@ await app.stop();
 - **特点**: 循环推理和行动，支持工具调用
 - **适用**: 复杂任务、需要外部信息的场景
 - **优势**: 能够使用工具，处理动态信息
+
+### 多Agent协作
+
+#### 协作架构
+- **AgentManager**: 中央协调器，管理所有Agent的生命周期
+- **角色专业化**: 支持不同角色的Agent（analyst、executor、coordinator等）
+- **任务分配**: 智能任务分解和分配机制
+- **通信机制**: 支持点对点消息和广播通信
+
+#### 协作模式
+- **任务协作**: 多个Agent协作完成复杂任务
+- **角色分工**: 不同角色Agent负责不同阶段的工作
+- **并行执行**: 支持任务并行处理，提高效率
+- **结果整合**: 自动整合多个Agent的工作结果
+
+#### 通信类型
+- **task_request**: 任务请求消息
+- **task_response**: 任务响应消息
+- **data_share**: 数据共享消息
+- **coordination**: 协调消息
+- **broadcast**: 广播消息
 
 ## 🔧 配置选项
 
@@ -259,6 +315,88 @@ ws.on('open', () => {
 });
 ```
 
+## 📚 示例
+
+### 多Agent协作示例
+
+```javascript
+import { AgentManager } from './src/core/AgentManager.js';
+import { Agent } from './src/core/Agent.js';
+
+// 创建Agent管理器
+const manager = new AgentManager({
+  maxAgents: 5,
+  taskTimeout: 30000
+});
+
+// 创建不同角色的Agent
+const analystAgent = new Agent({
+  name: 'AnalystAgent',
+  thinkingMode: 'cot',
+  role: 'analyst',
+  collaborationEnabled: true
+});
+
+const executorAgent = new Agent({
+  name: 'ExecutorAgent',
+  thinkingMode: 'react',
+  role: 'executor',
+  collaborationEnabled: true
+});
+
+// 注册Agent
+const analystId = manager.registerAgent(analystAgent, 'analyst');
+const executorId = manager.registerAgent(executorAgent, 'executor');
+
+// 启用协作模式
+analystAgent.enableCollaboration(manager);
+executorAgent.enableCollaboration(manager);
+
+// 创建协作任务
+const taskId = await manager.createCollaborativeTask(
+  '分析市场趋势并制定营销策略',
+  { priority: 'high' }
+);
+
+// 执行协作任务
+const result = await manager.executeCollaborativeTask(taskId);
+console.log('协作任务结果:', result);
+
+// Agent间通信
+await analystAgent.sendMessage(executorId, '分析完成，请执行营销活动', 'task_request');
+await executorAgent.broadcastMessage('营销活动执行进度：50%', 'coordination');
+```
+
+### 角色专业化示例
+
+```javascript
+// 创建专业化的Agent团队
+const agents = [
+  { name: 'ResearchAgent', role: 'researcher', description: '数据收集和研究' },
+  { name: 'CreativeAgent', role: 'creative', description: '创意和设计' },
+  { name: 'TechnicalAgent', role: 'technical', description: '技术实现' },
+  { name: 'QualityAgent', role: 'quality', description: '质量检查' }
+];
+
+// 注册所有Agent
+agents.forEach(config => {
+  const agent = new Agent({
+    name: config.name,
+    role: config.role,
+    collaborationEnabled: true
+  });
+  manager.registerAgent(agent, config.role);
+  agent.enableCollaboration(manager);
+});
+
+// 执行复杂协作任务
+const complexTaskId = await manager.createCollaborativeTask(
+  '开发一个创新的移动应用，包括市场研究、创意设计、技术实现和质量保证'
+);
+
+const complexResult = await manager.executeCollaborativeTask(complexTaskId);
+```
+
 ## 📊 性能监控
 
 ### 状态监控
@@ -274,6 +412,14 @@ console.log('记忆统计:', memoryStats);
 // 获取MCP服务器状态
 const mcpStatus = mcpServer.getStatus();
 console.log('MCP服务器状态:', mcpStatus);
+
+// 获取协作统计
+const collabStats = app.getCollaborationStats();
+console.log('协作统计:', collabStats);
+
+// 获取Agent管理器统计
+const managerStats = agentManager.getStats();
+console.log('Agent管理器统计:', managerStats);
 ```
 
 ### 性能指标
@@ -281,6 +427,9 @@ console.log('MCP服务器状态:', mcpStatus);
 - **记忆使用**: 记忆数量和类型分布
 - **工具调用**: 工具使用频率和成功率
 - **决策质量**: 决策成功率和迭代次数
+- **协作效率**: 任务分配和执行效率
+- **Agent利用率**: 各Agent的工作负载分布
+- **通信开销**: Agent间通信频率和延迟
 
 ## 🧪 测试
 
