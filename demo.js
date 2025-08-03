@@ -7,63 +7,161 @@ import { MCPClient } from './src/mcp/MCPClient.js';
 dotenv.config();
 
 /**
- * 简单的智能体演示
+ * 智能体演示配置
  */
-async function demo() {
-  console.log('🤖 AutoAgent 演示程序');
-  console.log('=====================\n');
+const DEMO_CONFIG = {
+  agent: {
+    name: process.env.AGENT_NAME || 'DemoAgent',
+    thinkingMode: 'decision',
+    maxIterations: 3,
+    collaborationEnabled: true,
+    role: 'general',
+    memory: {
+      ttl: parseInt(process.env.MEMORY_TTL) || 1800,
+      maxSize: parseInt(process.env.MAX_MEMORY_SIZE) || 100
+    },
+    llm: {
+      apiKey: process.env.OPENAI_API_KEY || 'demo-key',
+      model: process.env.OPENAI_MODEL || 'gpt-4',
+      baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+      temperature: 0.7
+    }
+  },
+  agentManager: {
+    maxAgents: 5,
+    taskTimeout: 30000
+  },
+  mcp: {
+    serverUrl: 'https://mcp.amap.com/mcp',
+    apiKey: 'df2d1657542aabd58302835c17737791'
+  }
+};
 
-  try {
-    // 检查API密钥
+/**
+ * 演示任务配置
+ */
+const DEMO_TASKS = [
+  {
+    name: '基础对话',
+    input: '你好，请介绍一下你自己',
+    description: '测试智能体的基本对话能力'
+  },
+  {
+    name: '数学计算',
+    input: '请计算 25 * 16 + 8 的结果',
+    description: '测试智能体的计算工具使用'
+  },
+  {
+    name: '时间查询',
+    input: '现在是什么时间？',
+    description: '测试智能体的时间工具使用'
+  },
+  {
+    name: '复杂推理',
+    input: '如果我有3个苹果，给了小明2个，然后又买了5个，现在我有多少个苹果？',
+    description: '测试智能体的推理能力'
+  }
+];
+
+/**
+ * 智能体演示类
+ */
+class AgentDemo {
+  constructor() {
+    this.agent = null;
+    this.agentManager = null;
+    this.mcpClient = null;
+    this.demoResults = [];
+  }
+
+  /**
+   * 初始化演示环境
+   */
+  async initialize() {
+    console.log('🤖 AutoAgent 演示程序');
+    console.log('=====================\n');
+
+    try {
+      // 检查API密钥
+      this.checkAPIKey();
+      
+      // 创建智能体
+      await this.createAgent();
+      
+      // 创建Agent管理器
+      await this.createAgentManager();
+      
+      // 创建MCP客户端
+      await this.createMCPClient();
+      
+      // 显示系统信息
+      this.displaySystemInfo();
+      
+      return true;
+    } catch (error) {
+      console.error('❌ 初始化失败:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * 检查API密钥
+   */
+  checkAPIKey() {
     if (!process.env.OPENAI_API_KEY) {
       console.log('⚠️  未设置 OPENAI_API_KEY，将使用模拟模式');
       console.log('   请在 .env 文件中设置您的 OpenAI API 密钥\n');
+    } else {
+      console.log('✅ API密钥已配置\n');
     }
+  }
 
-    // 创建智能体
+  /**
+   * 创建智能体
+   */
+  async createAgent() {
     console.log('🚀 创建智能体...');
-    const agent = new Agent({
-      name: 'DemoAgent',
-      thinkingMode: 'react',
-      maxIterations: 3,
-      collaborationEnabled: true,
-      role: 'general',
-      memory: {
-        ttl: 1800,
-        maxSize: 100
-      },
-      llm: {
-        apiKey: process.env.OPENAI_API_KEY || 'demo-key',
-        model: process.env.OPENAI_MODEL || 'gpt-4',
-        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-        temperature: 0.7
-      }
-    });
+    this.agent = new Agent(DEMO_CONFIG.agent);
+    console.log('✅ 智能体创建成功\n');
+  }
 
-    // 创建Agent管理器
+  /**
+   * 创建Agent管理器
+   */
+  async createAgentManager() {
     console.log('🤝 创建Agent管理器...');
-    const agentManager = new AgentManager({
-      maxAgents: 5,
-      taskTimeout: 30000
-    });
-
+    this.agentManager = new AgentManager(DEMO_CONFIG.agentManager);
+    
     // 注册智能体到管理器
-    const agentId = agentManager.registerAgent(agent, 'general');
-    agent.enableCollaboration(agentManager);
+    const agentId = this.agentManager.registerAgent(this.agent, 'general');
+    this.agent.enableCollaboration(this.agentManager);
+    
+    console.log('✅ Agent管理器创建成功\n');
+  }
 
-    console.log('✅ 智能体和Agent管理器创建成功\n');
-
-    // 创建MCP客户端
+  /**
+   * 创建MCP客户端
+   */
+  async createMCPClient() {
     console.log('📡 创建MCP客户端...');
-    const mcpClient = new MCPClient({
-      serverUrl: 'https://mcp.amap.com/mcp',
-      apiKey: 'df2d1657542aabd58302835c17737791'
-    });
+    this.mcpClient = new MCPClient(DEMO_CONFIG.mcp);
 
     // 注册智能体工具到MCP客户端
-    const tools = agent.tools.listAvailable();
+    this.registerLocalTools();
+    
+    // 连接到远程MCP服务器
+    await this.connectToMCPServer();
+    
+    console.log('✅ MCP客户端创建成功\n');
+  }
+
+  /**
+   * 注册本地工具到MCP客户端
+   */
+  registerLocalTools() {
+    const tools = this.agent.tools.listAvailable();
     tools.forEach(tool => {
-      mcpClient.localTools.set(tool.name, {
+      this.mcpClient.localTools.set(tool.name, {
         name: tool.name,
         description: tool.description,
         inputSchema: {
@@ -74,63 +172,155 @@ async function demo() {
           )
         },
         execute: async (args) => {
-          return await agent.tools.execute(tool.name, args);
+          return await this.agent.tools.execute(tool.name, args);
         }
       });
     });
+  }
 
-    console.log('✅ MCP客户端创建成功\n');
+  /**
+   * 连接到MCP服务器
+   */
+  async connectToMCPServer() {
+    try {
+      await this.mcpClient.connect();
+      console.log('✅ MCP客户端连接成功');
+    } catch (error) {
+      console.log('⚠️  MCP连接失败，继续使用本地工具');
+    }
+  }
 
-    // 连接到远程MCP服务器
-    console.log('🔗 连接到远程MCP服务器...');
-    await mcpClient.connect();
-    console.log('✅ MCP客户端连接成功\n');
-
-    // 显示智能体信息
-    console.log('📊 智能体信息:');
-    const status = agent.getStatus();
-    console.log(`   名称: ${status.name}`);
+  /**
+   * 显示系统信息
+   */
+  displaySystemInfo() {
+    console.log('📊 系统信息:');
+    const status = this.agent.getStatus();
+    console.log(`   智能体名称: ${status.name}`);
     console.log(`   思考模式: ${status.thinkingMode}`);
     console.log(`   可用工具: ${status.availableTools}`);
-    console.log(`   协作模式: ${agent.collaborationEnabled ? '启用' : '禁用'}`);
-    console.log(`   角色: ${agent.role}`);
-    console.log(`   MCP客户端: ${mcpClient.fullServerUrl}\n`);
+    console.log(`   协作模式: ${this.agent.collaborationEnabled ? '启用' : '禁用'}`);
+    console.log(`   角色: ${this.agent.role}`);
+    
+    if (this.mcpClient) {
+      console.log(`   MCP客户端: ${this.mcpClient.fullServerUrl}`);
+    }
+    
+    // 显示决策引擎统计
+    if (status.decisionStats) {
+      console.log(`   🧠 决策引擎统计:`);
+      console.log(`      总决策数: ${status.decisionStats.total}`);
+      console.log(`      成功决策: ${status.decisionStats.completed}`);
+      console.log(`      失败决策: ${status.decisionStats.failed}`);
+      console.log(`      成功率: ${status.decisionStats.successRate.toFixed(1)}%`);
+    }
+    console.log('');
+  }
 
-    // 显示协作统计
-    const collabStats = agent.getCollaborationStats();
-    console.log('🤝 协作统计:');
-    console.log(`   协作模式: ${collabStats.collaborationEnabled ? '启用' : '禁用'}`);
-    console.log(`   角色: ${collabStats.role}`);
-    console.log(`   协作历史: ${collabStats.collaborationHistoryLength}`);
-    console.log(`   协作记忆: ${collabStats.collaborationMemories}\n`);
+  /**
+   * 运行演示任务
+   */
+  async runDemoTasks() {
+    console.log('🛠️  运行演示任务:\n');
+    
+    for (const task of DEMO_TASKS) {
+      await this.runDemoTask(task);
+    }
+  }
 
-    // 演示工具功能
+  /**
+   * 运行单个演示任务
+   */
+  async runDemoTask(task) {
+    console.log(`📝 任务: ${task.name}`);
+    console.log(`   描述: ${task.description}`);
+    console.log(`   输入: ${task.input}`);
+    
+    try {
+      const startTime = Date.now();
+      const response = await this.agent.processInput(task.input);
+      const endTime = Date.now();
+      
+      console.log(`🤖 响应: ${response}`);
+      console.log(`⏱️  耗时: ${endTime - startTime}ms`);
+      
+      this.demoResults.push({
+        task: task.name,
+        input: task.input,
+        response: response,
+        duration: endTime - startTime,
+        success: true
+      });
+      
+    } catch (error) {
+      console.log(`❌ 失败: ${error.message}`);
+      this.demoResults.push({
+        task: task.name,
+        input: task.input,
+        error: error.message,
+        success: false
+      });
+    }
+    
+    console.log('');
+  }
+
+  /**
+   * 演示工具功能
+   */
+  async demonstrateTools() {
     console.log('🛠️  演示工具功能:');
     
-    // 计算器演示
-    try {
-      const calcResult = await agent.tools.execute('calculator', { expression: '15 * 23 + 7' });
-      console.log(`   🧮 计算器: 15 * 23 + 7 = ${calcResult.result}`);
-    } catch (error) {
-      console.log(`   ❌ 计算器失败: ${error.message}`);
-    }
+    const toolTests = [
+      {
+        name: '计算器',
+        tool: 'calculator',
+        args: { expression: '15 * 23 + 7' },
+        description: '测试数学计算能力'
+      },
+      {
+        name: '时间查询',
+        tool: 'time_date',
+        args: { format: 'full' },
+        description: '测试时间查询能力'
+      }
+    ];
 
-    // 时间演示
-    try {
-      const timeResult = await agent.tools.execute('time_date', { format: 'full' });
-      console.log(`   🕐 时间: ${timeResult.datetime}`);
-    } catch (error) {
-      console.log(`   ❌ 时间查询失败: ${error.message}`);
+    for (const test of toolTests) {
+      await this.testTool(test);
     }
-
+    
     console.log('');
+  }
 
-    // 演示MCP功能
+  /**
+   * 测试工具
+   */
+  async testTool(test) {
+    console.log(`   🧪 测试 ${test.name}: ${test.description}`);
+    
+    try {
+      const result = await this.agent.tools.execute(test.tool, test.args);
+      console.log(`   ✅ ${test.name} 成功: ${JSON.stringify(result)}`);
+    } catch (error) {
+      console.log(`   ❌ ${test.name} 失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 演示MCP功能
+   */
+  async demonstrateMCP() {
     console.log('🌐 演示MCP功能:');
     
-    // 获取远程工具列表
+    if (!this.mcpClient) {
+      console.log('   ⚠️  MCP客户端未连接，跳过MCP演示');
+      return;
+    }
+
     try {
-      const toolsResult = await mcpClient.listTools();
+      // 获取远程工具列表
+      const toolsResult = await this.mcpClient.listTools();
       if (toolsResult.success) {
         console.log(`   📦 发现 ${toolsResult.tools.length} 个远程工具`);
         console.log('   🗺️  前5个地图工具:');
@@ -143,129 +333,144 @@ async function demo() {
     } catch (error) {
       console.log(`   ❌ MCP工具查询失败: ${error.message}`);
     }
-
-    // 演示远程工具调用
-    try {
-      console.log('\n   🚗 演示远程工具调用 - 计算距离:');
-      const distanceResult = await mcpClient.callTool('maps_distance', {
-        origin: '北京天安门',
-        destination: '上海外滩',
-        type: '1'
-      });
-      if (distanceResult.success) {
-        console.log(`   ✅ 距离计算结果: ${JSON.stringify(distanceResult.result, null, 2)}`);
-      } else {
-        console.log(`   ❌ 距离计算失败: ${distanceResult.error}`);
-      }
-    } catch (error) {
-      console.log(`   ❌ 远程工具调用失败: ${error.message}`);
-    }
-
-    // 演示本地工具调用
-    try {
-      console.log('\n   🧮 演示本地工具调用 - 计算器:');
-      const calcResult = await mcpClient.executeLocalTool('calculator', {
-        expression: '25 * 16 + 8'
-      });
-      if (calcResult.success) {
-        console.log(`   ✅ 本地计算器结果: ${calcResult.result.result}`);
-      } else {
-        console.log(`   ❌ 本地计算器失败: ${calcResult.error}`);
-      }
-    } catch (error) {
-      console.log(`   ❌ 本地工具调用失败: ${error.message}`);
-    }
-
-    // 演示混合工具使用
-    try {
-      console.log('\n   🔄 演示混合工具使用:');
-      const allTools = mcpClient.getAllTools();
-      console.log(`   📊 总工具数: ${allTools.size}`);
-      
-      const remoteTools = Array.from(allTools.entries())
-        .filter(([name, tool]) => tool.source === 'remote')
-        .map(([name, tool]) => name);
-      
-      const localTools = Array.from(allTools.entries())
-        .filter(([name, tool]) => tool.source === 'local')
-        .map(([name, tool]) => name);
-      
-      console.log(`   🌐 远程工具: ${remoteTools.length} 个`);
-      console.log(`   🏠 本地工具: ${localTools.length} 个`);
-      console.log(`   🏠 本地工具列表: ${localTools.join(', ')}`);
-    } catch (error) {
-      console.log(`   ❌ 混合工具查询失败: ${error.message}`);
-    }
-
-    // 演示MCP客户端状态
-    try {
-      console.log('\n   📊 MCP客户端状态:');
-      const mcpStatus = mcpClient.getStatus();
-      console.log(`   🔗 服务器地址: ${mcpStatus.serverUrl}`);
-      console.log(`   ✅ 连接状态: ${mcpStatus.isConnected ? '已连接' : '未连接'}`);
-      console.log(`   🌐 远程工具: ${mcpStatus.remoteTools} 个`);
-      console.log(`   🏠 本地工具: ${mcpStatus.localTools} 个`);
-      console.log(`   📦 总工具数: ${mcpStatus.totalTools} 个`);
-    } catch (error) {
-      console.log(`   ❌ 状态查询失败: ${error.message}`);
-    }
-
+    
     console.log('');
+  }
 
-    // 演示协作功能
+  /**
+   * 演示协作功能
+   */
+  async demonstrateCollaboration() {
     console.log('🤝 演示协作功能:');
     
-    // 创建协作任务
     try {
-      const taskId = await agentManager.createCollaborativeTask('演示协作任务：分析当前时间并生成报告');
+      const taskId = await this.agentManager.createCollaborativeTask('演示协作任务：分析当前时间并生成报告');
       console.log(`   📋 创建协作任务: ${taskId}`);
       
-      // 获取任务状态
-      const taskStatus = agentManager.getTaskStatus(taskId);
+      const taskStatus = this.agentManager.getTaskStatus(taskId);
       console.log(`   📊 任务状态: ${taskStatus.status}`);
       
     } catch (error) {
       console.log(`   ❌ 协作任务创建失败: ${error.message}`);
     }
+    
+    console.log('');
+  }
 
-    // 演示智能体对话（如果有API密钥）
-    if (process.env.OPENAI_API_KEY) {
-      console.log('\n💬 演示智能体对话:');
+  /**
+   * 显示演示结果
+   */
+  displayResults() {
+    console.log('📊 演示结果总结:');
+    console.log(`   总任务数: ${this.demoResults.length}`);
+    console.log(`   成功任务: ${this.demoResults.filter(r => r.success).length}`);
+    console.log(`   失败任务: ${this.demoResults.filter(r => !r.success).length}`);
+    
+    if (this.demoResults.length > 0) {
+      const avgDuration = this.demoResults
+        .filter(r => r.success && r.duration)
+        .reduce((sum, r) => sum + r.duration, 0) / 
+        this.demoResults.filter(r => r.success && r.duration).length;
       
-      const testInputs = [
-        '你好，请介绍一下你自己',
-        '计算 25 * 16 + 8',
-        '现在是什么时间？'
-      ];
-
-      for (const input of testInputs) {
-        console.log(`\n📝 用户: ${input}`);
-        try {
-          const response = await agent.processInput(input);
-          console.log(`🤖 智能体: ${response}`);
-        } catch (error) {
-          console.log(`❌ 处理失败: ${error.message}`);
-        }
-      }
-    } else {
-      console.log('\n💬 智能体对话演示（需要API密钥）:');
-      console.log('   请设置 OPENAI_API_KEY 环境变量来启用对话功能');
+      console.log(`   平均响应时间: ${avgDuration.toFixed(0)}ms`);
     }
+    
+    console.log('');
+  }
 
-    console.log('\n🎉 演示完成！');
-    console.log('\n📚 更多信息:');
-    console.log('   - 查看 README.md 了解详细使用方法');
-    console.log('   - 运行 npm test 执行测试');
-    console.log('   - 查看 examples/ 目录获取更多示例');
+  /**
+   * 显示决策历史
+   */
+  displayDecisionHistory() {
+    console.log('🧠 决策历史:');
+    const decisionHistory = this.agent.getDecisionHistory(3);
+    
+    if (decisionHistory.length > 0) {
+      decisionHistory.forEach((decision, index) => {
+        console.log(`   ${index + 1}. 决策ID: ${decision.id}`);
+        console.log(`      状态: ${decision.status}`);
+        console.log(`      任务: ${decision.task.substring(0, 50)}...`);
+        console.log(`      步骤数: ${decision.steps.length}`);
+        if (decision.endTime) {
+          const duration = decision.endTime - decision.startTime;
+          console.log(`      耗时: ${duration}ms`);
+        }
+        console.log('');
+      });
+    } else {
+      console.log('   暂无决策历史');
+    }
+  }
 
-    // 断开MCP客户端连接
-    await mcpClient.disconnect();
-    console.log('\n👋 演示程序结束');
+  /**
+   * 清理资源
+   */
+  async cleanup() {
+    console.log('🧹 清理资源...');
+    
+    if (this.mcpClient) {
+      try {
+        await this.mcpClient.disconnect();
+        console.log('✅ MCP客户端已断开连接');
+      } catch (error) {
+        console.log('⚠️  MCP断开连接失败:', error.message);
+      }
+    }
+    
+    console.log('✅ 清理完成');
+  }
 
-  } catch (error) {
-    console.error('❌ 演示失败:', error);
+  /**
+   * 运行完整演示
+   */
+  async run() {
+    try {
+      // 初始化
+      const initialized = await this.initialize();
+      if (!initialized) {
+        return;
+      }
+
+      // 运行演示任务
+      await this.runDemoTasks();
+      
+      // 演示工具功能
+      await this.demonstrateTools();
+      
+      // 演示MCP功能
+      await this.demonstrateMCP();
+      
+      // 演示协作功能
+      await this.demonstrateCollaboration();
+      
+      // 显示结果
+      this.displayResults();
+      
+      // 显示决策历史
+      this.displayDecisionHistory();
+      
+      console.log('🎉 演示完成！');
+      console.log('\n📚 更多信息:');
+      console.log('   - 查看 README.md 了解详细使用方法');
+      console.log('   - 运行 npm test 执行测试');
+      console.log('   - 查看 examples/ 目录获取更多示例');
+
+    } catch (error) {
+      console.error('❌ 演示失败:', error);
+    } finally {
+      await this.cleanup();
+      console.log('\n👋 演示程序结束');
+    }
   }
 }
 
+/**
+ * 运行演示
+ */
+async function main() {
+  const demo = new AgentDemo();
+  await demo.run();
+}
+
 // 运行演示
-demo(); 
+main(); 

@@ -16,12 +16,12 @@ export class ToolRegistry {
     // 基础工具
     this.registerTool('calculator', {
       name: 'calculator',
-      description: '执行数学计算',
+      description: '执行复杂的数学计算，支持四则运算、幂运算、三角函数等。可以处理包含括号的复杂表达式，并返回精确的计算结果。',
       category: 'utility',
       parameters: {
         expression: {
           type: 'string',
-          description: '数学表达式，如 "2 + 3 * 4"'
+          description: '数学表达式，支持 +, -, *, /, ^, (), sin, cos, tan, log, sqrt 等运算符和函数。例如: "2 + 3 * 4", "sin(45)", "sqrt(16)"'
         }
       },
       execute: this.calculator.bind(this)
@@ -29,12 +29,12 @@ export class ToolRegistry {
 
     this.registerTool('web_search', {
       name: 'web_search',
-      description: '搜索网络信息',
+      description: '搜索互联网上的最新信息，获取实时数据、新闻、技术文档、学术资料等。适用于需要最新信息或特定领域知识的查询。',
       category: 'information',
       parameters: {
         query: {
           type: 'string',
-          description: '搜索查询'
+          description: '搜索查询关键词，可以是具体问题、主题或关键词组合。例如: "最新AI技术发展", "Python编程教程"'
         }
       },
       execute: this.webSearch.bind(this)
@@ -42,21 +42,21 @@ export class ToolRegistry {
 
     this.registerTool('file_operations', {
       name: 'file_operations',
-      description: '文件操作（读取、写入、删除）',
+      description: '执行文件系统操作，包括读取文件内容、写入新文件、删除文件、列出目录内容等。支持文本文件的读写操作。',
       category: 'system',
       parameters: {
         operation: {
           type: 'string',
-          description: '操作类型：read, write, delete, list',
+          description: '操作类型：read(读取文件), write(写入文件), delete(删除文件), list(列出目录)',
           enum: ['read', 'write', 'delete', 'list']
         },
         path: {
           type: 'string',
-          description: '文件路径'
+          description: '文件或目录的路径，支持相对路径和绝对路径。例如: "./data.txt", "/home/user/file.txt"'
         },
         content: {
           type: 'string',
-          description: '文件内容（写操作时使用）',
+          description: '要写入文件的内容（仅在write操作时使用）',
           optional: true
         }
       },
@@ -65,12 +65,12 @@ export class ToolRegistry {
 
     this.registerTool('time_date', {
       name: 'time_date',
-      description: '获取当前时间和日期信息',
+      description: '获取当前时间和日期信息，支持多种格式输出。可以用于时间戳生成、日期计算、时区转换等场景。',
       category: 'utility',
       parameters: {
         format: {
           type: 'string',
-          description: '时间格式',
+          description: '时间格式选项：full(完整格式), date(仅日期), time(仅时间), timestamp(时间戳), iso(ISO格式)',
           optional: true,
           default: 'full'
         }
@@ -80,16 +80,16 @@ export class ToolRegistry {
 
     this.registerTool('memory_search', {
       name: 'memory_search',
-      description: '搜索智能体记忆',
+      description: '搜索智能体的历史记忆，查找相关的对话记录、任务执行历史、学习经验等。支持语义搜索和关键词匹配。',
       category: 'memory',
       parameters: {
         query: {
           type: 'string',
-          description: '搜索查询'
+          description: '搜索查询，可以是关键词、短语或完整问题。系统会进行语义匹配找到相关内容。'
         },
         limit: {
           type: 'number',
-          description: '返回结果数量限制',
+          description: '返回结果数量限制，默认为5条记录',
           optional: true,
           default: 5
         }
@@ -103,7 +103,7 @@ export class ToolRegistry {
    */
   registerTool(name, toolDefinition) {
     if (this.tools.has(name)) {
-      throw new Error(`工具已存在: ${name}`);
+      return;
     }
 
     // 验证工具定义
@@ -161,6 +161,7 @@ export class ToolRegistry {
 
       // 执行工具
       const result = await tool.execute(args);
+      console.log('execute result', result);
       return result;
 
     } catch (error) {

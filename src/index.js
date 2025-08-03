@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { Agent } from './core/Agent.js';
 import { AgentManager } from './core/AgentManager.js';
-import { MCPClient } from './mcp/MCPClient.js';
+import { MCPServerManager } from './mcp/MCPServerManager.js';
 import { readFileSync } from 'fs';
 
 // 加载环境变量
@@ -14,7 +14,7 @@ class AutoAgentApp {
   constructor() {
     this.agent = null;
     this.agentManager = null;
-    this.mcpClient = null;
+    this.mcpServerManager = null;
     this.isRunning = false;
     this.collaborationEnabled = false;
   }
@@ -59,17 +59,22 @@ class AutoAgentApp {
       // 启用智能体协作模式
       this.agent.enableCollaboration(this.agentManager);
 
-          // 创建MCP客户端
-    this.mcpClient = new MCPClient({
-      serverUrl: process.env.MCP_SERVER_URL || 'https://mcp.amap.com/mcp',
-      apiKey: process.env.MCP_API_KEY || 'df2d1657542aabd58302835c17737791'
-    });
+      // 创建MCP服务器管理器
+      this.mcpServerManager = new MCPServerManager({
+        maxConnections: parseInt(process.env.MAX_MCP_CONNECTIONS) || 10,
+        connectionTimeout: parseInt(process.env.MCP_CONNECTION_TIMEOUT) || 30000,
+        retryAttempts: parseInt(process.env.MCP_RETRY_ATTEMPTS) || 3,
+        retryDelay: parseInt(process.env.MCP_RETRY_DELAY) || 1000
+      });
 
-      // 注册智能体工具到MCP客户端
+      // 设置MCP服务器管理器到智能体
+      this.agent.setMCPServerManager(this.mcpServerManager);
+
+      // 加载MCP服务器配置
+      await this.loadMCPServers();
+
+      // 注册智能体工具
       this.registerAgentTools();
-
-      // 连接到远程MCP服务器
-      await this.mcpClient.connect();
 
       console.log('✅ 智能体初始化完成');
       return true;
@@ -81,61 +86,74 @@ class AutoAgentApp {
   }
 
   /**
-   * 注册智能体工具到MCP客户端
+   * 加载MCP服务器配置
+   */
+  async loadMCPServers() {
+    try {
+      console.log('🔗 加载MCP服务器配置...');
+      
+      // 从环境变量加载服务器配置
+      const servers = this.parseMCPServerConfig();
+      
+      for (const [serverId, config] of Object.entries(servers)) {
+        console.log(`📡 添加MCP服务器: ${serverId}`);
+        await this.mcpServerManager.addServer(serverId, config);
+      }
+      
+      console.log(`✅ 成功加载 ${servers.length} 个MCP服务器`);
+    } catch (error) {
+      console.error('❌ 加载MCP服务器配置失败:', error);
+    }
+  }
+
+  /**
+   * 解析MCP服务器配置
+   */
+  parseMCPServerConfig() {
+    const servers = {};
+    
+    // 从环境变量读取服务器配置
+    const serverConfigs = process.env.MCP_SERVERS;
+    if (serverConfigs) {
+      try {
+        const configs = JSON.parse(serverConfigs);
+        for (const [serverId, config] of Object.entries(configs)) {
+          servers[serverId] = {
+            name: config.name || serverId,
+            serverUrl: config.serverUrl,
+            apiKey: config.apiKey,
+            ...config
+          };
+        }
+      } catch (error) {
+        console.error('❌ 解析MCP服务器配置失败:', error);
+      }
+    }
+    
+    // 如果没有配置，使用默认配置
+    if (Object.keys(servers).length === 0) {
+      servers['amap'] = {
+        name: '高德地图',
+        serverUrl: process.env.MCP_SERVER_URL || 'https://mcp.amap.com/mcp',
+        apiKey: process.env.MCP_API_KEY || 'df2d1657542aabd58302835c17737791'
+      };
+    }
+    
+    return servers;
+  }
+
+  /**
+   * 注册智能体工具
    */
   registerAgentTools() {
     const agentTools = this.agent.tools.listAvailable();
     
     // 将智能体工具注册为本地工具
     agentTools.forEach(tool => {
-      this.mcpClient.localTools.set(tool.name, {
-        name: tool.name,
-        description: tool.description,
-        inputSchema: {
-          type: 'object',
-          properties: tool.parameters || {},
-          required: Object.keys(tool.parameters || {}).filter(key => 
-            !tool.parameters[key].optional
-          )
-        },
-        execute: async (args) => {
-          return await this.agent.tools.execute(tool.name, args);
-        }
-      });
+      console.log(`🔧 注册智能体工具: ${tool.name}`);
     });
 
-    // 注册智能体状态资源
-    this.mcpClient.localResources.set('file:///agent/status', {
-      uri: 'file:///agent/status',
-      name: 'Agent Status',
-      description: 'Current agent status and statistics',
-      mimeType: 'application/json',
-      getContent: async () => {
-        const status = this.agent.getStatus();
-        const memoryStats = this.agent.memory.getStats();
-        return JSON.stringify({
-          ...status,
-          memory: memoryStats,
-          timestamp: new Date().toISOString()
-        }, null, 2);
-      }
-    });
-
-    // 注册智能体记忆资源
-    this.mcpClient.localResources.set('file:///agent/memory', {
-      uri: 'file:///agent/memory',
-      name: 'Agent Memory',
-      description: 'Current agent memory contents',
-      mimeType: 'application/json',
-      getContent: async () => {
-        const memories = this.agent.memory.getAll();
-        return JSON.stringify({
-          memories: memories.slice(-10), // 最近10条记忆
-          stats: this.agent.memory.getStats(),
-          timestamp: new Date().toISOString()
-        }, null, 2);
-      }
-    });
+    console.log(`✅ 注册了 ${agentTools.length} 个智能体工具`);
   }
 
   /**
@@ -145,26 +163,8 @@ class AutoAgentApp {
     try {
       console.log('🔍 正在发现本地MCP包...');
       
-      const results = await this.mcpClient.loadLocalMCPPackages();
-      
-      const successCount = results.filter(r => r.success).length;
-      const totalCount = results.length;
-      
-      console.log(`📦 自动加载了 ${successCount}/${totalCount} 个本地MCP包`);
-      
-      if (successCount > 0) {
-        console.log('✅ 成功加载的包:');
-        results.filter(r => r.success).forEach(result => {
-          console.log(`  - ${result.packageName} (${result.loadedServices} 个服务)`);
-        });
-      }
-      
-      if (totalCount > successCount) {
-        console.log('⚠️ 加载失败的包:');
-        results.filter(r => !r.success).forEach(result => {
-          console.log(`  - ${result.packageName}: ${result.error}`);
-        });
-      }
+      // 这里可以添加本地MCP包加载逻辑
+      console.log('📦 本地MCP包加载功能待实现');
       
     } catch (error) {
       console.warn('⚠️ 加载本地MCP包时出现错误:', error.message);
@@ -183,12 +183,12 @@ class AutoAgentApp {
     try {
       console.log('🚀 启动自主智能体应用...');
 
-      // MCP客户端已在初始化时连接
-      console.log('✅ MCP客户端已连接');
+      // MCP服务器管理器已初始化
+      console.log('✅ MCP服务器管理器已初始化');
 
       this.isRunning = true;
       console.log('🎉 自主智能体应用启动成功！');
-      console.log(`📡 MCP客户端已连接到: ${this.mcpClient.fullServerUrl}`);
+      console.log(`📡 已连接 ${this.mcpServerManager.getStats().connectedServers} 个MCP服务器`);
       console.log('🤖 智能体已准备就绪，等待指令...');
 
       // 显示智能体状态

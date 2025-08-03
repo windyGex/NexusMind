@@ -2,6 +2,7 @@ import { MemoryManager } from './MemoryManager.js';
 import { LLMClient } from './LLMClient.js';
 import { ToolRegistry } from './ToolRegistry.js';
 import { DecisionEngine } from './DecisionEngine.js';
+import { ToolSelector } from './ToolSelector.js';
 
 /**
  * 自主智能体核心类
@@ -14,12 +15,17 @@ export class Agent {
     this.llm = new LLMClient(config.llm);
     this.tools = new ToolRegistry();
     this.decisionEngine = new DecisionEngine(this.llm, this.tools);
+    this.toolSelector = new ToolSelector(config.toolSelector);
     
     this.maxIterations = config.maxIterations || 10;
-    this.thinkingMode = config.thinkingMode || 'react'; // 'cot' or 'react'
+    this.thinkingMode = config.thinkingMode || 'decision'; // 'cot', 'react', or 'decision'
     
     this.conversationHistory = [];
     this.currentTask = null;
+    
+    // MCP相关属性
+    this.mcpServerManager = null;
+    this.availableMCPTools = [];
     
     // 协作相关属性
     this.collaborationEnabled = config.collaborationEnabled || false;
@@ -57,12 +63,18 @@ export class Agent {
         iterations: 0
       };
 
+      // 更新MCP工具列表
+      await this.updateMCPTools();
+      
       // 根据思考模式选择决策方法
       let response;
       if (this.thinkingMode === 'cot') {
         response = await this.chainOfThought(userInput, context);
-      } else {
+      } else if (this.thinkingMode === 'react') {
         response = await this.reactMethod(userInput, context);
+      } else {
+        // 使用DecisionEngine进行智能决策
+        response = await this.decisionBasedMethod(userInput, context);
       }
 
       // 记录响应到记忆
@@ -85,6 +97,73 @@ export class Agent {
     } catch (error) {
       console.error('Agent processing error:', error);
       return `抱歉，处理您的请求时出现了错误: ${error.message}`;
+    }
+  }
+
+  /**
+   * 基于DecisionEngine的智能决策方法
+   */
+  async decisionBasedMethod(userInput, context) {
+    try {
+      console.log('🧠 使用DecisionEngine进行智能决策...');
+      
+      // 使用DecisionEngine进行决策
+      const decision = await this.decisionEngine.makeDecision(userInput, {
+        ...context,
+        availableTools: this.tools.listAvailable(),
+        memory: this.memory.getRelevant(userInput, 5),
+        conversationHistory: this.conversationHistory.slice(-5),
+        // 传递MCP工具执行能力
+        executeMCPTool: this.executeMCPTool.bind(this)
+      });
+
+      // 从决策结果中提取最终答案
+      let finalResponse = '';
+      
+      if (decision.finalDecision) {
+        // 如果有最终决策，使用它
+        finalResponse = decision.finalDecision;
+      } else if (decision.steps && decision.steps.length > 0) {
+        // 从执行步骤中提取结果
+        const executionStep = decision.steps.find(step => step.type === 'execution');
+        if (executionStep && executionStep.content) {
+          const executionResult = executionStep.content;
+          if (typeof executionResult === 'object' && executionResult.summary) {
+            finalResponse = executionResult.summary.summary;
+          } else if (typeof executionResult === 'string') {
+            finalResponse = executionResult;
+          }
+        }
+      }
+
+      // 如果没有明确的最终答案，从评估步骤中提取
+      if (!finalResponse) {
+        const evaluationStep = decision.steps.find(step => step.type === 'evaluation');
+        if (evaluationStep && evaluationStep.content) {
+          finalResponse = evaluationStep.content;
+        }
+      }
+
+      // 如果还是没有答案，使用默认响应
+      if (!finalResponse) {
+        finalResponse = '我已经分析了您的问题，但无法提供明确的答案。';
+      }
+
+      // 记录决策过程到记忆
+      this.memory.add('reasoning', {
+        type: 'decision_engine',
+        task: this.currentTask,
+        decision: decision,
+        timestamp: new Date()
+      });
+
+      console.log('✅ DecisionEngine决策完成');
+      return finalResponse;
+
+    } catch (error) {
+      console.error('DecisionEngine决策失败:', error);
+      // 降级到ReAct方法
+      return await this.reactMethod(userInput, context);
     }
   }
 
@@ -126,29 +205,25 @@ export class Agent {
       const thought = response.content;
 
       // 解析思考过程
-      const parsed = this.parseReActResponse(thought);
+      const parsed = await this.parseReActResponse(thought);
+      if (parsed.finalAnswer) { 
+        finalAnswer = parsed.finalAnswer;
+        break;
+      }
+      if (parsed.shouldStop) {
+        break;
+      }
       if (parsed.action) {
         // 执行工具调用
         try {
           const toolResult = await this.tools.execute(parsed.action, parsed.args);
           currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: ${JSON.stringify(toolResult)}\n`;
         } catch (error) {
+          console.error('execute tool error', error);
           currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: 错误 - ${error.message}\n`;
         }
       }
-
-      console.log('currentThought', currentThought);
-
-      if (parsed.finalAnswer) {
-        finalAnswer = parsed.finalAnswer;
-        break;
-      }
-
-      // 检查是否应该停止
-      if (parsed.shouldStop) {
-        finalAnswer = parsed.reasoning || '我无法完成这个任务。';
-        break;
-      }
+      
     }
 
     // 记录思考过程到记忆
@@ -168,20 +243,40 @@ export class Agent {
    */
   buildCoTPrompt(userInput, context) {
     const memory = this.memory.getRelevant(userInput, 5);
+    const availableTools = this.tools.listAvailable();
     
-    return `你是一个智能助手。请仔细思考用户的问题，然后给出详细的回答。
+    return `你是一个智能助手，具备强大的推理能力和丰富的知识。请仔细分析用户的问题，并给出详细、准确的回答。
+
+你的能力包括：
+- 数学计算和逻辑推理
+- 时间查询和日期处理
+- 文件操作和系统管理
+- 网络搜索和信息获取
+- 智能决策和问题解决
 
 相关记忆:
 ${memory.map(m => `- ${m.content}`).join('\n')}
+
+可用工具:
+${availableTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n')}
 
 当前上下文:
 ${JSON.stringify(context, null, 2)}
 
 用户问题: ${userInput}
 
+请按照以下步骤进行回答：
+
+1. **问题分析**: 仔细理解用户的问题，识别核心需求
+2. **信息收集**: 从记忆和上下文中收集相关信息
+3. **推理过程**: 进行逻辑推理，考虑各种可能性
+4. **工具选择**: 如果需要，选择合适的工具来辅助回答
+5. **答案构建**: 基于推理和工具结果，构建完整答案
+6. **质量检查**: 确保答案准确、完整、有用
+
 请按照以下格式回答:
-思考: [你的推理过程]
-回答: [你的最终答案]`;
+思考: [详细的推理过程，包括问题分析、信息收集、逻辑推理等]
+回答: [清晰、准确、有用的最终答案]`;
   }
 
   /**
@@ -190,8 +285,14 @@ ${JSON.stringify(context, null, 2)}
   buildReActPrompt(userInput, context, currentThought, iteration) {
     const memory = this.memory.getRelevant(userInput, 3);
     const availableTools = this.tools.listAvailable();
-    
-    return `你是一个智能助手，可以使用工具来完成任务。
+
+    return `你是一个智能助手，具备强大的推理和行动能力。你可以使用工具来完成任务，并能够进行多步骤的推理。
+
+你的核心能力：
+- 深度推理：分析问题本质，制定解决方案
+- 工具使用：选择合适的工具，正确传递参数
+- 结果整合：将工具结果与推理结合，形成完整答案
+- 错误处理：识别问题，调整策略，确保任务完成
 
 相关记忆:
 ${memory.map(m => `- ${m.content}`).join('\n')}
@@ -206,23 +307,130 @@ ${JSON.stringify(context, null, 2)}
 
 ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
 
+当前迭代: ${iteration}/${this.maxIterations}
+
+请按照以下步骤进行：
+
+1. **问题分析**: 理解用户需求，识别任务类型
+2. **策略制定**: 确定是否需要使用工具，选择最佳方案
+3. **工具选择**: 如果需要工具，选择最合适的工具
+4. **参数设计**: 为工具调用设计正确的参数
+5. **结果评估**: 评估当前结果是否满足用户需求
+6. **下一步决策**: 决定是否需要继续迭代或给出最终答案
+
 请按照以下格式回答:
-思考: [你的推理过程]
+思考: [详细的推理过程，包括问题分析、策略制定、工具选择理由等]
 行动: [工具名称] 或 无
 参数: [工具参数，JSON格式] 或 无
-最终答案: [如果任务完成，给出最终答案] 或 无
+最终答案: [如果任务完成，给出完整、准确的最终答案] 或 无
 是否停止: [true/false]
 
-注意:
-- 如果任务完成，请给出最终答案并设置是否停止为true
-- 如果需要使用工具，请指定行动和参数
-- 如果无法完成任务，请说明原因并设置是否停止为true`;
+重要提示：
+- 优先考虑用户的核心需求
+- 工具参数必须是有效的JSON格式
+- 最终答案应该完整、准确、有用
+- 如果无法完成任务，请说明原因
+- 避免无限循环，合理使用迭代次数
+- 注意：MCP工具的名称格式为 "服务器ID:工具名称"，例如 "amap:maps_weather"`;
   }
 
   /**
    * 解析ReAct响应
    */
-  parseReActResponse(response) {
+  async parseReActResponse(response) {
+    console.log('response', response);
+    
+    // 使用大模型来提取结构化信息
+    const prompt = `请从以下ReAct响应中提取结构化信息。请仔细分析响应内容，并按照指定格式输出。
+
+响应内容:
+${response}
+
+请提取以下信息并以JSON格式返回：
+
+1. reasoning: 思考过程（字符串）
+2. action: 要执行的工具名称，如果没有则为null（字符串或null）
+3. args: 工具参数，JSON对象格式，如果没有则为null（对象或null）
+4. finalAnswer: 最终答案，如果没有则为null（字符串或null）
+5. shouldStop: 是否应该停止迭代（布尔值）
+
+** 示例返回 **
+
+{
+  "reasoning": "思考过程",
+  "action": "工具名称",
+  "args": "工具参数",
+  "finalAnswer": "最终答案",
+  "shouldStop": true
+}
+
+注意事项：
+- 如果响应中没有明确提到工具调用，action和args应该为null
+- 如果响应中提到"无"、"没有"等表示不执行工具的词，action应该为null
+- args必须是有效的JSON对象格式
+- shouldStop为true表示应该停止当前迭代
+- finalAnswer只有在任务完成时才提供
+
+请只返回JSON格式的结果，不要包含其他内容。`;
+
+    try {
+      const llmResponse = await this.llm.generate(prompt, {
+        temperature: 0.1,
+        max_tokens: 8000,
+      });
+
+      console.log('llmResponse', llmResponse);
+
+      // 尝试解析JSON响应
+      let parsedResult;
+      try {
+        // 提取JSON部分
+        parsedResult = JSON.parse(llmResponse.content);
+      } catch (parseError) {
+        console.error('JSON解析失败，使用备用解析方法:', parseError);
+        // 备用解析方法
+        return this.fallbackParseReActResponse(response);
+      }
+
+      console.log('parsed', parsedResult);
+      return parsedResult;
+
+    } catch (error) {
+      console.error('LLM解析失败，使用备用解析方法:', error);
+      return this.fallbackParseReActResponse(response);
+    }
+  }
+
+  /**
+   * 将MCP工具的inputSchema转换为ToolRegistry期望的parameters格式
+   */
+  convertMCPInputSchemaToParameters(inputSchema) {
+    if (!inputSchema || !inputSchema.properties) {
+      return {};
+    }
+
+    const parameters = {};
+    
+    for (const [paramName, paramDef] of Object.entries(inputSchema.properties)) {
+      parameters[paramName] = {
+        type: paramDef.type || 'string',
+        description: paramDef.description || `参数: ${paramName}`,
+        optional: !inputSchema.required || !inputSchema.required.includes(paramName)
+      };
+
+      // 如果有枚举值，添加枚举
+      if (paramDef.enum) {
+        parameters[paramName].enum = paramDef.enum;
+      }
+    }
+
+    return parameters;
+  }
+
+  /**
+   * 备用解析方法（原有的基于行的解析）
+   */
+  fallbackParseReActResponse(response) {
     const lines = response.split('\n');
     let reasoning = '';
     let action = null;
@@ -266,14 +474,25 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
    * 获取智能体状态
    */
   getStatus() {
+    const allTools = this.getAllAvailableTools();
     return {
       name: this.name,
       thinkingMode: this.thinkingMode,
       memorySize: this.memory.size(),
       conversationHistoryLength: this.conversationHistory.length,
       currentTask: this.currentTask,
-      availableTools: this.tools.listAvailable().length
+      availableTools: allTools.total,
+      localTools: allTools.local.length,
+      mcpTools: allTools.mcp.length,
+      decisionStats: this.decisionEngine.getStats()
     };
+  }
+
+  /**
+   * 获取决策历史
+   */
+  getDecisionHistory(limit = 5) {
+    return this.decisionEngine.getDecisionHistory(limit);
   }
 
   /**
@@ -285,6 +504,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
     this.memory.clear();
     this.collaborationHistory = [];
     this.peerAgents.clear();
+    this.decisionEngine.clearHistory();
   }
 
   /**
@@ -462,6 +682,227 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
       collaborationHistoryLength: this.collaborationHistory.length,
       peerAgentsCount: this.peerAgents.size,
       collaborationMemories: this.memory.getByType('collaboration').length
+    };
+  }
+
+  /**
+   * 设置MCP服务器管理器
+   */
+  setMCPServerManager(serverManager) {
+    this.mcpServerManager = serverManager;
+    console.log('🔗 MCP服务器管理器已设置');
+  }
+
+  /**
+   * 更新MCP工具列表
+   */
+  async updateMCPTools() {
+    if (!this.mcpServerManager) {
+      return;
+    }
+
+    try {
+      this.availableMCPTools = this.mcpServerManager.getAllTools();
+      console.log(`📋 更新了 ${this.availableMCPTools.length} 个MCP工具`);
+      
+      // 将MCP工具注册到本地工具注册表
+      await this.registerMCPToolsToLocal();
+    } catch (error) {
+      console.error('❌ 更新MCP工具失败:', error);
+    }
+  }
+
+  /**
+   * 将MCP工具注册到本地工具注册表
+   */
+  async registerMCPToolsToLocal() {
+    if (!this.availableMCPTools || this.availableMCPTools.length === 0) {
+      return;
+    }
+
+    let registeredCount = 0;
+    for (const mcpTool of this.availableMCPTools) {
+      try {
+        // 检查工具是否已经注册
+        const existingTool = this.tools.getTool(mcpTool.name);
+        if (existingTool) {
+          // 如果工具已存在，先删除再重新注册
+          this.tools.unregisterTool(mcpTool.name);
+        }
+
+        // 注册MCP工具到本地工具注册表
+        const toolId = `${mcpTool.serverId}:${mcpTool.name}`;
+        this.tools.registerTool(toolId, {
+          name: mcpTool.name,
+          description: mcpTool.description || `MCP工具: ${mcpTool.name}`,
+          category: 'mcp',
+          parameters: this.convertMCPInputSchemaToParameters(mcpTool.inputSchema),
+          execute: async (args) => {
+            // 调用MCP工具执行器
+            return await this.executeMCPTool(toolId, args);
+          },
+          // 添加MCP相关元数据
+          mcpMetadata: {
+            serverId: mcpTool.serverId,
+            serverName: mcpTool.serverName,
+            toolId: toolId,
+            type: 'mcp'
+          }
+        });
+
+        registeredCount++;
+        console.log(`✅ 已注册MCP工具: ${mcpTool.name}`);
+      } catch (error) {
+        console.error(`❌ 注册MCP工具失败 ${mcpTool.name}:`, error);
+      }
+    }
+
+    console.log(`📋 成功注册了 ${registeredCount} 个MCP工具到本地工具注册表`);
+  }
+
+  /**
+   * 智能选择MCP工具
+   */
+  async selectMCPTools(taskDescription, context = {}) {
+    if (!this.mcpServerManager || this.availableMCPTools.length === 0) {
+      return [];
+    }
+
+    try {
+      const selectedTools = await this.toolSelector.selectTools(
+        taskDescription,
+        this.availableMCPTools,
+        {
+          ...context,
+          llm: this.llm
+        }
+      );
+
+      console.log(`🎯 为任务选择了 ${selectedTools.length} 个MCP工具`);
+      return selectedTools;
+    } catch (error) {
+      console.error('❌ 选择MCP工具失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 执行MCP工具
+   */
+  async executeMCPTool(toolId, args = {}) {
+    if (!this.mcpServerManager) {
+      throw new Error('MCP服务器管理器未设置');
+    }
+
+    const startTime = Date.now();
+    try {
+      const result = await this.mcpServerManager.executeTool(toolId, args);
+      
+      // 记录工具使用结果
+      this.toolSelector.recordToolUsage(toolId, result.success, Date.now() - startTime);
+      
+      return result;
+    } catch (error) {
+      this.toolSelector.recordToolUsage(toolId, false, Date.now() - startTime);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取MCP工具统计
+   */
+  getMCPToolStats() {
+    if (!this.mcpServerManager) {
+      return null;
+    }
+
+    const allTools = this.getAllAvailableTools();
+    return {
+      serverStats: this.mcpServerManager.getStats(),
+      toolUsageStats: this.toolSelector.getToolUsageStats(),
+      taskPatternStats: this.toolSelector.getTaskPatternStats(),
+      registeredMCPTools: allTools.mcp.length,
+      totalMCPTools: this.availableMCPTools.length,
+      registrationStatus: allTools.mcp.length === this.availableMCPTools.length ? 'complete' : 'partial'
+    };
+  }
+
+  /**
+   * 检查MCP工具注册状态
+   */
+  getMCPToolRegistrationStatus() {
+    if (!this.mcpServerManager) {
+      return {
+        status: 'no_server',
+        message: 'MCP服务器管理器未设置'
+      };
+    }
+
+    const allTools = this.getAllAvailableTools();
+    const registeredCount = allTools.mcp.length;
+    const totalCount = this.availableMCPTools.length;
+
+    if (totalCount === 0) {
+      return {
+        status: 'no_tools',
+        message: '没有可用的MCP工具'
+      };
+    }
+
+    if (registeredCount === totalCount) {
+      return {
+        status: 'complete',
+        message: `所有MCP工具已注册 (${registeredCount}/${totalCount})`,
+        registered: registeredCount,
+        total: totalCount
+      };
+    } else {
+      return {
+        status: 'partial',
+        message: `部分MCP工具已注册 (${registeredCount}/${totalCount})`,
+        registered: registeredCount,
+        total: totalCount
+      };
+    }
+  }
+
+  /**
+   * 获取所有可用工具（包括本地工具和MCP工具）
+   */
+  getAllAvailableTools() {
+    // 获取本地工具注册表中的所有工具（包括已注册的MCP工具）
+    const allTools = this.tools.listAvailable();
+    
+    // 按类型分类
+    const categorizedTools = {
+      local: [],
+      mcp: []
+    };
+
+    allTools.forEach(tool => {
+      const toolInfo = this.tools.getTool(tool.name);
+      if (toolInfo && toolInfo.mcpMetadata) {
+        // 这是已注册的MCP工具
+        categorizedTools.mcp.push({
+          ...tool,
+          type: 'mcp',
+          serverId: toolInfo.mcpMetadata.serverId,
+          serverName: toolInfo.mcpMetadata.serverName
+        });
+      } else {
+        // 这是本地工具
+        categorizedTools.local.push({
+          ...tool,
+          type: 'local'
+        });
+      }
+    });
+
+    return {
+      all: allTools,
+      local: categorizedTools.local,
+      mcp: categorizedTools.mcp,
+      total: allTools.length
     };
   }
 } 
