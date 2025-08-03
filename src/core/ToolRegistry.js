@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 /**
  * 工具注册表
  * 管理智能体可用的工具，支持动态注册和调用
@@ -29,7 +31,7 @@ export class ToolRegistry {
 
     this.registerTool('web_search', {
       name: 'web_search',
-      description: '搜索互联网上的最新信息，获取实时数据、新闻、技术文档、学术资料等。适用于需要最新信息或特定领域知识的查询。',
+      description: '使用 Serper API 搜索互联网上的最新信息，获取实时数据、新闻、技术文档、学术资料等。返回结构化的搜索结果，包括标题、摘要和链接。适用于需要最新信息或特定领域知识的查询。',
       category: 'information',
       parameters: {
         query: {
@@ -275,20 +277,55 @@ export class ToolRegistry {
   }
 
   /**
-   * 网络搜索工具（模拟）
+   * 网络搜索工具 - 使用 Serper API
    */
   async webSearch(args) {
     const { query } = args;
-    // 这里应该集成真实的搜索API
-    return {
-      query,
-      results: [
-        `搜索结果1: 关于 "${query}" 的信息`,
-        `搜索结果2: "${query}" 的相关内容`,
-        `搜索结果3: "${query}" 的详细说明`
-      ],
-      count: 3
-    };
+    const SERPER_API_KEY = '9467ec0224bc0ec08a3f570dde8c5c7a914b9d3a';
+    
+    try {
+      const response = await axios.post('https://google.serper.dev/search', {
+        q: query,
+        num: 10
+      }, {
+        headers: {
+          'X-API-KEY': SERPER_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = response.data;
+      
+      // 提取搜索结果
+      const results = [];
+      if (data.organic && Array.isArray(data.organic)) {
+        data.organic.forEach((result, index) => {
+          results.push({
+            title: result.title || `搜索结果 ${index + 1}`,
+            snippet: result.snippet || '',
+            link: result.link || '',
+            position: index + 1
+          });
+        });
+      }
+
+      return {
+        query,
+        results,
+        count: results.length,
+        totalResults: data.searchInformation?.totalResults || 0,
+        searchTime: data.searchInformation?.searchTime || 0
+      };
+    } catch (error) {
+      console.error('Serper API 搜索错误:', error);
+      if (error.response) {
+        throw new Error(`Serper API 请求失败: ${error.response.status} ${error.response.statusText}`);
+      } else if (error.request) {
+        throw new Error('网络请求失败，请检查网络连接');
+      } else {
+        throw new Error(`搜索失败: ${error.message}`);
+      }
+    }
   }
 
   /**

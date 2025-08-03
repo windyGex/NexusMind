@@ -65,7 +65,7 @@ async function quickStart() {
       // await agent.updateMCPTools();
       
       const testInputs = [
-        '杭州天气',
+        '搜索 刘德华 的资料'
       ];
 
       for (const input of testInputs) {
