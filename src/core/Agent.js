@@ -137,6 +137,8 @@ export class Agent {
         }
       }
 
+      console.log('currentThought', currentThought);
+
       if (parsed.finalAnswer) {
         finalAnswer = parsed.finalAnswer;
         break;

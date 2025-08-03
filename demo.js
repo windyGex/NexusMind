@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { Agent } from './src/core/Agent.js';
 import { AgentManager } from './src/core/AgentManager.js';
-import { MCPServer } from './src/mcp/MCPServer.js';
+import { MCPClient } from './src/mcp/MCPClient.js';
 
 // 加载环境变量
 dotenv.config();
@@ -53,17 +53,17 @@ async function demo() {
 
     console.log('✅ 智能体和Agent管理器创建成功\n');
 
-    // 创建MCP服务器
-    console.log('📡 创建MCP服务器...');
-    const mcpServer = new MCPServer({
-      host: 'localhost',
-      port: 3001
+    // 创建MCP客户端
+    console.log('📡 创建MCP客户端...');
+    const mcpClient = new MCPClient({
+      serverUrl: 'https://mcp.amap.com/mcp',
+      apiKey: 'df2d1657542aabd58302835c17737791'
     });
 
-    // 注册工具到MCP服务器
+    // 注册智能体工具到MCP客户端
     const tools = agent.tools.listAvailable();
     tools.forEach(tool => {
-      mcpServer.registerTool(tool.name, {
+      mcpClient.localTools.set(tool.name, {
         name: tool.name,
         description: tool.description,
         inputSchema: {
@@ -79,12 +79,12 @@ async function demo() {
       });
     });
 
-    console.log('✅ MCP服务器创建成功\n');
+    console.log('✅ MCP客户端创建成功\n');
 
-    // 启动MCP服务器
-    console.log('🚀 启动MCP服务器...');
-    await mcpServer.start();
-    console.log('✅ MCP服务器启动成功\n');
+    // 连接到远程MCP服务器
+    console.log('🔗 连接到远程MCP服务器...');
+    await mcpClient.connect();
+    console.log('✅ MCP客户端连接成功\n');
 
     // 显示智能体信息
     console.log('📊 智能体信息:');
@@ -94,7 +94,7 @@ async function demo() {
     console.log(`   可用工具: ${status.availableTools}`);
     console.log(`   协作模式: ${agent.collaborationEnabled ? '启用' : '禁用'}`);
     console.log(`   角色: ${agent.role}`);
-    console.log(`   MCP服务器: ws://${mcpServer.host}:${mcpServer.port}\n`);
+    console.log(`   MCP客户端: ${mcpClient.fullServerUrl}\n`);
 
     // 显示协作统计
     const collabStats = agent.getCollaborationStats();
@@ -121,6 +121,93 @@ async function demo() {
       console.log(`   🕐 时间: ${timeResult.datetime}`);
     } catch (error) {
       console.log(`   ❌ 时间查询失败: ${error.message}`);
+    }
+
+    console.log('');
+
+    // 演示MCP功能
+    console.log('🌐 演示MCP功能:');
+    
+    // 获取远程工具列表
+    try {
+      const toolsResult = await mcpClient.listTools();
+      if (toolsResult.success) {
+        console.log(`   📦 发现 ${toolsResult.tools.length} 个远程工具`);
+        console.log('   🗺️  前5个地图工具:');
+        toolsResult.tools.slice(0, 5).forEach(tool => {
+          console.log(`      - ${tool.name}: ${tool.description}`);
+        });
+      } else {
+        console.log(`   ❌ 获取工具列表失败: ${toolsResult.error}`);
+      }
+    } catch (error) {
+      console.log(`   ❌ MCP工具查询失败: ${error.message}`);
+    }
+
+    // 演示远程工具调用
+    try {
+      console.log('\n   🚗 演示远程工具调用 - 计算距离:');
+      const distanceResult = await mcpClient.callTool('maps_distance', {
+        origin: '北京天安门',
+        destination: '上海外滩',
+        type: '1'
+      });
+      if (distanceResult.success) {
+        console.log(`   ✅ 距离计算结果: ${JSON.stringify(distanceResult.result, null, 2)}`);
+      } else {
+        console.log(`   ❌ 距离计算失败: ${distanceResult.error}`);
+      }
+    } catch (error) {
+      console.log(`   ❌ 远程工具调用失败: ${error.message}`);
+    }
+
+    // 演示本地工具调用
+    try {
+      console.log('\n   🧮 演示本地工具调用 - 计算器:');
+      const calcResult = await mcpClient.executeLocalTool('calculator', {
+        expression: '25 * 16 + 8'
+      });
+      if (calcResult.success) {
+        console.log(`   ✅ 本地计算器结果: ${calcResult.result.result}`);
+      } else {
+        console.log(`   ❌ 本地计算器失败: ${calcResult.error}`);
+      }
+    } catch (error) {
+      console.log(`   ❌ 本地工具调用失败: ${error.message}`);
+    }
+
+    // 演示混合工具使用
+    try {
+      console.log('\n   🔄 演示混合工具使用:');
+      const allTools = mcpClient.getAllTools();
+      console.log(`   📊 总工具数: ${allTools.size}`);
+      
+      const remoteTools = Array.from(allTools.entries())
+        .filter(([name, tool]) => tool.source === 'remote')
+        .map(([name, tool]) => name);
+      
+      const localTools = Array.from(allTools.entries())
+        .filter(([name, tool]) => tool.source === 'local')
+        .map(([name, tool]) => name);
+      
+      console.log(`   🌐 远程工具: ${remoteTools.length} 个`);
+      console.log(`   🏠 本地工具: ${localTools.length} 个`);
+      console.log(`   🏠 本地工具列表: ${localTools.join(', ')}`);
+    } catch (error) {
+      console.log(`   ❌ 混合工具查询失败: ${error.message}`);
+    }
+
+    // 演示MCP客户端状态
+    try {
+      console.log('\n   📊 MCP客户端状态:');
+      const mcpStatus = mcpClient.getStatus();
+      console.log(`   🔗 服务器地址: ${mcpStatus.serverUrl}`);
+      console.log(`   ✅ 连接状态: ${mcpStatus.isConnected ? '已连接' : '未连接'}`);
+      console.log(`   🌐 远程工具: ${mcpStatus.remoteTools} 个`);
+      console.log(`   🏠 本地工具: ${mcpStatus.localTools} 个`);
+      console.log(`   📦 总工具数: ${mcpStatus.totalTools} 个`);
+    } catch (error) {
+      console.log(`   ❌ 状态查询失败: ${error.message}`);
     }
 
     console.log('');
@@ -171,8 +258,8 @@ async function demo() {
     console.log('   - 运行 npm test 执行测试');
     console.log('   - 查看 examples/ 目录获取更多示例');
 
-    // 停止服务器
-    await mcpServer.stop();
+    // 断开MCP客户端连接
+    await mcpClient.disconnect();
     console.log('\n👋 演示程序结束');
 
   } catch (error) {
