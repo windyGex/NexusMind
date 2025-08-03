@@ -1,12 +1,11 @@
 import { MemoryManager } from './MemoryManager.js';
 import { LLMClient } from './LLMClient.js';
 import { ToolRegistry } from './ToolRegistry.js';
-import { DecisionEngine } from './DecisionEngine.js';
 import { ToolSelector } from './ToolSelector.js';
 
 /**
  * 自主智能体核心类
- * 支持CoT和ReAct决策方法，集成短期记忆和工具调用
+ * 支持ReAct决策方法，集成短期记忆和工具调用
  */
 export class Agent {
   constructor(config = {}) {
@@ -14,11 +13,10 @@ export class Agent {
     this.memory = new MemoryManager(config.memory);
     this.llm = new LLMClient(config.llm);
     this.tools = new ToolRegistry();
-    this.decisionEngine = new DecisionEngine(this.llm, this.tools);
     this.toolSelector = new ToolSelector(config.toolSelector);
     
     this.maxIterations = config.maxIterations || 10;
-    this.thinkingMode = config.thinkingMode || 'decision'; // 'cot', 'react', or 'decision'
+    this.thinkingMode = 'react'; // 只支持ReAct模式
     
     this.conversationHistory = [];
     this.currentTask = null;
@@ -66,16 +64,8 @@ export class Agent {
       // 更新MCP工具列表
       await this.updateMCPTools();
       
-      // 根据思考模式选择决策方法
-      let response;
-      if (this.thinkingMode === 'cot') {
-        response = await this.chainOfThought(userInput, context);
-      } else if (this.thinkingMode === 'react') {
-        response = await this.reactMethod(userInput, context);
-      } else {
-        // 使用DecisionEngine进行智能决策
-        response = await this.decisionBasedMethod(userInput, context);
-      }
+      // 使用ReAct决策方法
+      const response = await this.reactMethod(userInput, context);
 
       // 记录响应到记忆
       this.memory.add('conversation', {
@@ -100,86 +90,9 @@ export class Agent {
     }
   }
 
-  /**
-   * 基于DecisionEngine的智能决策方法
-   */
-  async decisionBasedMethod(userInput, context) {
-    try {
-      console.log('🧠 使用DecisionEngine进行智能决策...');
-      
-      // 使用DecisionEngine进行决策
-      const decision = await this.decisionEngine.makeDecision(userInput, {
-        ...context,
-        availableTools: this.tools.listAvailable(),
-        memory: this.memory.getRelevant(userInput, 5),
-        conversationHistory: this.conversationHistory.slice(-5),
-        // 传递MCP工具执行能力
-        executeMCPTool: this.executeMCPTool.bind(this)
-      });
 
-      // 从决策结果中提取最终答案
-      let finalResponse = '';
-      
-      if (decision.finalDecision) {
-        // 如果有最终决策，使用它
-        finalResponse = decision.finalDecision;
-      } else if (decision.steps && decision.steps.length > 0) {
-        // 从执行步骤中提取结果
-        const executionStep = decision.steps.find(step => step.type === 'execution');
-        if (executionStep && executionStep.content) {
-          const executionResult = executionStep.content;
-          if (typeof executionResult === 'object' && executionResult.summary) {
-            finalResponse = executionResult.summary.summary;
-          } else if (typeof executionResult === 'string') {
-            finalResponse = executionResult;
-          }
-        }
-      }
 
-      // 如果没有明确的最终答案，从评估步骤中提取
-      if (!finalResponse) {
-        const evaluationStep = decision.steps.find(step => step.type === 'evaluation');
-        if (evaluationStep && evaluationStep.content) {
-          finalResponse = evaluationStep.content;
-        }
-      }
 
-      // 如果还是没有答案，使用默认响应
-      if (!finalResponse) {
-        finalResponse = '我已经分析了您的问题，但无法提供明确的答案。';
-      }
-
-      // 记录决策过程到记忆
-      this.memory.add('reasoning', {
-        type: 'decision_engine',
-        task: this.currentTask,
-        decision: decision,
-        timestamp: new Date()
-      });
-
-      console.log('✅ DecisionEngine决策完成');
-      return finalResponse;
-
-    } catch (error) {
-      console.error('DecisionEngine决策失败:', error);
-      // 降级到ReAct方法
-      return await this.reactMethod(userInput, context);
-    }
-  }
-
-  /**
-   * Chain of Thought (CoT) 决策方法
-   */
-  async chainOfThought(userInput, context) {
-    const prompt = this.buildCoTPrompt(userInput, context);
-    
-    const response = await this.llm.generate(prompt, {
-      temperature: 0.7,
-      max_tokens: 1000
-    });
-
-    return response.content;
-  }
 
   /**
    * ReAct (Reasoning + Acting) 决策方法
@@ -239,46 +152,7 @@ export class Agent {
     return finalAnswer || '我无法完成这个任务。';
   }
 
-  /**
-   * 构建CoT提示
-   */
-  buildCoTPrompt(userInput, context) {
-    const memory = this.memory.getRelevant(userInput, 5);
-    const availableTools = this.tools.listAvailable();
-    
-    return `你是一个智能助手，具备强大的推理能力和丰富的知识。请仔细分析用户的问题，并给出详细、准确的回答。
 
-你的能力包括：
-- 数学计算和逻辑推理
-- 时间查询和日期处理
-- 文件操作和系统管理
-- 网络搜索和信息获取
-- 智能决策和问题解决
-
-相关记忆:
-${memory.map(m => `- ${m.content}`).join('\n')}
-
-可用工具:
-${availableTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n')}
-
-当前上下文:
-${JSON.stringify(context, null, 2)}
-
-用户问题: ${userInput}
-
-请按照以下步骤进行回答：
-
-1. **问题分析**: 仔细理解用户的问题，识别核心需求
-2. **信息收集**: 从记忆和上下文中收集相关信息
-3. **推理过程**: 进行逻辑推理，考虑各种可能性
-4. **工具选择**: 如果需要，选择合适的工具来辅助回答
-5. **答案构建**: 基于推理和工具结果，构建完整答案
-6. **质量检查**: 确保答案准确、完整、有用
-
-请按照以下格式回答:
-思考: [详细的推理过程，包括问题分析、信息收集、逻辑推理等]
-回答: [清晰、准确、有用的最终答案]`;
-  }
 
   /**
    * 构建ReAct提示
@@ -484,17 +358,11 @@ ${response}
       currentTask: this.currentTask,
       availableTools: allTools.total,
       localTools: allTools.local.length,
-      mcpTools: allTools.mcp.length,
-      decisionStats: this.decisionEngine.getStats()
+      mcpTools: allTools.mcp.length
     };
   }
 
-  /**
-   * 获取决策历史
-   */
-  getDecisionHistory(limit = 5) {
-    return this.decisionEngine.getDecisionHistory(limit);
-  }
+
 
   /**
    * 重置智能体状态
@@ -505,7 +373,6 @@ ${response}
     this.memory.clear();
     this.collaborationHistory = [];
     this.peerAgents.clear();
-    this.decisionEngine.clearHistory();
   }
 
   /**

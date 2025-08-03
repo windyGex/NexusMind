@@ -168,7 +168,7 @@ async function runTests() {
   testSuite.test('Agent - 集成功能', async () => {
     const agent = new Agent({
       name: 'TestAgent',
-      thinkingMode: 'cot',
+      thinkingMode: 'react',
       llm: {
         apiKey: process.env.OPENAI_API_KEY || 'test-key',
         model: 'gpt-4',
@@ -179,7 +179,7 @@ async function runTests() {
     // 测试智能体状态
     const status = agent.getStatus();
     testSuite.assertEqual(status.name, 'TestAgent', '智能体名称应该匹配');
-    testSuite.assertEqual(status.thinkingMode, 'cot', '思考模式应该匹配');
+    testSuite.assertEqual(status.thinkingMode, 'react', '思考模式应该匹配');
     
     // 测试工具可用性
     const tools = agent.tools.listAvailable();

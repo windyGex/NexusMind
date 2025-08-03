@@ -69,7 +69,7 @@ export class AgentManager extends EventEmitter {
   extractCapabilities(agent) {
     const capabilities = {
       tools: agent.tools ? agent.tools.listAvailable().map(t => t.name) : [],
-      thinkingMode: agent.thinkingMode || 'cot',
+      thinkingMode: agent.thinkingMode || 'react',
       memorySize: agent.memory ? agent.memory.size() : 0,
       maxIterations: agent.maxIterations || 10
     };

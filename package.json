@@ -1,7 +1,7 @@
 {
   "name": "auto-agent",
   "version": "1.0.0",
-  "description": "基于JS的LLM自主智能体，支持CoT/ReAct决策、短期记忆和MCP协议",
+  "description": "基于JS的LLM自主智能体，支持ReAct决策、短期记忆和MCP协议",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "multi-mcp": "node examples/multi-mcp-example.js",
     "quick-multi-mcp": "node quick-start-multi-mcp.js"
   },
-  "keywords": ["llm", "agent", "autonomous", "cot", "react", "mcp"],
+  "keywords": ["llm", "agent", "autonomous", "react", "mcp"],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {

@@ -12,7 +12,7 @@ dotenv.config();
 const DEMO_CONFIG = {
   agent: {
     name: process.env.AGENT_NAME || 'DemoAgent',
-    thinkingMode: 'decision',
+    thinkingMode: 'react',
     maxIterations: 3,
     collaborationEnabled: true,
     role: 'general',
@@ -206,14 +206,7 @@ class AgentDemo {
       console.log(`   MCP客户端: ${this.mcpClient.fullServerUrl}`);
     }
     
-    // 显示决策引擎统计
-    if (status.decisionStats) {
-      console.log(`   🧠 决策引擎统计:`);
-      console.log(`      总决策数: ${status.decisionStats.total}`);
-      console.log(`      成功决策: ${status.decisionStats.completed}`);
-      console.log(`      失败决策: ${status.decisionStats.failed}`);
-      console.log(`      成功率: ${status.decisionStats.successRate.toFixed(1)}%`);
-    }
+
     console.log('');
   }
 
@@ -378,29 +371,7 @@ class AgentDemo {
     console.log('');
   }
 
-  /**
-   * 显示决策历史
-   */
-  displayDecisionHistory() {
-    console.log('🧠 决策历史:');
-    const decisionHistory = this.agent.getDecisionHistory(3);
-    
-    if (decisionHistory.length > 0) {
-      decisionHistory.forEach((decision, index) => {
-        console.log(`   ${index + 1}. 决策ID: ${decision.id}`);
-        console.log(`      状态: ${decision.status}`);
-        console.log(`      任务: ${decision.task.substring(0, 50)}...`);
-        console.log(`      步骤数: ${decision.steps.length}`);
-        if (decision.endTime) {
-          const duration = decision.endTime - decision.startTime;
-          console.log(`      耗时: ${duration}ms`);
-        }
-        console.log('');
-      });
-    } else {
-      console.log('   暂无决策历史');
-    }
-  }
+
 
   /**
    * 清理资源
@@ -446,8 +417,7 @@ class AgentDemo {
       // 显示结果
       this.displayResults();
       
-      // 显示决策历史
-      this.displayDecisionHistory();
+
       
       console.log('🎉 演示完成！');
       console.log('\n📚 更多信息:');

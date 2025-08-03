@@ -29,7 +29,7 @@ class AutoAgentApp {
       // 创建智能体
       this.agent = new Agent({
         name: process.env.AGENT_NAME || 'AutoAgent',
-        thinkingMode: 'react', // 或 'cot'
+        thinkingMode: 'react', // 只支持ReAct模式
         maxIterations: 10,
         collaborationEnabled: true,
         role: 'general',

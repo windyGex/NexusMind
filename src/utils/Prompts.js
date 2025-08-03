@@ -28,12 +28,7 @@ export const Prompts = {
 
 请全面评估结果质量。`,
 
-  // Chain of Thought
-  COT: (input, context, tools) => `仔细分析用户问题：${input}
-上下文：${JSON.stringify(context)}
-可用工具：${tools.map(t => `${t.name}: ${t.description}`).join('\n')}
 
-请提供详细的推理过程和答案。`,
 
   // ReAct
   REACT: (input, context, tools, iteration, maxIterations) => `智能推理和行动：
