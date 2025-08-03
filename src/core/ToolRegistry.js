@@ -1,4 +1,8 @@
 import axios from 'axios';
+import dotenv from 'dotenv';
+
+// 加载环境变量
+dotenv.config();
 
 /**
  * 工具注册表
@@ -281,7 +285,11 @@ export class ToolRegistry {
    */
   async webSearch(args) {
     const { query } = args;
-    const SERPER_API_KEY = '9467ec0224bc0ec08a3f570dde8c5c7a914b9d3a';
+    const SERPER_API_KEY = process.env.SERPER_API_KEY;
+    
+    if (!SERPER_API_KEY) {
+      throw new Error('SERPER_API_KEY 环境变量未设置。请在 .env 文件中设置 SERPER_API_KEY。');
+    }
     
     try {
       const response = await axios.post('https://google.serper.dev/search', {
