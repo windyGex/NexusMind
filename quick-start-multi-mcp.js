@@ -65,7 +65,7 @@ async function quickStart() {
       // await agent.updateMCPTools();
       
       const testInputs = [
-        '杭州天气如何？',
+        '规划从北京到上海的驾车路线',
       ];
 
       for (const input of testInputs) {
