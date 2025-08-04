@@ -60,6 +60,11 @@ const DEMO_TASKS = [
     name: '复杂推理',
     input: '如果我有3个苹果，给了小明2个，然后又买了5个，现在我有多少个苹果？',
     description: '测试智能体的推理能力'
+  },
+  {
+    name: '自主决策MCP',
+    input: '杭州到上海的驾车路线',
+    description: '自主决策MCP工具'
   }
 ];
 

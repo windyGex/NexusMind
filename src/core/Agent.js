@@ -213,7 +213,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
    * 解析ReAct响应
    */
   async parseReActResponse(response) {
-    console.log('response', response);
+    console.log('response=============', response);
     
     // 使用大模型来提取结构化信息
     const prompt = `请从以下ReAct响应中提取结构化信息。请仔细分析响应内容，并按照指定格式输出。
@@ -626,32 +626,6 @@ ${response}
     }
 
     console.log(`📋 成功注册了 ${registeredCount} 个MCP工具到本地工具注册表`);
-  }
-
-  /**
-   * 智能选择MCP工具
-   */
-  async selectMCPTools(taskDescription, context = {}) {
-    if (!this.mcpServerManager || this.availableMCPTools.length === 0) {
-      return [];
-    }
-
-    try {
-      const selectedTools = await this.toolSelector.selectTools(
-        taskDescription,
-        this.availableMCPTools,
-        {
-          ...context,
-          llm: this.llm
-        }
-      );
-
-      console.log(`🎯 为任务选择了 ${selectedTools.length} 个MCP工具`);
-      return selectedTools;
-    } catch (error) {
-      console.error('❌ 选择MCP工具失败:', error);
-      return [];
-    }
   }
 
   /**
