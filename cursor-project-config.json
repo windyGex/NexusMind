@@ -1,0 +1,156 @@
+{
+  "projectName": "Auto Agent",
+  "description": "基于JavaScript的LLM自主智能体项目，支持ReAct决策、短期记忆和MCP协议",
+  "technologyStack": {
+    "frontend": ["React 18", "Vite", "Ant Design 5", "WebSocket"],
+    "backend": ["Node.js", "Express", "WebSocket", "MCP Protocol"],
+    "core": ["LLM Agent", "ReAct Pattern", "Memory Management"]
+  },
+  "filePatterns": {
+    "reactComponents": "packages/frontend/src/components/**/*.jsx",
+    "reactHooks": "packages/frontend/src/hooks/**/*.js",
+    "backendRoutes": "packages/backend/src/routes/**/*.js",
+    "agentCore": "src/agent/**/*.js",
+    "tools": "src/tools/**/*.js",
+    "mcp": "src/mcp/**/*.js"
+  },
+  "codingStandards": {
+    "javascript": {
+      "preferConst": true,
+      "useArrowFunctions": true,
+      "useAsyncAwait": true,
+      "useDestructuring": true
+    },
+    "react": {
+      "useFunctionalComponents": true,
+      "useHooks": true,
+      "componentNaming": "PascalCase",
+      "fileNaming": "PascalCase.jsx"
+    },
+    "naming": {
+      "components": "PascalCase",
+      "functions": "camelCase",
+      "constants": "UPPER_SNAKE_CASE",
+      "files": "camelCase.js"
+    }
+  },
+  "architecture": {
+    "frontend": {
+      "structure": "packages/frontend/src/",
+      "components": "components/",
+      "hooks": "hooks/",
+      "services": "services/",
+      "utils": "utils/"
+    },
+    "backend": {
+      "structure": "packages/backend/src/",
+      "routes": "routes/",
+      "middleware": "middleware/",
+      "services": "services/"
+    },
+    "core": {
+      "structure": "src/",
+      "agent": "agent/",
+      "tools": "tools/",
+      "memory": "memory/",
+      "mcp": "mcp/"
+    }
+  },
+  "developmentWorkflow": {
+    "startCommands": {
+      "dev": "npm run dev:all",
+      "frontend": "npm run frontend",
+      "backend": "npm run backend"
+    },
+    "ports": {
+      "frontend": 5174,
+      "backend": 3002
+    },
+    "urls": {
+      "frontend": "http://localhost:5174",
+      "backend": "http://localhost:3002",
+      "health": "http://localhost:3002/api/health"
+    }
+  },
+  "agentSpecific": {
+    "patterns": {
+      "react": "观察 → 思考 → 行动 → 观察",
+      "toolCalling": "工具注册 → 参数验证 → 执行 → 结果处理",
+      "memory": "短期记忆 + 对话历史"
+    },
+    "mcp": {
+      "protocol": "Model Context Protocol",
+      "features": ["工具发现", "工具注册", "错误处理", "重连机制"]
+    }
+  },
+  "bestPractices": {
+    "frontend": [
+      "使用Ant Design组件库保持一致性",
+      "响应式设计支持移动端",
+      "WebSocket连接状态管理",
+      "错误处理和加载状态",
+      "使用自定义Hooks封装逻辑"
+    ],
+    "backend": [
+      "RESTful API设计",
+      "统一的错误响应格式",
+      "WebSocket消息路由",
+      "中间件安全配置",
+      "日志记录和监控"
+    ],
+    "agent": [
+      "ReAct决策模式",
+      "工具调用错误处理",
+      "记忆管理优化",
+      "MCP协议集成"
+    ]
+  },
+  "commonIssues": {
+    "frontend": [
+      "WebSocket连接断开处理",
+      "大量消息渲染性能",
+      "移动端适配问题"
+    ],
+    "backend": [
+      "内存泄漏检测",
+      "并发请求处理",
+      "工具调用超时处理"
+    ],
+    "agent": [
+      "工具调用失败重试",
+      "记忆管理优化",
+      "决策逻辑改进"
+    ]
+  },
+  "testing": {
+    "framework": "Jest",
+    "coverage": "> 80%",
+    "types": ["单元测试", "集成测试", "WebSocket测试"]
+  },
+  "performance": {
+    "frontend": [
+      "代码分割和懒加载",
+      "虚拟滚动（大量消息）",
+      "图片优化和压缩",
+      "缓存策略"
+    ],
+    "backend": [
+      "内存使用监控",
+      "连接池管理",
+      "缓存机制",
+      "数据库查询优化"
+    ]
+  },
+  "security": {
+    "frontend": [
+      "输入验证和清理",
+      "XSS防护",
+      "敏感信息保护"
+    ],
+    "backend": [
+      "参数验证",
+      "环境变量管理",
+      "身份验证和授权"
+    ]
+  }
+} 

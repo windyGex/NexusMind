@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能体中止功能测试</title>
+    <style>
+        body {
+            font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            font-weight: 400;
+            color: #262626;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 4px;
+        }
+        
+        .status-connected {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            color: #166534;
+        }
+        
+        .status-processing {
+            background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+            color: #1e40af;
+        }
+        
+        .status-aborted {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background: #1890ff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #096dd9;
+        }
+        
+        .btn-danger {
+            background: #ff4d4f;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #cf1322;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .log-container {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        .test-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .test-input:focus {
+            outline: none;
+            border-color: #1890ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>智能体中止功能测试</h1>
+        
+        <div class="test-section">
+            <h2>连接状态</h2>
+            <div id="connection-status" class="status-indicator status-connected">已连接</div>
+            <div id="processing-status" class="status-indicator" style="display: none;">处理中</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>测试用例</h2>
+            <p>以下是一些可以测试中止功能的用例：</p>
+            <ul>
+                <li><strong>长时间运行的任务</strong>: "请帮我分析一下当前的市场趋势，并给出详细的报告"</li>
+                <li><strong>多步骤任务</strong>: "请帮我规划一次旅行，包括路线、住宿、景点推荐"</li>
+                <li><strong>复杂查询</strong>: "请帮我搜索并分析最近的科技新闻，然后总结主要趋势"</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>测试输入</h2>
+            <input 
+                type="text" 
+                id="test-input" 
+                class="test-input" 
+                placeholder="输入测试消息..."
+                value="请帮我分析一下当前的市场趋势，并给出详细的报告"
+            />
+            <div class="button-group">
+                <button id="send-btn" class="btn btn-primary">发送消息</button>
+                <button id="abort-btn" class="btn btn-danger" disabled>中止任务</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>操作日志</h2>
+            <div id="log-container" class="log-container"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>测试说明</h2>
+            <ol>
+                <li>输入一个需要长时间处理的消息</li>
+                <li>点击"发送消息"按钮</li>
+                <li>观察处理状态变为"处理中"</li>
+                <li>在任务完成前点击"中止任务"按钮</li>
+                <li>观察任务被中止，状态恢复正常</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        let ws = null;
+        let isProcessing = false;
+        
+        // 初始化WebSocket连接
+        function initWebSocket() {
+            ws = new WebSocket('ws://localhost:3002');
+            
+            ws.onopen = function() {
+                log('WebSocket连接已建立');
+                updateConnectionStatus(true);
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                log(`收到消息: ${data.type}`);
+                
+                switch (data.type) {
+                    case 'connection':
+                        log('连接成功');
+                        break;
+                    case 'agent_start':
+                        isProcessing = true;
+                        updateProcessingStatus(true);
+                        log('开始处理任务...');
+                        break;
+                    case 'thinking':
+                        log('正在思考...');
+                        break;
+                    case 'tool_start':
+                        log(`开始执行工具: ${data.tool}`);
+                        break;
+                    case 'tool_result':
+                        log(`工具执行完成: ${data.tool}`);
+                        break;
+                    case 'agent_response':
+                        isProcessing = false;
+                        updateProcessingStatus(false);
+                        log('任务完成');
+                        break;
+                    case 'aborted':
+                        isProcessing = false;
+                        updateProcessingStatus(false);
+                        log('任务已被中止');
+                        break;
+                    case 'error':
+                        isProcessing = false;
+                        updateProcessingStatus(false);
+                        log(`错误: ${data.message}`);
+                        break;
+                }
+            };
+            
+            ws.onclose = function() {
+                log('WebSocket连接已关闭');
+                updateConnectionStatus(false);
+            };
+            
+            ws.onerror = function(error) {
+                log('WebSocket错误: ' + error);
+                updateConnectionStatus(false);
+            };
+        }
+        
+        // 更新连接状态
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connection-status');
+            if (connected) {
+                statusEl.textContent = '已连接';
+                statusEl.className = 'status-indicator status-connected';
+            } else {
+                statusEl.textContent = '未连接';
+                statusEl.className = 'status-indicator status-aborted';
+            }
+        }
+        
+        // 更新处理状态
+        function updateProcessingStatus(processing) {
+            const statusEl = document.getElementById('processing-status');
+            const sendBtn = document.getElementById('send-btn');
+            const abortBtn = document.getElementById('abort-btn');
+            
+            if (processing) {
+                statusEl.textContent = '处理中';
+                statusEl.className = 'status-indicator status-processing';
+                statusEl.style.display = 'inline-flex';
+                sendBtn.disabled = true;
+                abortBtn.disabled = false;
+            } else {
+                statusEl.style.display = 'none';
+                sendBtn.disabled = false;
+                abortBtn.disabled = true;
+            }
+        }
+        
+        // 发送消息
+        function sendMessage() {
+            const input = document.getElementById('test-input');
+            const message = input.value.trim();
+            
+            if (!message) {
+                log('请输入消息');
+                return;
+            }
+            
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('WebSocket未连接');
+                return;
+            }
+            
+            ws.send(JSON.stringify({
+                type: 'chat',
+                message: message,
+                context: {}
+            }));
+            
+            log(`发送消息: ${message}`);
+        }
+        
+        // 中止任务
+        function abortTask() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('WebSocket未连接');
+                return;
+            }
+            
+            ws.send(JSON.stringify({
+                type: 'abort'
+            }));
+            
+            log('发送中止请求');
+        }
+        
+        // 记录日志
+        function log(message) {
+            const logContainer = document.getElementById('log-container');
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.innerHTML += `[${timestamp}] ${message}\n`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 事件监听
+        document.getElementById('send-btn').addEventListener('click', sendMessage);
+        document.getElementById('abort-btn').addEventListener('click', abortTask);
+        
+        // 初始化
+        initWebSocket();
+        
+        // 页面卸载时关闭连接
+        window.addEventListener('beforeunload', function() {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html> 

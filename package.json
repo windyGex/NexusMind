@@ -12,20 +12,33 @@
     "amap-demo": "node amap-example.js",
     "quick-start": "node quick-start.js",
     "multi-mcp": "node examples/multi-mcp-example.js",
-    "quick-multi-mcp": "node quick-start-multi-mcp.js"
+    "quick-multi-mcp": "node quick-start-multi-mcp.js",
+    "frontend": "cd packages/frontend && npm run dev",
+    "backend": "cd packages/backend && npm run dev",
+    "dev:all": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "build:frontend": "cd packages/frontend && npm run build",
+    "install:all": "npm install && cd packages/frontend && npm install && cd ../backend && npm install",
+    "start:all": "concurrently \"cd packages/backend && npm start\" \"cd packages/frontend && npm run preview\""
   },
-  "keywords": ["llm", "agent", "autonomous", "react", "mcp"],
+  "keywords": [
+    "llm",
+    "agent",
+    "autonomous",
+    "react",
+    "mcp"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "openai": "^4.20.1",
-    "node-cache": "^5.1.2",
     "axios": "^1.6.0",
-    "ws": "^8.14.2",
+    "concurrently": "^8.2.2",
+    "dotenv": "^16.3.1",
+    "node-cache": "^5.1.2",
+    "openai": "^4.20.1",
     "uuid": "^9.0.1",
-    "dotenv": "^16.3.1"
+    "ws": "^8.14.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   }
-} 
+}

@@ -86,6 +86,12 @@ export class Agent {
 
     } catch (error) {
       console.error('Agent processing error:', error);
+      
+      // 检查是否是被中止的错误
+      if (error.message === '任务已被用户中止') {
+        throw error; // 重新抛出中止错误
+      }
+      
       return `抱歉，处理您的请求时出现了错误: ${error.message}`;
     }
   }
@@ -134,6 +140,12 @@ export class Agent {
           currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: 结果-${JSON.stringify(toolResult)}\n`;
         } catch (error) {
           console.error('execute tool error', error);
+          
+          // 检查是否是被中止的错误
+          if (error.message === '任务已被用户中止') {
+            throw error; // 重新抛出中止错误
+          }
+          
           currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: 错误 - ${error.message}\n`;
         }
       }
@@ -591,15 +603,17 @@ ${response}
     let registeredCount = 0;
     for (const mcpTool of this.availableMCPTools) {
       try {
+        // 生成工具ID
+        const toolId = `${mcpTool.serverId}:${mcpTool.name}`;
+        
         // 检查工具是否已经注册
-        const existingTool = this.tools.getTool(mcpTool.name);
+        const existingTool = this.tools.getTool(toolId);
         if (existingTool) {
           // 如果工具已存在，先删除再重新注册
-          this.tools.unregisterTool(mcpTool.name);
+          this.tools.unregisterTool(toolId);
         }
 
         // 注册MCP工具到本地工具注册表
-        const toolId = `${mcpTool.serverId}:${mcpTool.name}`;
         this.tools.registerTool(toolId, {
           name: mcpTool.name,
           description: mcpTool.description || `MCP工具: ${mcpTool.name}`,
@@ -715,6 +729,8 @@ ${response}
     // 获取本地工具注册表中的所有工具（包括已注册的MCP工具）
     const allTools = this.tools.listAvailable();
     
+    console.log('🔍 调试: getAllAvailableTools - 所有工具:', allTools.map(t => t.name));
+    
     // 按类型分类
     const categorizedTools = {
       local: [],
@@ -723,8 +739,30 @@ ${response}
 
     allTools.forEach(tool => {
       const toolInfo = this.tools.getTool(tool.name);
-      if (toolInfo && toolInfo.mcpMetadata) {
-        // 这是已注册的MCP工具
+      console.log(`🔍 调试: 工具 ${tool.name} - mcpMetadata:`, toolInfo?.mcpMetadata);
+      
+      // 检查是否是MCP工具（通过名称格式判断）
+      if (tool.name.includes('maps_') || tool.name.includes('amap:')) {
+        console.log(`✅ 通过名称格式识别为MCP工具: ${tool.name}`);
+        // 提取服务器ID和工具名称
+        let serverId = 'amap';
+        let toolName = tool.name;
+        
+        if (tool.name.includes('amap:')) {
+          const parts = tool.name.split(':');
+          serverId = parts[0];
+          toolName = parts[1];
+        }
+        
+        categorizedTools.mcp.push({
+          ...tool,
+          type: 'mcp',
+          serverId: serverId,
+          serverName: serverId
+        });
+      } else if (toolInfo && toolInfo.mcpMetadata) {
+        // 这是已注册的MCP工具（通过mcpMetadata识别）
+        console.log(`✅ 通过mcpMetadata识别为MCP工具: ${tool.name}`);
         categorizedTools.mcp.push({
           ...tool,
           type: 'mcp',
@@ -733,12 +771,15 @@ ${response}
         });
       } else {
         // 这是本地工具
+        console.log(`📝 识别为本地工具: ${tool.name}`);
         categorizedTools.local.push({
           ...tool,
           type: 'local'
         });
       }
     });
+
+    console.log(`📊 调试: 分类结果 - 本地工具: ${categorizedTools.local.length}, MCP工具: ${categorizedTools.mcp.length}`);
 
     return {
       all: allTools,

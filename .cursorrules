@@ -1,0 +1,253 @@
+# Auto Agent 项目 Cursor 规则
+
+## 项目特性
+这是一个基于JavaScript的LLM自主智能体项目，采用前后端分离架构：
+- **前端**: React 18 + Vite + Ant Design 5
+- **后端**: Node.js + Express + WebSocket
+- **核心**: 智能体引擎 + MCP协议支持
+- **工具**: 本地工具 + 远程MCP工具（如高德地图API）
+
+## 变更指南
+
+每次变更后，不需要更新项目文档，只有当用户要求时才更新
+
+## 编码规范
+
+### JavaScript/Node.js
+- 使用 ES6+ 语法，优先使用 `const` 和 `let`
+- 使用 `import/export` 模块系统
+- 函数使用箭头函数语法
+- 使用 async/await 处理异步操作
+- 错误处理使用 try-catch
+
+### React 组件
+- 使用函数组件和 React Hooks
+- 组件名使用 PascalCase: `ChatInterface.jsx`
+- Props 使用解构赋值
+- 状态管理优先使用 useState 和 useEffect
+- 使用自定义 Hooks 封装逻辑
+
+### 文件命名
+- 组件文件: `ChatInterface.jsx`
+- 工具函数: `useWebSocket.js`
+- 样式文件: `ChatInterface.css`
+- 常量文件: `CONSTANTS.js`
+
+## 项目架构
+
+### 目录结构
+```
+auto-agent/
+├── packages/
+│   ├── frontend/          # React前端
+│   │   ├── src/
+│   │   │   ├── components/    # React组件
+│   │   │   ├── hooks/         # 自定义Hooks
+│   │   │   ├── services/      # API服务
+│   │   │   └── utils/         # 工具函数
+│   │   └── public/            # 静态资源
+│   └── backend/           # Node.js后端
+│       ├── src/
+│       │   ├── routes/        # 路由处理
+│       │   ├── middleware/    # 中间件
+│       │   └── services/      # 业务逻辑
+├── src/                   # 核心智能体代码
+│   ├── agent/             # 智能体核心
+│   ├── tools/             # 工具定义
+│   ├── memory/            # 记忆管理
+│   └── mcp/               # MCP协议
+└── examples/              # 示例代码
+```
+
+## 智能体开发
+
+### ReAct 模式
+- **思考(Reasoning)**: 分析当前情况
+- **行动(Acting)**: 调用工具执行任务
+- **观察(Observation)**: 获取结果并继续
+
+### 工具开发
+```javascript
+// 工具定义示例
+const toolDefinition = {
+  name: "tool_name",
+  description: "工具描述",
+  parameters: {
+    type: "object",
+    properties: {
+      // 参数定义
+    }
+  },
+  execute: async (args) => {
+    // 工具执行逻辑
+    return result;
+  }
+};
+```
+
+### MCP 协议集成
+- 支持 Model Context Protocol
+- 工具注册和发现机制
+- 错误处理和重试机制
+- 连接状态监控
+
+## 前端开发
+
+### UI/UX 设计
+- 使用 Ant Design 组件库
+- 响应式设计，支持移动端
+- 加载状态和错误处理
+- 无障碍访问支持
+
+### WebSocket 通信
+```javascript
+// WebSocket Hook 示例
+const useWebSocket = (url) => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [messages, setMessages] = useState([]);
+  
+  // 连接逻辑、消息处理、重连机制
+  
+  return { isConnected, sendMessage, messages };
+};
+```
+
+### 组件最佳实践
+- 单一职责原则
+- 使用自定义 Hooks 封装逻辑
+- 避免 prop drilling，使用 Context
+- 合理使用 useEffect 依赖
+
+## 后端开发
+
+### API 设计
+- RESTful API 设计
+- 统一的错误响应格式
+- 请求验证和参数检查
+- 日志记录和监控
+
+### WebSocket 服务器
+```javascript
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+  // 连接处理、消息路由、错误处理
+});
+```
+
+### 中间件
+- CORS 配置
+- 安全中间件 (Helmet)
+- 日志中间件 (Morgan)
+- 错误处理中间件
+
+## 开发工作流
+
+### 启动命令
+```bash
+# 开发环境
+npm run dev:all          # 同时启动前后端
+npm run frontend         # 仅启动前端
+npm run backend          # 仅启动后端
+
+# 生产环境
+npm run build:frontend   # 构建前端
+npm run start:all        # 启动生产环境
+```
+
+### 访问地址
+- **前端**: http://localhost:5174
+- **后端API**: http://localhost:3002
+- **健康检查**: http://localhost:3002/api/health
+
+## 性能优化
+
+### 前端优化
+- 代码分割和懒加载
+- 虚拟滚动（大量消息）
+- 图片优化和压缩
+- 缓存策略
+
+### 后端优化
+- 内存使用监控
+- 连接池管理
+- 缓存机制
+- 数据库查询优化
+
+## 安全考虑
+
+### 前端安全
+- 输入验证和清理
+- XSS 防护
+- 敏感信息保护
+
+### 后端安全
+- 参数验证
+- 环境变量管理
+- 身份验证和授权
+
+## 测试策略
+
+### 单元测试
+- 使用 Jest 进行测试
+- 测试覆盖率 > 80%
+- 模拟外部依赖
+
+### 集成测试
+- API 端点测试
+- WebSocket 连接测试
+- 前后端集成测试
+
+## 常见问题解决
+
+### 前端问题
+- WebSocket 连接断开处理
+- 大量消息渲染性能
+- 移动端适配问题
+
+### 后端问题
+- 内存泄漏检测
+- 并发请求处理
+- 工具调用超时处理
+
+### 智能体问题
+- 工具调用失败重试
+- 记忆管理优化
+- 决策逻辑改进
+
+## 代码审查要点
+
+### 功能完整性
+- 功能是否按需求实现
+- 边界情况处理
+- 错误处理机制
+
+### 代码质量
+- 代码可读性和可维护性
+- 命名规范和注释
+- 代码重复度
+
+### 性能和安全
+- 性能影响评估
+- 安全漏洞检查
+- 资源使用优化
+
+## 最佳实践
+
+1. **代码组织**: 保持清晰的目录结构和文件命名
+2. **组件设计**: 遵循单一职责和可复用原则
+3. **状态管理**: 合理使用本地状态和全局状态
+4. **错误处理**: 完善的错误处理和用户反馈
+5. **性能优化**: 关注渲染性能和用户体验
+6. **安全考虑**: 输入验证和敏感信息保护
+7. **测试覆盖**: 单元测试和集成测试
+8. **文档维护**: 及时更新代码和项目文档
+
+## 注意事项
+
+- 遵循项目的现有代码风格
+- 保持向后兼容性
+- 考虑国际化需求
+- 关注可访问性
+- 定期进行代码重构
+- 保持依赖包更新 

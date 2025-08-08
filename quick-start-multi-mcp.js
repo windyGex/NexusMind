@@ -65,7 +65,7 @@ async function quickStart() {
       // await agent.updateMCPTools();
       
       const testInputs = [
-        '搜索 刘德华 的资料'
+        '杭州到上海的驾车路线'
       ];
 
       for (const input of testInputs) {
