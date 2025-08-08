@@ -1,7 +1,7 @@
 {
-  "name": "auto-agent",
+  "name": "nexusmind",
   "version": "1.0.0",
-  "description": "基于JS的LLM自主智能体，支持ReAct决策、短期记忆和MCP协议",
+  "description": "NexusMind - 智能体思维连接平台，基于JS的LLM自主智能体，支持ReAct决策、短期记忆和MCP协议",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

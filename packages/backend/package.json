@@ -1,7 +1,7 @@
 {
-  "name": "@auto-agent/backend",
+  "name": "@nexusmind/backend",
   "version": "1.0.0",
-  "description": "Auto Agent Backend API Server",
+  "description": "NexusMind Backend API Server",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
