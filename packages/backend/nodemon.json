@@ -1,0 +1,29 @@
+{
+  "watch": [
+    "src/**/*",
+    "../src/**/*"
+  ],
+  "ext": "js,json,mjs",
+  "ignore": [
+    "node_modules/**/*",
+    "*.test.js",
+    "*.spec.js",
+    "logs/**/*",
+    "*.log"
+  ],
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "exec": "node src/index.js",
+  "delay": 1000,
+  "verbose": true,
+  "colours": true,
+  "restartable": "rs",
+  "legacyWatch": false,
+  "polling": false,
+  "events": {
+    "restart": "echo \"🔄 服务重启中...\"",
+    "crash": "echo \"❌ 服务崩溃，正在重启...\"",
+    "exit": "echo \"👋 服务已停止\""
+  }
+} 

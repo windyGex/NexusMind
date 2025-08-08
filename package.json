@@ -15,10 +15,19 @@
     "quick-multi-mcp": "node quick-start-multi-mcp.js",
     "frontend": "cd packages/frontend && npm run dev",
     "backend": "cd packages/backend && npm run dev",
+    "backend:enhanced": "cd packages/backend && npm run dev:enhanced",
+    "backend:debug": "cd packages/backend && npm run dev:debug",
+    "backend:watch": "cd packages/backend && npm run dev:watch",
+    "backend:verbose": "cd packages/backend && npm run dev:verbose",
     "dev:all": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "dev:all:enhanced": "concurrently \"npm run backend:enhanced\" \"npm run frontend\"",
+    "dev:all:debug": "concurrently \"npm run backend:debug\" \"npm run frontend\"",
+    "monitor": "cd packages/backend && node scripts/monitor.js",
     "build:frontend": "cd packages/frontend && npm run build",
     "install:all": "npm install && cd packages/frontend && npm install && cd ../backend && npm install",
-    "start:all": "concurrently \"cd packages/backend && npm start\" \"cd packages/frontend && npm run preview\""
+    "start:all": "concurrently \"cd packages/backend && npm start\" \"cd packages/frontend && npm run preview\"",
+    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
+    "reset": "npm run clean && npm run install:all"
   },
   "keywords": [
     "llm",

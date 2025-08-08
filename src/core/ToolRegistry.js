@@ -124,7 +124,7 @@ export class ToolRegistry {
     }
     this.categories.get(category).push(name);
 
-    console.log(`工具已注册: ${name} (${category})`);
+    // console.log(`工具已注册: ${name} (${category})`);
   }
 
   /**
@@ -256,7 +256,7 @@ export class ToolRegistry {
       }
     }
 
-    console.log(`工具已删除: ${name}`);
+    // console.log(`工具已删除: ${name}`);
   }
 
   // 默认工具实现

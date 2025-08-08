@@ -14,8 +14,8 @@ export class LLMClient {
     
     this.defaultModel = config.model || process.env.OPENAI_MODEL || 'gpt-4';
     this.defaultOptions = {
-      temperature: config.temperature || 0.7,
-      max_tokens: config.maxTokens || 1000,
+      temperature: config.temperature || 0.3,
+      max_tokens: config.maxTokens || 8000,
       ...config.defaultOptions
     };
   }

@@ -6,7 +6,11 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "dev": "nodemon --config nodemon.json",
+    "dev:hot": "node scripts/dev.js",
+    "dev:debug": "nodemon --config nodemon.json --inspect",
+    "dev:watch": "nodemon --config nodemon.json --watch src --watch ../src",
+    "dev:verbose": "nodemon --config nodemon.json --verbose",
     "test": "node test/test.js"
   },
   "dependencies": {

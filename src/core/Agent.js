@@ -114,6 +114,8 @@ export class Agent {
 
       // 构建ReAct提示
       const prompt = this.buildReActPrompt(userInput, context, currentThought, iteration);
+
+      console.log('react prompt=========\n', prompt);
       
       // 获取LLM响应
       const response = await this.llm.generate(prompt, {
@@ -137,7 +139,7 @@ export class Agent {
         try {
           const toolResult = await this.tools.execute(parsed.action, parsed.args);
           console.log('toolResult', JSON.stringify(toolResult));
-          currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: 结果-${JSON.stringify(toolResult)}\n`;
+          currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: 工具执行结果-${JSON.stringify(toolResult)}\n`;
         } catch (error) {
           console.error('execute tool error', error);
           
@@ -185,7 +187,7 @@ export class Agent {
 ${memory.map(m => `- ${m.content}`).join('\n')}
 
 可用工具:
-${availableTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n')}
+${availableTools.map(tool => `- ${tool.name}: ${tool.description} 参数：${tool.parameters ? JSON.stringify(tool.parameters) : ''}`).join('\n')}
 
 当前上下文:
 ${JSON.stringify(context, null, 2)}
@@ -202,7 +204,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
 2. **策略制定**: 确定是否需要使用工具，选择最佳方案
 3. **工具选择**: 如果需要工具，选择最合适的工具
 4. **参数设计**: 为工具调用设计正确的参数
-5. **结果评估**: 评估当前结果是否满足用户需求
+5. **结果评估**: 从之前的思考过程里观察当前结果是否满足用户需求，如果满足，给出最终答案，如果不满足，继续迭代
 6. **下一步决策**: 决定是否需要继续迭代或给出最终答案
 
 请按照以下格式回答:
@@ -729,7 +731,6 @@ ${response}
     // 获取本地工具注册表中的所有工具（包括已注册的MCP工具）
     const allTools = this.tools.listAvailable();
     
-    console.log('🔍 调试: getAllAvailableTools - 所有工具:', allTools.map(t => t.name));
     
     // 按类型分类
     const categorizedTools = {
@@ -739,11 +740,9 @@ ${response}
 
     allTools.forEach(tool => {
       const toolInfo = this.tools.getTool(tool.name);
-      console.log(`🔍 调试: 工具 ${tool.name} - mcpMetadata:`, toolInfo?.mcpMetadata);
       
       // 检查是否是MCP工具（通过名称格式判断）
       if (tool.name.includes('maps_') || tool.name.includes('amap:')) {
-        console.log(`✅ 通过名称格式识别为MCP工具: ${tool.name}`);
         // 提取服务器ID和工具名称
         let serverId = 'amap';
         let toolName = tool.name;
@@ -771,7 +770,6 @@ ${response}
         });
       } else {
         // 这是本地工具
-        console.log(`📝 识别为本地工具: ${tool.name}`);
         categorizedTools.local.push({
           ...tool,
           type: 'local'
@@ -779,7 +777,6 @@ ${response}
       }
     });
 
-    console.log(`📊 调试: 分类结果 - 本地工具: ${categorizedTools.local.length}, MCP工具: ${categorizedTools.mcp.length}`);
 
     return {
       all: allTools,
