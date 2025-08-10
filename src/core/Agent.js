@@ -120,7 +120,7 @@ export class Agent {
       // 获取LLM响应
       const response = await this.llm.generate(prompt, {
         temperature: 0.3,
-        max_tokens: 1500
+        max_tokens: 8000
       });
 
       const thought = response.content;
@@ -204,23 +204,27 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
 2. **策略制定**: 确定是否需要使用工具，选择最佳方案
 3. **工具选择**: 如果需要工具，选择最合适的工具
 4. **参数设计**: 为工具调用设计正确的参数
-5. **结果评估**: 从之前的思考过程里观察当前结果是否满足用户需求，如果满足，给出最终答案，如果不满足，继续迭代
+5. **结果评估**: 观察当前结果是否满足用户需求，如果满足，给出最终答案，如果不满足，继续迭代
 6. **下一步决策**: 决定是否需要继续迭代或给出最终答案
 
-请按照以下格式回答:
-思考: [详细的推理过程，包括问题分析、策略制定、工具选择理由等]
-行动: [工具名称] 或 无
-参数: [工具参数，JSON格式] 或 无
-最终答案: [如果任务完成，给出完整、准确的最终答案] 或 无
-是否停止: [true/false]
+请直接返回合法的JSON格式的响应，不要带注释，包含以下字段：
+
+{
+  "reasoning": "详细的推理过程，包括问题分析、策略制定、工具选择理由等",
+  "action": "工具名称 或 null",
+  "args": "工具参数，JSON对象格式 或 null",
+  "finalAnswer": "如果任务完成，给出完整、准确的最终答案 或 null",
+  "shouldStop": 如果任务完成返回true, 否则返回false
+}
 
 重要提示：
 - 优先考虑用户的核心需求
-- 工具参数必须是有效的JSON格式
+- 工具参数必须是有效的JSON对象格式
 - 最终答案应该完整、准确、有用
 - 如果无法完成任务，请说明原因
 - 避免无限循环，合理使用迭代次数
-- 注意：MCP工具的名称格式为 "服务器ID:工具名称"，例如 "amap:maps_weather"`;
+- 注意：MCP工具的名称格式为 "服务器ID:工具名称"，例如 "amap:maps_weather"
+- 请只返回JSON格式，不要包含其他内容`;
   }
 
   /**
@@ -229,64 +233,23 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   async parseReActResponse(response) {
     console.log('response=============', response);
     
-    // 使用大模型来提取结构化信息
-    const prompt = `请从以下ReAct响应中提取结构化信息。请仔细分析响应内容，并按照指定格式输出。
-
-响应内容:
-${response}
-
-请提取以下信息并以JSON格式返回：
-
-1. reasoning: 思考过程（字符串）
-2. action: 要执行的工具名称，如果没有则为null（字符串或null）
-3. args: 工具参数，JSON对象格式，如果没有则为null（对象或null）
-4. finalAnswer: 最终答案，如果没有则为null（字符串或null）
-5. shouldStop: 是否应该停止迭代（布尔值）
-
-** 示例返回 **
-
-{
-  "reasoning": "思考过程",
-  "action": "工具名称",
-  "args": "工具参数",
-  "finalAnswer": "最终答案",
-  "shouldStop": true
-}
-
-注意事项：
-- 如果响应中没有明确提到工具调用，action和args应该为null
-- 如果响应中提到"无"、"没有"等表示不执行工具的词，action应该为null
-- args必须是有效的JSON对象格式
-- shouldStop为true表示应该停止当前迭代
-- finalAnswer只有在任务完成时才提供
-
-请只返回JSON格式的结果，不要包含其他内容。`;
-
     try {
-      const llmResponse = await this.llm.generate(prompt, {
-        temperature: 0.1,
-        max_tokens: 8000,
-      });
-
-      console.log('llmResponse', llmResponse);
-
-      // 尝试解析JSON响应
+      // 直接尝试解析JSON响应
       let parsedResult;
       try {
-        // 提取JSON部分
-        parsedResult = JSON.parse(llmResponse.content);
+        // 清理响应内容，提取JSON部分
+        const cleanedResponse = response.trim();
+        parsedResult = JSON.parse(cleanedResponse);
       } catch (parseError) {
         console.error('JSON解析失败，使用备用解析方法:', parseError);
         // 备用解析方法
-        return this.fallbackParseReActResponse(response);
       }
 
       console.log('parsed', parsedResult);
       return parsedResult;
 
     } catch (error) {
-      console.error('LLM解析失败，使用备用解析方法:', error);
-      return this.fallbackParseReActResponse(response);
+      console.error('解析失败，使用备用解析方法:', error);
     }
   }
 
@@ -316,49 +279,7 @@ ${response}
     return parameters;
   }
 
-  /**
-   * 备用解析方法（原有的基于行的解析）
-   */
-  fallbackParseReActResponse(response) {
-    const lines = response.split('\n');
-    let reasoning = '';
-    let action = null;
-    let args = null;
-    let finalAnswer = null;
-    let shouldStop = false;
-
-    for (const line of lines) {
-      if (line.startsWith('思考:')) {
-        reasoning = line.replace('思考:', '').trim();
-      } else if (line.startsWith('行动:')) {
-        const actionText = line.replace('行动:', '').trim();
-        action = actionText === '无' ? null : actionText;
-      } else if (line.startsWith('参数:')) {
-        const argsText = line.replace('参数:', '').trim();
-        if (argsText !== '无') {
-          try {
-            args = JSON.parse(argsText);
-          } catch (e) {
-            args = argsText;
-          }
-        }
-      } else if (line.startsWith('最终答案:')) {
-        const answerText = line.replace('最终答案:', '').trim();
-        finalAnswer = answerText === '无' ? null : answerText;
-      } else if (line.startsWith('是否停止:')) {
-        shouldStop = line.replace('是否停止:', '').trim().toLowerCase() === 'true';
-      }
-    }
-
-    return {
-      reasoning,
-      action,
-      args,
-      finalAnswer,
-      shouldStop
-    };
-  }
-
+  
   /**
    * 获取智能体状态
    */
