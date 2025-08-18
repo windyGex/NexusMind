@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Layout, theme, ConfigProvider, App as AntApp } from 'antd';
 import ChatInterface from './components/ChatInterface';
 import Sidebar from './components/Sidebar';
-// import WebScraping from './components/WebScraping';
-import UniversalAgent from './components/UniversalAgent';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useTools } from './hooks/useTools';
@@ -17,7 +15,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTool, setCurrentTool] = useState(null);
   const [thinking, setThinking] = useState('');
-  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'web-scraping', 或 'universal-agent'
+  // 移除了视图切换功能，只保留智能对话
   
   const { token } = theme.useToken();
   
@@ -243,7 +241,7 @@ function App() {
               boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
             }}
           >
-            <Sidebar 
+                        <Sidebar
               collapsed={collapsed}
               agentStatus={agentStatus}
               isConnected={isConnected}
@@ -251,8 +249,6 @@ function App() {
               mcpTools={mcpTools}
               localTools={localTools}
               toolsLoading={toolsLoading}
-              currentView={currentView}
-              onViewChange={setCurrentView}
             />
           </Sider>
           
@@ -265,39 +261,15 @@ function App() {
               flexDirection: 'column',
               overflow: 'hidden'
             }}>
-              {currentView === 'chat' ? (
-                <ChatInterface
-                  messages={messages}
-                  isProcessing={isProcessing}
-                  thinking={thinking}
-                  currentTool={currentTool}
-                  onSendMessage={handleSendMessage}
-                  onAbort={handleAbort}
-                  isConnected={isConnected}
-                />
-              ) : currentView === 'web-scraping' ? (
-               null
-              ) : currentView === 'universal-agent' ? (
-                <UniversalAgent 
-                  isConnected={isConnected}
-                  sendMessage={sendMessage}
-                  sendAbort={sendAbort}
-                  messages={messages}
-                  isProcessing={isProcessing}
-                  thinking={thinking}
-                  currentTool={currentTool}
-                />
-              ) : (
-                <ChatInterface
-                  messages={messages}
-                  isProcessing={isProcessing}
-                  thinking={thinking}
-                  currentTool={currentTool}
-                  onSendMessage={handleSendMessage}
-                  onAbort={handleAbort}
-                  isConnected={isConnected}
-                />
-              )}
+              <ChatInterface
+                messages={messages}
+                isProcessing={isProcessing}
+                thinking={thinking}
+                currentTool={currentTool}
+                onSendMessage={handleSendMessage}
+                onAbort={handleAbort}
+                isConnected={isConnected}
+              />
             </Content>
           </Layout>
         </Layout>

@@ -20,7 +20,7 @@ import {
 const { Text, Title } = Typography;
 const { Panel } = Collapse;
 
-const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, localTools, toolsLoading, currentView, onViewChange }) => {
+const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, localTools, toolsLoading }) => {
   const [activeKeys, setActiveKeys] = useState(['1', '2']);
   const [thinkingModes, setThinkingModes] = useState(null);
   const [changingMode, setChangingMode] = useState(false);
@@ -103,34 +103,18 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
 
   return (
     <div className="sidebar-content">
-      {/* 视图切换 */}
+      {/* 功能介绍 */}
       <div className="sidebar-section">
-        <Title level={5}>功能模块</Title>
+        <Title level={5}>智能对话</Title>
         <Space direction="vertical" style={{ width: '100%' }}>
-          <Button
-            type={currentView === 'chat' ? 'primary' : 'default'}
-            icon={<MessageOutlined />}
-            onClick={() => onViewChange('chat')}
-            style={{ width: '100%', textAlign: 'left' }}
-          >
-            智能对话
-          </Button>
-          <Button
-            type={currentView === 'web-scraping' ? 'primary' : 'default'}
-            icon={<GlobalOutlined />}
-            onClick={() => onViewChange('web-scraping')}
-            style={{ width: '100%', textAlign: 'left' }}
-          >
-            网页抓取分析
-          </Button>
-          <Button
-            type={currentView === 'universal-agent' ? 'primary' : 'default'}
-            icon={<TeamOutlined />}
-            onClick={() => onViewChange('universal-agent')}
-            style={{ width: '100%', textAlign: 'left' }}
-          >
-            通用智能体
-          </Button>
+          <div className="stat-item">
+            <Text className="stat-label">功能特性</Text>
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              <Tag icon={<MessageOutlined />} color="blue">智能对话</Tag>
+              <Tag icon={<GlobalOutlined />} color="green">联网搜索</Tag>
+              <Tag icon={<ThunderboltOutlined />} color="orange">实时分析</Tag>
+            </Space>
+          </div>
         </Space>
       </div>
 

@@ -44,18 +44,15 @@ if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'sk-your-opena
 
 // 创建Agent实例（带错误处理）
 let agent = null;
-let universalAgent = null;
 let mcpServerManager = null;
 
 try {
   // 尝试不同的导入路径
-  let Agent, UniversalAgent, MCPServerManager;
+  let Agent, MCPServerManager;
   try {
     const agentModule = await import('../../../src/core/Agent.js');
-    const universalAgentModule = await import('../../../src/core/UniversalAgent.js');
     const mcpModule = await import('../../../src/mcp/MCPServerManager.js');
     Agent = agentModule.Agent;
-    UniversalAgent = universalAgentModule.UniversalAgent;
     MCPServerManager = mcpModule.MCPServerManager;
   } catch (e) {
     throw new Error('无法找到Agent或MCP模块');
@@ -76,34 +73,22 @@ try {
     collaborationEnabled: false
   });
   
-  // 创建通用智能体实例
-  universalAgent = new UniversalAgent({
-    name: 'UniversalAgent',
-    maxIterations: 15,
-    collaborationEnabled: true
-  });
-  
   // 设置MCP服务器管理器到Agent
   agent.setMCPServerManager(mcpServerManager);
-  universalAgent.setMCPServerManager(mcpServerManager);
   
-  // 注册网页抓取工具
+  // 注册网页抓取工具到主Agent（用于联网搜索）
   await registerWebScrapingTools(agent);
   
   // 注册股票投资工具
   await registerStockInvestmentTools(agent);
-  
-  // 注册通用智能体工具
-  await registerUniversalAgentTools(universalAgent);
   
   // 加载MCP服务器配置
   await loadMCPServers();
   
   // 更新MCP工具列表
   await agent.updateMCPTools();
-  await universalAgent.updateMCPTools();
   
-  logger.success('Agent和UniversalAgent初始化成功');
+  logger.success('Agent初始化成功');
 } catch (error) {
   logger.error('Agent初始化失败:', error);
   logger.info('Agent功能将不可用，但服务器仍可启动');
@@ -459,8 +444,7 @@ async function handleChatMessage(ws, data, clientId) {
   }
 }
 
-// 导入网页抓取路由和工具
-import webScrapingRouter from './routes/webScraping.js';
+// 导入工具
 import { webScrapingTools } from './tools/webScrapingTools.js';
 import { stockInvestmentTools, registerStockInvestmentTools } from './tools/stockInvestmentTools.js';
 
@@ -473,8 +457,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 网页抓取路由
-app.use('/api/web-scraping', webScrapingRouter);
+// 移除了独立的网页抓取路由，功能已整合到智能对话中
 
 app.get('/api/agent/status', (req, res) => {
   if (!agent) {
@@ -747,25 +730,4 @@ process.on('SIGINT', () => {
   });
 });
 
-// 注册通用智能体工具
-async function registerUniversalAgentTools(universalAgent) {
-  try {
-    logger.info('注册通用智能体工具...');
-    
-    // 导入通用智能体工具注册器
-    const { UniversalAgentToolRegistry } = await import('../../../src/tools/universalAgentToolRegistry.js');
-    const toolRegistry = new UniversalAgentToolRegistry();
-    
-    // 注册工具到通用智能体
-    await toolRegistry.registerToolsToAgent(universalAgent);
-    
-    // 为专门的Agent也注册工具
-    for (const [role, agent] of Object.entries(universalAgent.specializedAgents)) {
-      await toolRegistry.registerToolsToAgent(agent);
-    }
-    
-    logger.success('通用智能体工具注册完成');
-  } catch (error) {
-    logger.error('通用智能体工具注册失败:', error);
-  }
-} 
+// 通用智能体相关功能已移除，网页抓取功能已整合到主Agent中 
