@@ -12,7 +12,7 @@ export class MemoryManager {
       checkperiod: 600 // 每10分钟检查过期
     });
     
-    this.memoryTypes = ['conversation', 'reasoning', 'task', 'tool_usage'];
+    this.memoryTypes = ['conversation', 'reasoning', 'task', 'tool_usage', 'system', 'collaboration'];
     this.embeddingCache = new Map(); // 简单的文本相似度缓存
   }
 

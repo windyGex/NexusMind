@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Card, Typography, Space, Button, Tag, Divider, List, Tooltip, Collapse, Spin } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Typography, Space, Button, Tag, Divider, List, Tooltip, Collapse, Spin, Select, message } from 'antd';
 import { 
   RobotOutlined, 
   ToolOutlined, 
@@ -12,7 +12,9 @@ import {
   DatabaseOutlined,
   GlobalOutlined,
   MessageOutlined,
-  TeamOutlined
+  TeamOutlined,
+  ThunderboltOutlined,
+  ProjectOutlined
 } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
@@ -20,6 +22,60 @@ const { Panel } = Collapse;
 
 const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, localTools, toolsLoading, currentView, onViewChange }) => {
   const [activeKeys, setActiveKeys] = useState(['1', '2']);
+  const [thinkingModes, setThinkingModes] = useState(null);
+  const [changingMode, setChangingMode] = useState(false);
+
+  // 加载思维模式信息
+  useEffect(() => {
+    const fetchThinkingModes = async () => {
+      try {
+        const response = await fetch('/api/agent/thinking-modes');
+        if (response.ok) {
+          const data = await response.json();
+          setThinkingModes(data);
+        }
+      } catch (error) {
+        console.error('获取思维模式失败:', error);
+      }
+    };
+    
+    if (isConnected && agentStatus) {
+      fetchThinkingModes();
+    }
+  }, [isConnected, agentStatus]);
+
+  // 切换思维模式
+  const handleModeChange = async (newMode) => {
+    setChangingMode(true);
+    try {
+      const response = await fetch('/api/agent/thinking-mode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mode: newMode })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        message.success(result.message);
+        // 更新本地状态
+        if (thinkingModes) {
+          setThinkingModes({
+            ...thinkingModes,
+            currentMode: newMode
+          });
+        }
+      } else {
+        const error = await response.json();
+        message.error(error.message || '切换思维模式失败');
+      }
+    } catch (error) {
+      message.error('切换思维模式失败: ' + error.message);
+    } finally {
+      setChangingMode(false);
+    }
+  };
 
   if (collapsed) {
     return (
@@ -108,10 +164,41 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
                 <Text className="stat-label">名称</Text>
                 <Text className="stat-value">{agentStatus.name}</Text>
               </div>
-              <div className="stat-item">
-                <Text className="stat-label">思考模式</Text>
-                <Text className="stat-value">{agentStatus.thinkingMode}</Text>
+              
+              {/* 思维模式选择器 */}
+              <div className="stat-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <Text className="stat-label" style={{ marginBottom: '8px' }}>思考模式</Text>
+                {thinkingModes ? (
+                  <Select
+                    value={thinkingModes.currentMode}
+                    onChange={handleModeChange}
+                    loading={changingMode}
+                    style={{ width: '100%' }}
+                    size="small"
+                  >
+                    {thinkingModes.supportedModes?.map((mode) => (
+                      <Select.Option key={mode.mode} value={mode.mode}>
+                        <Space>
+                          {mode.mode === 'react' ? (
+                            <ThunderboltOutlined style={{ color: '#1890ff' }} />
+                          ) : (
+                            <ProjectOutlined style={{ color: '#52c41a' }} />
+                          )}
+                          <div>
+                            <div style={{ fontWeight: 'bold' }}>{mode.name}</div>
+                            <div style={{ fontSize: '11px', color: '#8c8c8c' }}>
+                              {mode.description}
+                            </div>
+                          </div>
+                        </Space>
+                      </Select.Option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Text className="stat-value">{agentStatus.thinkingMode}</Text>
+                )}
               </div>
+              
               <div className="stat-item">
                 <Text className="stat-label">记忆大小</Text>
                 <Text className="stat-value">{agentStatus.memorySize}</Text>
@@ -124,6 +211,16 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
                 <Text className="stat-label">可用工具</Text>
                 <Text className="stat-value">{agentStatus.availableTools}</Text>
               </div>
+              
+              {/* 显示当前计划信息（Plan & Solve模式） */}
+              {agentStatus.thinkingMode === 'plan_solve' && agentStatus.currentPlan && (
+                <div className="stat-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Text className="stat-label" style={{ marginBottom: '4px' }}>当前计划</Text>
+                  <Tag color="green" size="small">
+                    {agentStatus.currentPlan.steps?.length || 0} 个步骤
+                  </Tag>
+                </div>
+              )}
             </Space>
           </div>
 

@@ -484,6 +484,52 @@ app.get('/api/agent/status', (req, res) => {
   res.json(agent.getStatus());
 });
 
+// 获取支持的思维模式
+app.get('/api/agent/thinking-modes', (req, res) => {
+  if (!agent) {
+    res.json({ error: 'Agent未初始化' });
+    return;
+  }
+  
+  try {
+    const modes = agent.getSupportedThinkingModes();
+    res.json({
+      currentMode: agent.thinkingMode,
+      supportedModes: modes
+    });
+  } catch (error) {
+    logger.error('获取思维模式失败:', error);
+    res.status(500).json({ error: '获取思维模式失败', message: error.message });
+  }
+});
+
+// 设置思维模式
+app.post('/api/agent/thinking-mode', (req, res) => {
+  if (!agent) {
+    res.json({ error: 'Agent未初始化' });
+    return;
+  }
+  
+  const { mode } = req.body;
+  if (!mode) {
+    res.status(400).json({ error: '缺少思维模式参数' });
+    return;
+  }
+  
+  try {
+    const result = agent.setThinkingMode(mode);
+    logger.info(`思维模式已切换: ${result.oldMode} -> ${result.newMode}`);
+    res.json({
+      success: true,
+      message: `思维模式已从 ${result.oldMode} 切换到 ${result.newMode}`,
+      ...result
+    });
+  } catch (error) {
+    logger.error('设置思维模式失败:', error);
+    res.status(400).json({ error: '设置思维模式失败', message: error.message });
+  }
+});
+
 app.post('/api/agent/reset', (req, res) => {
   if (!agent) {
     res.json({ error: 'Agent未初始化' });

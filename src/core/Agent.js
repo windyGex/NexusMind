@@ -17,10 +17,16 @@ export class Agent {
     this.toolSelector = new ToolSelector(config.toolSelector);
     
     this.maxIterations = config.maxIterations || 10;
-    this.thinkingMode = 'react'; // 只支持ReAct模式
+    this.thinkingMode = config.thinkingMode || 'react'; // 支持 'react' 和 'plan_solve' 模式
+    this.planSolveConfig = config.planSolve || {
+      maxPlanSteps: 8,
+      enablePlanRefinement: true,
+      detailedReasoning: true
+    };
     
     this.conversationHistory = [];
     this.currentTask = null;
+    this.currentPlan = null; // 用于存储Plan & Solve模式的计划
     
     // MCP相关属性
     this.mcpServerManager = null;
@@ -65,8 +71,17 @@ export class Agent {
       // 更新MCP工具列表
       await this.updateMCPTools();
       
-      // 使用ReAct决策方法
-      const response = await this.reactMethod(userInput, context);
+      // 根据思维模式选择处理方法
+      let response;
+      switch (this.thinkingMode) {
+        case 'plan_solve':
+          response = await this.planSolveMethod(userInput, context);
+          break;
+        case 'react':
+        default:
+          response = await this.reactMethod(userInput, context);
+          break;
+      }
 
       // 记录响应到记忆
       this.memory.add('conversation', {
@@ -186,7 +201,476 @@ export class Agent {
     return finalAnswer || '我无法完成这个任务。';
   }
 
+  /**
+   * Plan & Solve 决策方法
+   * 先制定详细计划，再按步骤执行
+   */
+  async planSolveMethod(userInput, context) {
+    logger.info(`🧠 启动Plan & Solve模式处理: ${userInput}`);
+    
+    try {
+      // 阶段1: 分析任务
+      const taskAnalysis = await this.analyzeTask(userInput, context);
+      logger.debug('任务分析完成:', taskAnalysis);
 
+      // 阶段2: 制定计划
+      const plan = await this.createPlan(userInput, context, taskAnalysis);
+      this.currentPlan = plan;
+      logger.debug('计划制定完成:', plan);
+
+      // 阶段3: 执行计划
+      const executionResult = await this.executePlan(plan, userInput, context);
+      logger.debug('计划执行完成:', executionResult);
+
+      // 阶段4: 评估结果
+      const finalResult = await this.evaluateResult(userInput, executionResult, plan);
+      logger.debug('结果评估完成:', finalResult);
+
+      // 记录Plan & Solve思考过程到记忆
+      this.memory.add('reasoning', {
+        type: 'plan_solve_process',
+        task: this.currentTask,
+        analysis: taskAnalysis,
+        plan: plan,
+        execution: executionResult,
+        evaluation: finalResult,
+        timestamp: new Date()
+      });
+
+      return finalResult.finalAnswer || '我无法完成这个任务。';
+
+    } catch (error) {
+      logger.error('Plan & Solve处理错误:', error);
+      
+      // 检查是否是被中止的错误
+      if (error.message === '任务已被用户中止') {
+        throw error;
+      }
+      
+      return `抱歉，在使用Plan & Solve模式处理您的请求时出现了错误: ${error.message}`;
+    }
+  }
+
+  /**
+   * 任务分析阶段
+   */
+  async analyzeTask(userInput, context) {
+    const availableTools = this.tools.listAvailable();
+    const memory = this.memory.getRelevant(userInput, 3);
+    
+    const analysisPrompt = `分析以下任务并返回JSON格式分析。
+
+任务: ${userInput}
+
+可用工具: ${availableTools.slice(0, 5).map(tool => tool.name).join(', ')}
+
+返回格式：
+{
+  "taskType": "query",
+  "complexity": "simple",
+  "requiresTools": true,
+  "multiStep": true,
+  "coreRequirements": ["获取天气信息"],
+  "suggestedTools": ["amap:maps_weather"],
+  "estimatedSteps": 2,
+  "challenges": ["需要确定城市代码"],
+  "successCriteria": ["获取准确天气信息"]
+}`;
+
+    const response = await this.llm.generate(analysisPrompt, {
+      temperature: 0.2,
+      max_tokens: 1000
+    });
+
+    try {
+      return JSON.parse(response.content);
+    } catch (error) {
+      logger.warn('任务分析JSON解析失败，使用默认分析');
+      return {
+        taskType: 'general',
+        complexity: 'medium',
+        requiresTools: true,
+        multiStep: true,
+        coreRequirements: [userInput],
+        suggestedTools: availableTools.slice(0, 3).map(t => t.name),
+        estimatedSteps: 3,
+        challenges: ['需要进一步分析'],
+        successCriteria: ['提供有用的回答']
+      };
+    }
+  }
+
+  /**
+   * 计划制定阶段
+   */
+  async createPlan(userInput, context, taskAnalysis) {
+    const availableTools = this.tools.listAvailable();
+    
+    const planPrompt = `为任务制定执行计划。
+
+任务: ${userInput}
+
+可用工具: ${availableTools.slice(0, 3).map(tool => `${tool.name}: ${tool.description}`).join(', ')}
+
+返回JSON计划：
+{
+  "strategy": "使用地图工具查询天气",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "stepName": "查询天气",
+      "type": "tool_call",
+      "description": "调用天气工具",
+      "tool": "amap:maps_weather",
+      "args": {"city": "杭州"},
+      "expectedOutput": "天气信息",
+      "dependencies": [],
+      "fallbackOptions": ["使用其他工具"]
+    }
+  ],
+  "expectedOutcome": "获取准确天气信息",
+  "riskAssessment": ["API调用失败"],
+  "qualityChecks": ["验证数据完整性"]
+}`;
+
+    const response = await this.llm.generate(planPrompt, {
+      temperature: 0.3,
+      max_tokens: 2000
+    });
+
+    try {
+      return JSON.parse(response.content);
+    } catch (error) {
+      logger.warn('计划制定JSON解析失败，创建简单计划');
+      return {
+        strategy: "基于可用工具逐步解决问题",
+        steps: [
+          {
+            stepNumber: 1,
+            stepName: "分析和处理用户请求",
+            type: "reasoning",
+            description: "理解并分析用户需求",
+            reasoning: userInput,
+            expectedOutput: "对用户需求的理解",
+            dependencies: [],
+            fallbackOptions: ["直接回答"]
+          }
+        ],
+        expectedOutcome: "提供有用的回答",
+        riskAssessment: ["可能需要更多信息"],
+        qualityChecks: ["检查回答是否完整"]
+      };
+    }
+  }
+
+  /**
+   * 计划执行阶段
+   */
+  async executePlan(plan, userInput, context) {
+    const executionResults = [];
+    const stepResults = new Map(); // 存储每步的结果，供后续步骤使用
+    
+    logger.info(`📋 开始执行计划，共 ${plan.steps.length} 个步骤`);
+
+    for (const step of plan.steps) {
+      try {
+        logger.info(`🔄 执行步骤 ${step.stepNumber}: ${step.stepName}`);
+        
+        // 检查依赖
+        const missingDeps = step.dependencies?.filter(dep => !stepResults.has(dep)) || [];
+        if (missingDeps.length > 0) {
+          throw new Error(`步骤 ${step.stepNumber} 的依赖步骤 ${missingDeps.join(', ')} 未完成`);
+        }
+
+        let stepResult;
+        switch (step.type) {
+          case 'tool_call':
+            stepResult = await this.executeToolStep(step, stepResults);
+            break;
+          case 'reasoning':
+            stepResult = await this.executeReasoningStep(step, stepResults, userInput, context);
+            break;
+          case 'synthesis':
+            stepResult = await this.executeSynthesisStep(step, stepResults, userInput);
+            break;
+          default:
+            throw new Error(`未知的步骤类型: ${step.type}`);
+        }
+
+        stepResults.set(step.stepNumber, stepResult);
+        executionResults.push({
+          step: step,
+          result: stepResult,
+          timestamp: new Date()
+        });
+
+        logger.info(`✅ 步骤 ${step.stepNumber} 执行完成`);
+
+      } catch (error) {
+        logger.error(`❌ 步骤 ${step.stepNumber} 执行失败:`, error);
+        
+        // 检查是否是被中止的错误
+        if (error.message === '任务已被用户中止') {
+          throw error;
+        }
+
+        // 尝试使用备选方案
+        if (step.fallbackOptions && step.fallbackOptions.length > 0) {
+          logger.info(`🔄 尝试备选方案: ${step.fallbackOptions[0]}`);
+          stepResults.set(step.stepNumber, {
+            success: false,
+            error: error.message,
+            fallback: step.fallbackOptions[0]
+          });
+        } else {
+          // 没有备选方案，记录错误但继续执行
+          stepResults.set(step.stepNumber, {
+            success: false,
+            error: error.message
+          });
+        }
+
+        executionResults.push({
+          step: step,
+          result: stepResults.get(step.stepNumber),
+          timestamp: new Date(),
+          error: error.message
+        });
+      }
+    }
+
+    return {
+      results: executionResults,
+      stepResults: Object.fromEntries(stepResults),
+      overallSuccess: executionResults.every(r => !r.error)
+    };
+  }
+
+  /**
+   * 执行工具调用步骤
+   */
+  async executeToolStep(step, previousResults) {
+    try {
+      // 处理工具参数，可能包含对前面步骤结果的引用
+      let processedArgs = { ...step.args };
+      
+      // 简单的变量替换，支持 {step_N_result} 格式
+      const argsStr = JSON.stringify(processedArgs);
+      const processedArgsStr = argsStr.replace(/\{step_(\d+)_result\}/g, (match, stepNum) => {
+        const stepResult = previousResults.get(parseInt(stepNum));
+        return stepResult ? JSON.stringify(stepResult.content || stepResult) : match;
+      });
+      processedArgs = JSON.parse(processedArgsStr);
+
+      logger.debug(`执行工具: ${step.tool}, 参数:`, processedArgs);
+      const toolResult = await this.tools.execute(step.tool, processedArgs);
+      
+      return {
+        success: true,
+        tool: step.tool,
+        args: processedArgs,
+        result: toolResult,
+        content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult)
+      };
+    } catch (error) {
+      logger.error(`工具执行失败: ${step.tool}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 执行推理步骤
+   */
+  async executeReasoningStep(step, previousResults, userInput, context) {
+    // 构建推理上下文
+    const reasoningContext = {
+      originalTask: userInput,
+      stepDescription: step.description,
+      reasoning: step.reasoning,
+      previousResults: Object.fromEntries(previousResults)
+    };
+
+    const reasoningPrompt = `你是一个智能推理专家。请基于以下信息进行深入的逻辑推理。
+
+原始任务: ${userInput}
+推理任务: ${step.reasoning}
+上下文: ${JSON.stringify(context, null, 2)}
+之前的执行结果: ${JSON.stringify(reasoningContext.previousResults, null, 2)}
+
+请进行详细的推理，并提供：
+1. 推理过程
+2. 关键洞察
+3. 结论
+4. 置信度 (1-10)
+
+以JSON格式返回：
+{
+  "reasoning": "详细的推理过程",
+  "insights": ["关键洞察1", "关键洞察2"],
+  "conclusion": "推理结论",
+  "confidence": 8,
+  "supporting_evidence": ["支持证据1", "支持证据2"]
+}
+
+只返回JSON，不要添加其他内容。`;
+
+    const response = await this.llm.generate(reasoningPrompt, {
+      temperature: 0.4,
+      max_tokens: 1500
+    });
+
+    try {
+      const reasoningResult = JSON.parse(response.content);
+      return {
+        success: true,
+        type: 'reasoning',
+        content: reasoningResult.conclusion,
+        details: reasoningResult
+      };
+    } catch (error) {
+      logger.warn('推理结果JSON解析失败，使用原始响应');
+      return {
+        success: true,
+        type: 'reasoning',
+        content: response.content,
+        details: { reasoning: response.content }
+      };
+    }
+  }
+
+  /**
+   * 执行综合步骤
+   */
+  async executeSynthesisStep(step, previousResults, userInput) {
+    const synthesisPrompt = `你是一个智能信息综合专家。请综合之前所有步骤的结果，为用户提供完整的答案。
+
+原始任务: ${userInput}
+综合任务: ${step.description}
+
+之前步骤的结果:
+${Array.from(previousResults.entries()).map(([stepNum, result]) => 
+  `步骤 ${stepNum}: ${result.content || JSON.stringify(result)}`
+).join('\n')}
+
+请综合这些信息，提供一个完整、准确、有用的最终答案。
+
+答案应该：
+1. 直接回答用户的问题
+2. 整合所有相关信息
+3. 清晰易懂
+4. 提供额外的有价值信息
+
+最终答案：`;
+
+    const response = await this.llm.generate(synthesisPrompt, {
+      temperature: 0.3,
+      max_tokens: 1500
+    });
+
+    return {
+      success: true,
+      type: 'synthesis',
+      content: response.content,
+      details: { 
+        synthesized_from: Array.from(previousResults.keys()),
+        synthesis_approach: step.description
+      }
+    };
+  }
+
+  /**
+   * 结果评估阶段
+   */
+  async evaluateResult(userInput, executionResult, plan) {
+    // 找到最终的答案（通常是最后一个成功的步骤结果或综合步骤的结果）
+    let finalAnswer = '';
+    const successfulResults = executionResult.results.filter(r => !r.error);
+    
+    if (successfulResults.length > 0) {
+      // 优先选择综合类型的结果
+      const synthesisResult = successfulResults.find(r => r.result.type === 'synthesis');
+      if (synthesisResult) {
+        finalAnswer = synthesisResult.result.content;
+      } else {
+        // 否则选择最后一个成功的结果
+        const lastResult = successfulResults[successfulResults.length - 1];
+        finalAnswer = lastResult.result.content || JSON.stringify(lastResult.result);
+      }
+    }
+
+    // 如果没有成功的结果，尝试从部分结果中构建答案
+    if (!finalAnswer && executionResult.results.length > 0) {
+      const partialResults = executionResult.results
+        .filter(r => r.result && r.result.content)
+        .map(r => r.result.content)
+        .join('\n');
+      
+      if (partialResults) {
+        finalAnswer = `基于部分执行结果，我为您提供以下信息：\n${partialResults}`;
+      }
+    }
+
+    // 评估结果质量
+    const evaluation = await this.assessResultQuality(userInput, finalAnswer, executionResult, plan);
+
+    return {
+      finalAnswer: finalAnswer || '抱歉，我无法完成这个任务。',
+      evaluation: evaluation,
+      executionSummary: {
+        totalSteps: plan.steps.length,
+        successfulSteps: successfulResults.length,
+        failedSteps: executionResult.results.length - successfulResults.length,
+        overallSuccess: executionResult.overallSuccess
+      }
+    };
+  }
+
+  /**
+   * 评估结果质量
+   */
+  async assessResultQuality(userInput, finalAnswer, executionResult, plan) {
+    const evaluationPrompt = `你是一个智能质量评估专家。请评估执行结果的质量。
+
+原始任务: ${userInput}
+最终答案: ${finalAnswer}
+执行摘要: 
+- 总步骤数: ${plan.steps.length}
+- 成功步骤: ${executionResult.results.filter(r => !r.error).length}
+- 失败步骤: ${executionResult.results.filter(r => r.error).length}
+
+请从以下维度评估结果质量，并返回JSON格式：
+{
+  "completeness": {"score": 8, "comment": "完整性评价"},
+  "accuracy": {"score": 9, "comment": "准确性评价"},
+  "usefulness": {"score": 7, "comment": "实用性评价"},
+  "clarity": {"score": 8, "comment": "清晰度评价"},
+  "overall": {"score": 8, "comment": "总体评价"},
+  "strengths": ["优点1", "优点2"],
+  "improvements": ["改进建议1", "改进建议2"]
+}
+
+评分范围：1-10分，只返回JSON，不要添加其他内容。`;
+
+    try {
+      const response = await this.llm.generate(evaluationPrompt, {
+        temperature: 0.2,
+        max_tokens: 800
+      });
+
+      return JSON.parse(response.content);
+    } catch (error) {
+      logger.warn('结果评估失败，使用默认评估');
+      return {
+        completeness: { score: 7, comment: "基础评估" },
+        accuracy: { score: 7, comment: "基础评估" },
+        usefulness: { score: 7, comment: "基础评估" },
+        clarity: { score: 7, comment: "基础评估" },
+        overall: { score: 7, comment: "任务已完成" },
+        strengths: ["提供了回答"],
+        improvements: ["可进一步优化"]
+      };
+    }
+  }
 
   /**
    * 构建ReAct提示
@@ -320,13 +804,63 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
       memorySize: this.memory.size(),
       conversationHistoryLength: this.conversationHistory.length,
       currentTask: this.currentTask,
+      currentPlan: this.currentPlan,
       availableTools: allTools.total,
       localTools: allTools.local.length,
-      mcpTools: allTools.mcp.length
+      mcpTools: allTools.mcp.length,
+      planSolveConfig: this.planSolveConfig
     };
   }
 
 
+
+  /**
+   * 设置思维模式
+   */
+  setThinkingMode(mode) {
+    if (!['react', 'plan_solve'].includes(mode)) {
+      throw new Error(`不支持的思维模式: ${mode}。支持的模式: react, plan_solve`);
+    }
+    
+    const oldMode = this.thinkingMode;
+    this.thinkingMode = mode;
+    
+    logger.info(`思维模式已从 ${oldMode} 切换到 ${mode}`);
+    
+    // 记录模式切换到记忆
+    this.memory.add('system', {
+      type: 'thinking_mode_change',
+      from: oldMode,
+      to: mode,
+      timestamp: new Date()
+    });
+    
+    return {
+      oldMode: oldMode,
+      newMode: mode,
+      timestamp: new Date()
+    };
+  }
+
+  /**
+   * 获取支持的思维模式
+   */
+  getSupportedThinkingModes() {
+    return [
+      {
+        mode: 'react',
+        name: 'ReAct模式',
+        description: '推理-行动循环，适合需要多步骤交互和工具调用的复杂任务',
+        characteristics: ['迭代式处理', '实时调整', '工具驱动', '响应式决策']
+      },
+      {
+        mode: 'plan_solve',
+        name: 'Plan & Solve模式',  
+        description: '先制定详细计划再执行，适合需要系统性分析和结构化处理的任务',
+        characteristics: ['全局规划', '结构化执行', '质量评估', '系统性思考']
+      }
+    ];
+  }
 
   /**
    * 重置智能体状态
@@ -334,6 +868,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   reset() {
     this.conversationHistory = [];
     this.currentTask = null;
+    this.currentPlan = null;
     this.memory.clear();
     this.collaborationHistory = [];
     this.peerAgents.clear();

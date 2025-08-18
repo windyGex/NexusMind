@@ -21,10 +21,15 @@ export class AgentConfig {
 
     this.agent = {
       name: process.env.AGENT_NAME || 'AutoAgent',
-      thinkingMode: 'react', // 只支持ReAct模式
+      thinkingMode: process.env.THINKING_MODE || 'react', // 支持 'react' 和 'plan_solve' 模式
       maxIterations: parseInt(process.env.MAX_ITERATIONS) || 10,
       collaborationEnabled: process.env.COLLABORATION_ENABLED === 'true',
-      role: process.env.AGENT_ROLE || 'general'
+      role: process.env.AGENT_ROLE || 'general',
+      planSolve: {
+        maxPlanSteps: parseInt(process.env.MAX_PLAN_STEPS) || 8,
+        enablePlanRefinement: process.env.ENABLE_PLAN_REFINEMENT !== 'false',
+        detailedReasoning: process.env.DETAILED_REASONING !== 'false'
+      }
     };
 
     this.memory = {
