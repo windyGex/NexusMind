@@ -41,14 +41,10 @@ function App() {
     if (lastMessage) {
       const data = JSON.parse(lastMessage);
       
-      // 根据当前视图决定是否处理消息
+      // 移除了视图切换功能，所有消息都处理
       const shouldProcessMessage = (data) => {
-        // 如果是通用智能体的消息，只在通用智能体视图时处理
-        if (data.agentType === 'universal' || data.type === 'workflow_update') {
-          return currentView === 'universal-agent';
-        }
-        // 其他消息只在聊天视图时处理
-        return currentView === 'chat';
+        // 只处理非通用智能体的消息（因为已移除通用智能体功能）
+        return data.agentType !== 'universal' && data.type !== 'workflow_update';
       };
       
       if (!shouldProcessMessage(data)) {
@@ -145,11 +141,8 @@ function App() {
           break;
           
         case 'workflow_update':
-          // 工作流更新消息，只在通用智能体视图中处理
-          if (currentView === 'universal-agent') {
-            // 这里可以添加工作流状态更新逻辑
-            console.log('工作流更新:', data);
-          }
+          // 工作流更新消息已移除（通用智能体功能已删除）
+          console.log('忽略工作流更新消息（已移除功能）:', data);
           break;
           
         case 'error':
@@ -164,7 +157,7 @@ function App() {
           break;
       }
     }
-  }, [lastMessage, currentView]);
+  }, [lastMessage]);
 
   // 发送消息
   const handleSendMessage = (message) => {
