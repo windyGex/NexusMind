@@ -1,3 +1,5 @@
+import logger from '../../utils/logger.js';
+
 /**
  * 智能工具选择器
  * 根据任务描述和上下文智能选择最合适的MCP工具
@@ -42,7 +44,7 @@ export class ToolSelector {
       
       return this.parseLLMSelectionResponse(response, availableTools);
     } catch (error) {
-      console.warn('LLM工具选择失败，回退到规则选择:', error);
+      logger.warn('LLM工具选择失败，回退到规则选择:', error);
       return this.selectToolsWithRules(taskDescription, availableTools, context);
     }
   }
@@ -95,7 +97,7 @@ ${toolsList}
       
       return selectedTools;
     } catch (error) {
-      console.warn('解析LLM选择响应失败:', error);
+      logger.warn('解析LLM选择响应失败:', error);
       return [];
     }
   }
@@ -107,15 +109,15 @@ ${toolsList}
     const taskKeywords = this.extractKeywords(taskDescription);
     const selectedTools = [];
 
-    console.log(`🔍 任务关键词: ${taskKeywords.join(', ')}`);
-    console.log(`📋 可用工具数量: ${availableTools.length}`);
+    logger.debug(`🔍 任务关键词: ${taskKeywords.join(', ')}`);
+    logger.debug(`📋 可用工具数量: ${availableTools.length}`);
 
     for (const tool of availableTools) {
       const matchScore = this.calculateMatchScore(tool, taskKeywords, context);
       
       // 添加调试信息
       if (matchScore > 0) {
-        console.log(`🎯 工具 ${tool.name} 匹配度: ${matchScore.toFixed(3)}`);
+        logger.debug(`🎯 工具 ${tool.name} 匹配度: ${matchScore.toFixed(3)}`);
       }
       
       if (matchScore >= this.config.minMatchScore) {
@@ -137,7 +139,7 @@ ${toolsList}
       return b.matchScore - a.matchScore;
     });
 
-    console.log(`✅ 选择了 ${selectedTools.length} 个工具`);
+    logger.info(`✅ 选择了 ${selectedTools.length} 个工具`);
     return selectedTools.slice(0, this.config.maxToolsPerTask);
   }
 
@@ -146,12 +148,30 @@ ${toolsList}
    */
   extractKeywords(text) {
     // 简单的关键词提取，可以扩展为更复杂的NLP处理
-    const stopWords = new Set(['的', '是', '在', '有', '和', '与', '或', '但', '而', '了', '着', '过']);
+    const stopWords = new Set(['的', '是', '在', '有', '和', '与', '或', '但', '而', '了', '着', '过', '什么', '怎么', '如何', '哪个', '哪些']);
     
-    return text.toLowerCase()
+    // 股票投资相关词汇扩展
+    const investmentKeywords = [
+      '股票', '投资', '值得投资', '推荐', '分析', '建议', '买入', '卖出', '持有',
+      '2025年', '最值得', '投资机会', '投资建议', '股票推荐', '投资分析',
+      '市场', '行情', '趋势', '上涨', '下跌', '突破', '支撑', '阻力',
+      '技术分析', '基本面', '财务', '盈利', '增长', '风险', '收益'
+    ];
+    
+    let keywords = text.toLowerCase()
       .replace(/[^\w\s\u4e00-\u9fff]/g, ' ')
       .split(/\s+/)
       .filter(word => word.length > 1 && !stopWords.has(word));
+    
+    // 添加投资相关关键词
+    const textLower = text.toLowerCase();
+    for (const keyword of investmentKeywords) {
+      if (textLower.includes(keyword) && !keywords.includes(keyword)) {
+        keywords.push(keyword);
+      }
+    }
+    
+    return keywords;
   }
 
   /**
@@ -198,6 +218,23 @@ ${toolsList}
     
     if (taskText.includes('公交') || taskText.includes('地铁') || taskText.includes('公共交通')) {
       if (tool.name.includes('transit')) {
+        matchScore += 2;
+      }
+    }
+    
+    // 股票投资相关
+    if (taskText.includes('股票') || taskText.includes('投资') || taskText.includes('值得投资') || 
+        taskText.includes('推荐') || taskText.includes('分析') || taskText.includes('建议')) {
+      if (tool.name.includes('analyze_stock_investment') || tool.name.includes('scrape_webpage') || 
+          tool.name.includes('generate_investment_report')) {
+        matchScore += 3; // 股票投资工具优先级更高
+      }
+    }
+    
+    // 网页抓取相关
+    if (taskText.includes('抓取') || taskText.includes('网页') || taskText.includes('网站') || 
+        taskText.includes('内容') || taskText.includes('信息')) {
+      if (tool.name.includes('scrape_webpage') || tool.name.includes('scrape_multiple_pages')) {
         matchScore += 2;
       }
     }

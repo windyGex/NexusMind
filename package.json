@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
+    "dev": "nodemon src/index.js",
     "test": "node test/test.js",
     "amap": "node init-amap-agent.js",
     "amap-demo": "node amap-example.js",
@@ -14,7 +14,7 @@
     "multi-mcp": "node examples/multi-mcp-example.js",
     "quick-multi-mcp": "node quick-start-multi-mcp.js",
     "frontend": "cd packages/frontend && npm run dev",
-    "backend": "cd packages/backend && npm run dev",
+    "backend": "cd packages/backend && nvm use 20 && npm run dev:hot",
     "backend:enhanced": "cd packages/backend && npm run dev:enhanced",
     "backend:debug": "cd packages/backend && npm run dev:debug",
     "backend:watch": "cd packages/backend && npm run dev:watch",
@@ -27,14 +27,19 @@
     "install:all": "npm install && cd packages/frontend && npm install && cd ../backend && npm install",
     "start:all": "concurrently \"cd packages/backend && npm start\" \"cd packages/frontend && npm run preview\"",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
-    "reset": "npm run clean && npm run install:all"
+    "reset": "npm run clean && npm run install:all",
+    "install:playwright": "npx playwright install",
+    "test:search": "node test/search-analysis-test.js"
   },
   "keywords": [
     "llm",
     "agent",
     "autonomous",
     "react",
-    "mcp"
+    "mcp",
+    "search",
+    "analysis",
+    "investment"
   ],
   "author": "Your Name",
   "license": "MIT",
@@ -45,7 +50,21 @@
     "node-cache": "^5.1.2",
     "openai": "^4.20.1",
     "uuid": "^9.0.1",
-    "ws": "^8.14.2"
+    "ws": "^8.14.2",
+    "playwright": "^1.40.0",
+    "cheerio": "^1.0.0-rc.12",
+    "puppeteer": "^21.6.1",
+    "serpapi": "^2.2.1",
+    "googleapis": "^128.0.0",
+    "natural": "^6.10.4",
+    "compromise": "^14.10.0",
+    "date-fns": "^2.30.0",
+    "lodash": "^4.17.21",
+    "jsdom": "^23.0.1",
+    "node-html-parser": "^6.1.12",
+    "csv-parser": "^3.0.0",
+    "xlsx": "^0.18.5",
+    "simple-statistics": "^7.8.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

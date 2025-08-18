@@ -9,23 +9,28 @@
     "dev": "nodemon --config nodemon.json",
     "dev:hot": "node scripts/dev.js",
     "dev:debug": "nodemon --config nodemon.json --inspect",
+    "dev:debug:break": "nodemon --config nodemon.json --inspect-brk",
     "dev:watch": "nodemon --config nodemon.json --watch src --watch ../src",
     "dev:verbose": "nodemon --config nodemon.json --verbose",
+    "dev:quiet": "QUIET=true nodemon --config nodemon.json",
+    "dev:minimal": "LOG_LEVEL=warn nodemon --config nodemon.json",
     "test": "node test/test.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "morgan": "^1.10.0",
     "dotenv": "^16.3.1",
-    "uuid": "^9.0.1",
-    "ws": "^8.14.2",
-    "openai": "^4.20.1",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "jsdom": "^26.1.0",
+    "morgan": "^1.10.0",
     "node-cache": "^5.1.2",
-    "axios": "^1.6.0"
+    "openai": "^4.20.1",
+    "playwright": "^1.54.2",
+    "uuid": "^9.0.1",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   }
-} 
+}

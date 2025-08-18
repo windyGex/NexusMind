@@ -95,41 +95,86 @@ export class MemoryManager {
   }
 
   /**
-   * 提取记忆内容
+   * 从记忆数据中提取内容
    */
   extractContent(data) {
+    if (!data) {
+      return '';
+    }
+    
+    // 如果data是字符串，直接返回
     if (typeof data === 'string') {
       return data;
     }
-    if (data.content) {
-      return data.content;
+    
+    // 如果data是对象，尝试提取文本内容
+    if (typeof data === 'object') {
+      // 优先提取input字段
+      if (data.input && typeof data.input === 'string') {
+        return data.input;
+      }
+      
+      // 提取text字段
+      if (data.text && typeof data.text === 'string') {
+        return data.text;
+      }
+      
+      // 提取content字段
+      if (data.content && typeof data.content === 'string') {
+        return data.content;
+      }
+      
+      // 提取message字段
+      if (data.message && typeof data.message === 'string') {
+        return data.message;
+      }
+      
+      // 如果没有找到字符串字段，将整个对象转换为JSON字符串
+      try {
+        return JSON.stringify(data);
+      } catch (error) {
+        console.warn('无法将数据转换为字符串:', error);
+        return '';
+      }
     }
-    if (data.thoughts) {
-      return data.thoughts;
+    
+    // 其他类型，尝试转换为字符串
+    try {
+      return String(data);
+    } catch (error) {
+      console.warn('无法转换数据为字符串:', error);
+      return '';
     }
-    if (data.input) {
-      return data.input;
-    }
-    return JSON.stringify(data);
   }
 
   /**
    * 计算相关性分数（简单的文本匹配）
    */
   calculateRelevance(query, content) {
-    const contentLower = content.toLowerCase();
-    const queryWords = query.split(/\s+/);
-    let score = 0;
-
-    for (const word of queryWords) {
-      if (word.length >= 2 && contentLower.includes(word)) {
-        score += 1;
+    try {
+      // 确保content是字符串
+      if (typeof content !== 'string') {
+        console.warn('calculateRelevance: content不是字符串类型', typeof content);
+        return 0;
       }
-    }
 
-    // 考虑时间衰减
-    const timeDecay = this.calculateTimeDecay();
-    return score * timeDecay;
+      const contentLower = content.toLowerCase();
+      const queryWords = query.split(/\s+/);
+      let score = 0;
+
+      for (const word of queryWords) {
+        if (word.length >= 2 && contentLower.includes(word)) {
+          score += 1;
+        }
+      }
+
+      // 考虑时间衰减
+      const timeDecay = this.calculateTimeDecay();
+      return score * timeDecay;
+    } catch (error) {
+      console.error('计算相关性分数错误:', error);
+      return 0;
+    }
   }
 
   /**

@@ -7,6 +7,7 @@ import { WebSocketServer } from 'ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
+import logger from './utils/logger.js';
 
 // 加载环境变量
 dotenv.config();
@@ -24,27 +25,37 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
-app.use(morgan('combined'));
+
+// 根据环境配置日志中间件
+if (process.env.NODE_ENV === 'development' && !process.env.QUIET) {
+  app.use(morgan('dev'));
+} else if (process.env.NODE_ENV === 'production') {
+  app.use(morgan('combined'));
+}
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 检查OpenAI API密钥
 if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'sk-your-openai-api-key-here') {
-  console.warn('⚠️ 警告: OpenAI API密钥未配置，Agent功能将受限');
-  console.log('请设置 OPENAI_API_KEY 环境变量以启用完整功能');
+  logger.warn('OpenAI API密钥未配置，Agent功能将受限');
+  logger.info('请设置 OPENAI_API_KEY 环境变量以启用完整功能');
 }
 
 // 创建Agent实例（带错误处理）
 let agent = null;
+let universalAgent = null;
 let mcpServerManager = null;
 
 try {
   // 尝试不同的导入路径
-  let Agent, MCPServerManager;
+  let Agent, UniversalAgent, MCPServerManager;
   try {
     const agentModule = await import('../../../src/core/Agent.js');
+    const universalAgentModule = await import('../../../src/core/UniversalAgent.js');
     const mcpModule = await import('../../../src/mcp/MCPServerManager.js');
     Agent = agentModule.Agent;
+    UniversalAgent = universalAgentModule.UniversalAgent;
     MCPServerManager = mcpModule.MCPServerManager;
   } catch (e) {
     throw new Error('无法找到Agent或MCP模块');
@@ -58,32 +69,72 @@ try {
     retryDelay: 1000
   });
   
-  // 创建Agent实例
+  // 创建基础Agent实例
   agent = new Agent({
     name: 'AutoAgent',
     maxIterations: 10,
     collaborationEnabled: false
   });
   
+  // 创建通用智能体实例
+  universalAgent = new UniversalAgent({
+    name: 'UniversalAgent',
+    maxIterations: 15,
+    collaborationEnabled: true
+  });
+  
   // 设置MCP服务器管理器到Agent
   agent.setMCPServerManager(mcpServerManager);
+  universalAgent.setMCPServerManager(mcpServerManager);
+  
+  // 注册网页抓取工具
+  await registerWebScrapingTools(agent);
+  
+  // 注册股票投资工具
+  await registerStockInvestmentTools(agent);
+  
+  // 注册通用智能体工具
+  await registerUniversalAgentTools(universalAgent);
   
   // 加载MCP服务器配置
   await loadMCPServers();
   
   // 更新MCP工具列表
   await agent.updateMCPTools();
+  await universalAgent.updateMCPTools();
   
-  console.log('✅ Agent初始化成功');
+  logger.success('Agent和UniversalAgent初始化成功');
 } catch (error) {
-  console.error('❌ Agent初始化失败:', error.message);
-  console.log('Agent功能将不可用，但服务器仍可启动');
+  logger.error('Agent初始化失败:', error);
+  logger.info('Agent功能将不可用，但服务器仍可启动');
+}
+
+// 注册网页抓取工具到智能体
+async function registerWebScrapingTools(agent) {
+  try {
+    logger.info('注册网页抓取工具...');
+    
+    for (const tool of webScrapingTools) {
+      agent.tools.registerTool(tool.name, {
+        name: tool.name,
+        description: tool.description,
+        category: 'web-scraping',
+        parameters: tool.parameters,
+        execute: tool.execute
+      });
+      logger.debug(`已注册网页抓取工具: ${tool.name}`);
+    }
+    
+    logger.success(`成功注册了 ${webScrapingTools.length} 个网页抓取工具`);
+  } catch (error) {
+    logger.error('注册网页抓取工具失败:', error);
+  }
 }
 
 // 加载MCP服务器配置
 async function loadMCPServers() {
   try {
-    console.log('🔗 加载MCP服务器配置...');
+    logger.info('加载MCP服务器配置...');
     
     // 使用默认的高德地图MCP服务器配置
     const servers = {
@@ -95,13 +146,13 @@ async function loadMCPServers() {
     };
     
     for (const [serverId, config] of Object.entries(servers)) {
-      console.log(`📡 添加MCP服务器: ${serverId}`);
+      logger.debug(`添加MCP服务器: ${serverId}`);
       await mcpServerManager.addServer(serverId, config);
     }
     
-    console.log(`✅ 成功加载 ${Object.keys(servers).length} 个MCP服务器`);
+    logger.success(`成功加载 ${Object.keys(servers).length} 个MCP服务器`);
   } catch (error) {
-    console.error('❌ 加载MCP服务器配置失败:', error);
+    logger.error('加载MCP服务器配置失败:', error);
   }
 }
 
@@ -115,7 +166,7 @@ wss.on('connection', (ws, req) => {
   clients.set(clientId, ws);
   clientTasks.set(clientId, { isProcessing: false, abortController: null });
   
-  console.log(`客户端连接: ${clientId}`);
+  logger.debug(`客户端连接: ${clientId}`);
   
   // 发送连接确认
   ws.send(JSON.stringify({
@@ -139,10 +190,10 @@ wss.on('connection', (ws, req) => {
           ws.send(JSON.stringify({ type: 'pong' }));
           break;
         default:
-          console.log('未知消息类型:', data.type);
+          logger.debug('未知消息类型:', data.type);
       }
     } catch (error) {
-      console.error('WebSocket消息处理错误:', error);
+      logger.error('WebSocket消息处理错误:', error);
       ws.send(JSON.stringify({
         type: 'error',
         message: '消息处理失败'
@@ -158,11 +209,11 @@ wss.on('connection', (ws, req) => {
     }
     clients.delete(clientId);
     clientTasks.delete(clientId);
-    console.log(`客户端断开连接: ${clientId}`);
+    logger.debug(`客户端断开连接: ${clientId}`);
   });
 
   ws.on('error', (error) => {
-    console.error('WebSocket错误:', error);
+    logger.error('WebSocket错误:', error);
     const taskState = clientTasks.get(clientId);
     if (taskState && taskState.abortController) {
       taskState.abortController.abort();
@@ -179,7 +230,7 @@ async function handleAbortMessage(ws, clientId) {
     return;
   }
 
-  console.log(`客户端 ${clientId} 请求中止任务`);
+  logger.debug(`客户端 ${clientId} 请求中止任务`);
 
   if (taskState.isProcessing && taskState.abortController) {
     taskState.abortController.abort();
@@ -191,7 +242,7 @@ async function handleAbortMessage(ws, clientId) {
       message: '任务已中止'
     }));
 
-    console.log(`任务已中止: ${clientId}`);
+    logger.debug(`任务已中止: ${clientId}`);
   } else {
     ws.send(JSON.stringify({
       type: 'abort_error',
@@ -202,12 +253,21 @@ async function handleAbortMessage(ws, clientId) {
 
 // 处理聊天消息
 async function handleChatMessage(ws, data, clientId) {
-  const { message, context = {} } = data;
+  const { message, context = {}, agentType = 'standard' } = data;
   
-  console.log(`收到消息: ${message}`);
+  logger.debug(`收到消息: ${message} (Agent类型: ${agentType})`);
   
-  // 检查Agent是否可用
-  if (!agent) {
+  // 根据agentType选择使用哪个Agent
+  let targetAgent = agent;
+  if (agentType === 'universal' && universalAgent) {
+    targetAgent = universalAgent;
+  } else if (agentType === 'universal' && !universalAgent) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: '通用智能体未初始化，请检查配置'
+    }));
+    return;
+  } else if (!agent) {
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Agent未初始化，请检查OpenAI API密钥配置'
@@ -323,7 +383,24 @@ async function handleChatMessage(ws, data, clientId) {
     };
 
     // 处理用户输入
-    const response = await agent.processInput(message, context);
+    let response;
+    if (agentType === 'universal') {
+      // 使用通用智能体的特殊处理方法
+      response = await targetAgent.processUniversalRequest(message, context);
+      
+      // 发送工作流状态更新
+      if (response.workflow) {
+        ws.send(JSON.stringify({
+          type: 'workflow_update',
+          phase: response.workflow.currentPhase,
+          progress: targetAgent.calculateProgress(),
+          data: response.workflow
+        }));
+      }
+    } else {
+      // 使用标准Agent的处理方法
+      response = await targetAgent.processInput(message, context);
+    }
     
     // 检查是否被中止
     if (abortController.signal.aborted) {
@@ -333,7 +410,15 @@ async function handleChatMessage(ws, data, clientId) {
     // 发送最终响应
     ws.send(JSON.stringify({
       type: 'agent_response',
-      content: response,
+      content: agentType === 'universal' ? 
+        (response.success ? (response.report?.content || '报告生成失败') : response.error || '处理失败') : 
+        response,
+      metadata: agentType === 'universal' ? {
+        success: response.success,
+        workflow: response.workflow,
+        report: response.report,
+        error: response.error
+      } : undefined,
       timestamp: new Date().toISOString()
     }));
 
@@ -346,7 +431,7 @@ async function handleChatMessage(ws, data, clientId) {
     taskState.abortController = null;
 
   } catch (error) {
-    console.error('Agent处理错误:', error);
+    logger.error('Agent处理错误:', error);
     
     // 确保恢复原始方法，即使出错也要恢复
     if (agent && agent.llm) {
@@ -374,6 +459,11 @@ async function handleChatMessage(ws, data, clientId) {
   }
 }
 
+// 导入网页抓取路由和工具
+import webScrapingRouter from './routes/webScraping.js';
+import { webScrapingTools } from './tools/webScrapingTools.js';
+import { stockInvestmentTools, registerStockInvestmentTools } from './tools/stockInvestmentTools.js';
+
 // REST API路由
 app.get('/api/health', (req, res) => {
   res.json({
@@ -382,6 +472,9 @@ app.get('/api/health', (req, res) => {
     agent: agent ? agent.getStatus() : { error: 'Agent未初始化' }
   });
 });
+
+// 网页抓取路由
+app.use('/api/web-scraping', webScrapingRouter);
 
 app.get('/api/agent/status', (req, res) => {
   if (!agent) {
@@ -456,7 +549,7 @@ app.get('/api/agent/mcp-tools', (req, res) => {
       totalServers: Object.keys(toolsByServer).length
     });
   } catch (error) {
-    console.error('获取MCP工具失败:', error);
+    logger.error('获取MCP工具失败:', error);
     res.status(500).json({ error: '获取MCP工具失败', message: error.message });
   }
 });
@@ -482,14 +575,90 @@ app.get('/api/agent/local-tools', (req, res) => {
       totalTools: localTools.length
     });
   } catch (error) {
-    console.error('获取本地工具失败:', error);
+    logger.error('获取本地工具失败:', error);
     res.status(500).json({ error: '获取本地工具失败', message: error.message });
+  }
+});
+
+// 通用智能体相关API
+app.get('/api/universal-agent/status', (req, res) => {
+  if (!universalAgent) {
+    res.json({ error: '通用智能体未初始化' });
+    return;
+  }
+  
+  try {
+    const status = universalAgent.getWorkflowStatus();
+    res.json({
+      status: 'active',
+      workflow: status,
+      agents: status.agents,
+      stats: status.stats
+    });
+  } catch (error) {
+    logger.error('获取通用智能体状态失败:', error);
+    res.status(500).json({ error: '获取通用智能体状态失败', message: error.message });
+  }
+});
+
+app.get('/api/universal-agent/tools', (req, res) => {
+  if (!universalAgent) {
+    res.json({ error: '通用智能体未初始化' });
+    return;
+  }
+  
+  try {
+    const tools = universalAgent.getAllAvailableTools();
+    res.json(tools);
+  } catch (error) {
+    logger.error('获取通用智能体工具失败:', error);
+    res.status(500).json({ error: '获取通用智能体工具失败', message: error.message });
+  }
+});
+
+app.post('/api/universal-agent/reset', (req, res) => {
+  if (!universalAgent) {
+    res.json({ error: '通用智能体未初始化' });
+    return;
+  }
+  
+  try {
+    universalAgent.resetWorkflow();
+    res.json({
+      message: '通用智能体工作流已重置',
+      status: universalAgent.getWorkflowStatus()
+    });
+  } catch (error) {
+    logger.error('重置通用智能体失败:', error);
+    res.status(500).json({ error: '重置通用智能体失败', message: error.message });
+  }
+});
+
+app.get('/api/universal-agent/workflow', (req, res) => {
+  if (!universalAgent) {
+    res.json({ error: '通用智能体未初始化' });
+    return;
+  }
+  
+  try {
+    const workflow = universalAgent.workflowState;
+    res.json({
+      currentPhase: workflow.currentPhase,
+      progress: universalAgent.calculateProgress(),
+      taskPlan: workflow.taskPlan,
+      searchResults: workflow.searchResults.length,
+      analysisData: workflow.analysisData.length,
+      hasReport: !!workflow.finalReport
+    });
+  } catch (error) {
+    logger.error('获取工作流状态失败:', error);
+    res.status(500).json({ error: '获取工作流状态失败', message: error.message });
   }
 });
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
-  console.error('服务器错误:', err);
+  logger.error('服务器错误:', err);
   res.status(500).json({
     error: '服务器内部错误',
     message: err.message
@@ -507,27 +676,50 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 3002;
 
 server.listen(PORT, () => {
-  console.log(`🚀 服务器运行在端口 ${PORT}`);
-  console.log(`📡 WebSocket服务器已启动`);
-  console.log(`🔗 健康检查: http://localhost:${PORT}/api/health`);
+  logger.info(`服务器运行在端口 ${PORT}`);
+  logger.info(`WebSocket服务器已启动`);
+  logger.info(`健康检查: http://localhost:${PORT}/api/health`);
   if (!agent) {
-    console.log(`⚠️  Agent功能受限，请配置OPENAI_API_KEY环境变量`);
+    logger.warn(`Agent功能受限，请配置OPENAI_API_KEY环境变量`);
   }
 });
 
 // 优雅关闭
 process.on('SIGTERM', () => {
-  console.log('收到SIGTERM信号，正在关闭服务器...');
+  logger.info('收到SIGTERM信号，正在关闭服务器...');
   server.close(() => {
-    console.log('服务器已关闭');
+    logger.info('服务器已关闭');
     process.exit(0);
   });
 });
 
 process.on('SIGINT', () => {
-  console.log('收到SIGINT信号，正在关闭服务器...');
+  logger.info('收到SIGINT信号，正在关闭服务器...');
   server.close(() => {
-    console.log('服务器已关闭');
+    logger.info('服务器已关闭');
     process.exit(0);
   });
-}); 
+});
+
+// 注册通用智能体工具
+async function registerUniversalAgentTools(universalAgent) {
+  try {
+    logger.info('注册通用智能体工具...');
+    
+    // 导入通用智能体工具注册器
+    const { UniversalAgentToolRegistry } = await import('../../../src/tools/universalAgentToolRegistry.js');
+    const toolRegistry = new UniversalAgentToolRegistry();
+    
+    // 注册工具到通用智能体
+    await toolRegistry.registerToolsToAgent(universalAgent);
+    
+    // 为专门的Agent也注册工具
+    for (const [role, agent] of Object.entries(universalAgent.specializedAgents)) {
+      await toolRegistry.registerToolsToAgent(agent);
+    }
+    
+    logger.success('通用智能体工具注册完成');
+  } catch (error) {
+    logger.error('通用智能体工具注册失败:', error);
+  }
+} 

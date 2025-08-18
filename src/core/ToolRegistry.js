@@ -184,8 +184,17 @@ export class ToolRegistry {
       return; // 没有参数定义，跳过验证
     }
 
-    for (const [paramName, paramDef] of Object.entries(tool.parameters)) {
-      if (!paramDef.optional && !(paramName in args)) {
+    // 处理JSON Schema格式的参数定义
+    const properties = tool.parameters.properties || tool.parameters;
+    const required = tool.parameters.required || [];
+
+    for (const [paramName, paramDef] of Object.entries(properties)) {
+      // 跳过JSON Schema元数据字段
+      if (['type', 'properties', 'required', 'description'].includes(paramName)) {
+        continue;
+      }
+
+      if (required.includes(paramName) && !(paramName in args)) {
         throw new Error(`缺少必需参数: ${paramName}`);
       }
 
@@ -266,6 +275,16 @@ export class ToolRegistry {
    */
   async calculator(args) {
     const { expression } = args;
+    
+    // 参数验证
+    if (!expression) {
+      throw new Error('缺少必需参数: expression');
+    }
+    
+    if (typeof expression !== 'string') {
+      throw new Error('参数类型错误: expression 必须是字符串');
+    }
+    
     try {
       // 安全评估数学表达式
       const sanitized = expression.replace(/[^0-9+\-*/().\s]/g, '');
@@ -294,7 +313,7 @@ export class ToolRegistry {
     try {
       const response = await axios.post('https://google.serper.dev/search', {
         q: query,
-        num: 10
+        num: 1
       }, {
         headers: {
           'X-API-KEY': SERPER_API_KEY,

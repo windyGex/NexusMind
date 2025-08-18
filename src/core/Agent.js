@@ -2,6 +2,7 @@ import { MemoryManager } from './MemoryManager.js';
 import { LLMClient } from './LLMClient.js';
 import { ToolRegistry } from './ToolRegistry.js';
 import { ToolSelector } from './ToolSelector.js';
+import logger from '../../utils/logger.js';
 
 /**
  * 自主智能体核心类
@@ -85,7 +86,7 @@ export class Agent {
       return response;
 
     } catch (error) {
-      console.error('Agent processing error:', error);
+      logger.error('Agent processing error:', error);
       
       // 检查是否是被中止的错误
       if (error.message === '任务已被用户中止') {
@@ -115,7 +116,7 @@ export class Agent {
       // 构建ReAct提示
       const prompt = this.buildReActPrompt(userInput, context, currentThought, iteration);
 
-      console.log('react prompt=========\n', prompt);
+      logger.debug('ReAct prompt:', prompt);
       
       // 获取LLM响应
       const response = await this.llm.generate(prompt, {
@@ -137,11 +138,30 @@ export class Agent {
       if (parsed.action) {
         // 执行工具调用
         try {
-          const toolResult = await this.tools.execute(parsed.action, parsed.args);
-          console.log('toolResult', JSON.stringify(toolResult));
-          currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(parsed.args)})\n观察: 工具执行结果-${JSON.stringify(toolResult)}\n`;
+          // 确保参数格式正确
+          let toolArgs = parsed.args;
+          if (toolArgs && typeof toolArgs === 'object') {
+            // 如果args是对象，直接使用
+            toolArgs = { ...toolArgs };
+          } else if (toolArgs && typeof toolArgs === 'string') {
+            // 如果args是字符串，尝试解析为JSON
+            try {
+              toolArgs = JSON.parse(toolArgs);
+            } catch (error) {
+              // 如果解析失败，将其作为query参数
+              toolArgs = { query: toolArgs };
+            }
+          } else {
+            // 如果没有args，使用空对象
+            toolArgs = {};
+          }
+          
+          logger.debug(`执行工具: ${parsed.action}, 参数:`, toolArgs);
+          const toolResult = await this.tools.execute(parsed.action, toolArgs);
+          logger.debug('Tool execution result:', toolResult);
+          currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(toolArgs)})\n观察: 工具执行结果-${JSON.stringify(toolResult)}\n`;
         } catch (error) {
-          console.error('execute tool error', error);
+          logger.error('Execute tool error:', error);
           
           // 检查是否是被中止的错误
           if (error.message === '任务已被用户中止') {
@@ -231,7 +251,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
    * 解析ReAct响应
    */
   async parseReActResponse(response) {
-    console.log('response=============', response);
+    // console.log('response=============', response);
     
     try {
       // 直接尝试解析JSON响应
@@ -241,15 +261,24 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
         const cleanedResponse = response.trim();
         parsedResult = JSON.parse(cleanedResponse);
       } catch (parseError) {
-        console.error('JSON解析失败，使用备用解析方法:', parseError);
-        // 备用解析方法
+        logger.warn('JSON解析失败，使用备用解析方法:', parseError);
+        // 备用解析方法：尝试提取JSON部分
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsedResult = JSON.parse(jsonMatch[0]);
+          } catch (secondError) {
+            logger.error('备用解析也失败:', secondError);
+          }
+        }
       }
 
-      console.log('parsed', parsedResult);
-      return parsedResult;
+      logger.debug('Parsed response:', parsedResult);
+      return parsedResult || { error: '无法解析响应' };
 
     } catch (error) {
-      console.error('解析失败，使用备用解析方法:', error);
+      logger.error('解析失败，使用备用解析方法:', error);
+      return { error: '解析失败' };
     }
   }
 
@@ -316,7 +345,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   enableCollaboration(agentManager) {
     this.collaborationEnabled = true;
     this.agentManager = agentManager;
-    console.log(`Agent ${this.name} 已启用协作模式`);
+    logger.info(`Agent ${this.name} 已启用协作模式`);
   }
 
   /**
@@ -325,7 +354,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   disableCollaboration() {
     this.collaborationEnabled = false;
     this.agentManager = null;
-    console.log(`Agent ${this.name} 已禁用协作模式`);
+    logger.info(`Agent ${this.name} 已禁用协作模式`);
   }
 
   /**
@@ -356,7 +385,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
         await this.handleBroadcast(message);
         break;
       default:
-        console.log(`Agent ${this.name} 收到消息: ${message.content}`);
+        logger.info(`Agent ${this.name} 收到消息: ${message.content}`);
     }
   }
 
@@ -402,7 +431,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
       timestamp: new Date()
     });
 
-    console.log(`Agent ${this.name} 收到来自 ${from} 的数据共享`);
+    logger.info(`Agent ${this.name} 收到来自 ${from} 的数据共享`);
   }
 
   /**
@@ -419,7 +448,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
       timestamp: new Date()
     });
 
-    console.log(`Agent ${this.name} 收到来自 ${from} 的协调消息`);
+    logger.info(`Agent ${this.name} 收到来自 ${from} 的协调消息`);
   }
 
   /**
@@ -436,7 +465,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
       timestamp: new Date()
     });
 
-    console.log(`Agent ${this.name} 收到来自 ${from} 的广播: ${content}`);
+    logger.info(`Agent ${this.name} 收到来自 ${from} 的广播: ${content}`);
   }
 
   /**
@@ -493,7 +522,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
    */
   setMCPServerManager(serverManager) {
     this.mcpServerManager = serverManager;
-    console.log('🔗 MCP服务器管理器已设置');
+    logger.info('🔗 MCP服务器管理器已设置');
   }
 
   /**
@@ -506,12 +535,12 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
 
     try {
       this.availableMCPTools = this.mcpServerManager.getAllTools();
-      console.log(`📋 更新了 ${this.availableMCPTools.length} 个MCP工具`);
+      logger.info(`📋 更新了 ${this.availableMCPTools.length} 个MCP工具`);
       
       // 将MCP工具注册到本地工具注册表
       await this.registerMCPToolsToLocal();
     } catch (error) {
-      console.error('❌ 更新MCP工具失败:', error);
+      logger.error('❌ 更新MCP工具失败:', error);
     }
   }
 
@@ -556,13 +585,13 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
         });
 
         registeredCount++;
-        console.log(`✅ 已注册MCP工具: ${mcpTool.name}`);
+        logger.success(`已注册MCP工具: ${mcpTool.name}`);
       } catch (error) {
-        console.error(`❌ 注册MCP工具失败 ${mcpTool.name}:`, error);
+        logger.error(`❌ 注册MCP工具失败 ${mcpTool.name}:`, error);
       }
     }
 
-    console.log(`📋 成功注册了 ${registeredCount} 个MCP工具到本地工具注册表`);
+    logger.success(`📋 成功注册了 ${registeredCount} 个MCP工具到本地工具注册表`);
   }
 
   /**
@@ -682,7 +711,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
         });
       } else if (toolInfo && toolInfo.mcpMetadata) {
         // 这是已注册的MCP工具（通过mcpMetadata识别）
-        console.log(`✅ 通过mcpMetadata识别为MCP工具: ${tool.name}`);
+        logger.debug(`✅ 通过mcpMetadata识别为MCP工具: ${tool.name}`);
         categorizedTools.mcp.push({
           ...tool,
           type: 'mcp',

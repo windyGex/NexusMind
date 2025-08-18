@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Layout, theme, ConfigProvider, App as AntApp } from 'antd';
 import ChatInterface from './components/ChatInterface';
 import Sidebar from './components/Sidebar';
+// import WebScraping from './components/WebScraping';
+import UniversalAgent from './components/UniversalAgent';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useTools } from './hooks/useTools';
@@ -15,6 +17,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTool, setCurrentTool] = useState(null);
   const [thinking, setThinking] = useState('');
+  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'web-scraping', 或 'universal-agent'
   
   const { token } = theme.useToken();
   
@@ -39,6 +42,20 @@ function App() {
   useEffect(() => {
     if (lastMessage) {
       const data = JSON.parse(lastMessage);
+      
+      // 根据当前视图决定是否处理消息
+      const shouldProcessMessage = (data) => {
+        // 如果是通用智能体的消息，只在通用智能体视图时处理
+        if (data.agentType === 'universal' || data.type === 'workflow_update') {
+          return currentView === 'universal-agent';
+        }
+        // 其他消息只在聊天视图时处理
+        return currentView === 'chat';
+      };
+      
+      if (!shouldProcessMessage(data)) {
+        return;
+      }
       
       switch (data.type) {
         case 'connection':
@@ -124,8 +141,17 @@ function App() {
             id: Date.now(),
             type: 'assistant',
             content: data.content,
+            metadata: data.metadata,
             timestamp: new Date(data.timestamp)
           }]);
+          break;
+          
+        case 'workflow_update':
+          // 工作流更新消息，只在通用智能体视图中处理
+          if (currentView === 'universal-agent') {
+            // 这里可以添加工作流状态更新逻辑
+            console.log('工作流更新:', data);
+          }
           break;
           
         case 'error':
@@ -140,7 +166,7 @@ function App() {
           break;
       }
     }
-  }, [lastMessage]);
+  }, [lastMessage, currentView]);
 
   // 发送消息
   const handleSendMessage = (message) => {
@@ -225,6 +251,8 @@ function App() {
               mcpTools={mcpTools}
               localTools={localTools}
               toolsLoading={toolsLoading}
+              currentView={currentView}
+              onViewChange={setCurrentView}
             />
           </Sider>
           
@@ -237,15 +265,39 @@ function App() {
               flexDirection: 'column',
               overflow: 'hidden'
             }}>
-              <ChatInterface
-                messages={messages}
-                isProcessing={isProcessing}
-                thinking={thinking}
-                currentTool={currentTool}
-                onSendMessage={handleSendMessage}
-                onAbort={handleAbort}
-                isConnected={isConnected}
-              />
+              {currentView === 'chat' ? (
+                <ChatInterface
+                  messages={messages}
+                  isProcessing={isProcessing}
+                  thinking={thinking}
+                  currentTool={currentTool}
+                  onSendMessage={handleSendMessage}
+                  onAbort={handleAbort}
+                  isConnected={isConnected}
+                />
+              ) : currentView === 'web-scraping' ? (
+               null
+              ) : currentView === 'universal-agent' ? (
+                <UniversalAgent 
+                  isConnected={isConnected}
+                  sendMessage={sendMessage}
+                  sendAbort={sendAbort}
+                  messages={messages}
+                  isProcessing={isProcessing}
+                  thinking={thinking}
+                  currentTool={currentTool}
+                />
+              ) : (
+                <ChatInterface
+                  messages={messages}
+                  isProcessing={isProcessing}
+                  thinking={thinking}
+                  currentTool={currentTool}
+                  onSendMessage={handleSendMessage}
+                  onAbort={handleAbort}
+                  isConnected={isConnected}
+                />
+              )}
             </Content>
           </Layout>
         </Layout>

@@ -9,13 +9,16 @@ import {
   WifiOutlined,
   WifiOutlined as WifiOffOutlined,
   ApiOutlined,
-  DatabaseOutlined
+  DatabaseOutlined,
+  GlobalOutlined,
+  MessageOutlined,
+  TeamOutlined
 } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
 const { Panel } = Collapse;
 
-const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, localTools, toolsLoading }) => {
+const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, localTools, toolsLoading, currentView, onViewChange }) => {
   const [activeKeys, setActiveKeys] = useState(['1', '2']);
 
   if (collapsed) {
@@ -44,6 +47,39 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
 
   return (
     <div className="sidebar-content">
+      {/* 视图切换 */}
+      <div className="sidebar-section">
+        <Title level={5}>功能模块</Title>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Button
+            type={currentView === 'chat' ? 'primary' : 'default'}
+            icon={<MessageOutlined />}
+            onClick={() => onViewChange('chat')}
+            style={{ width: '100%', textAlign: 'left' }}
+          >
+            智能对话
+          </Button>
+          <Button
+            type={currentView === 'web-scraping' ? 'primary' : 'default'}
+            icon={<GlobalOutlined />}
+            onClick={() => onViewChange('web-scraping')}
+            style={{ width: '100%', textAlign: 'left' }}
+          >
+            网页抓取分析
+          </Button>
+          <Button
+            type={currentView === 'universal-agent' ? 'primary' : 'default'}
+            icon={<TeamOutlined />}
+            onClick={() => onViewChange('universal-agent')}
+            style={{ width: '100%', textAlign: 'left' }}
+          >
+            通用智能体
+          </Button>
+        </Space>
+      </div>
+
+      <Divider />
+
       {/* 连接状态 */}
       <div className="sidebar-section">
         <Title level={5}>连接状态</Title>

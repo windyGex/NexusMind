@@ -3,6 +3,7 @@ import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
+import logger from '../../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -49,12 +50,12 @@ class MCPPackageManager {
               });
             }
           } catch (error) {
-            console.warn(`Failed to read package.json for ${packageDir}:`, error.message);
+            logger.warn(`Failed to read package.json for ${packageDir}:`, error.message);
           }
         }
       }
     } catch (error) {
-      console.error('Error discovering local packages:', error);
+      logger.error('Error discovering local packages:', error);
     }
 
     return packages;
@@ -113,7 +114,7 @@ class MCPPackageManager {
     return new Promise((resolve, reject) => {
       const installCommand = version === 'latest' ? packageName : `${packageName}@${version}`;
       
-      console.log(`Installing MCP package: ${installCommand}`);
+      logger.info(`Installing MCP package: ${installCommand}`);
       
       const npm = spawn('npm', ['install', installCommand], {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -133,10 +134,10 @@ class MCPPackageManager {
 
       npm.on('close', (code) => {
         if (code === 0) {
-          console.log(`Successfully installed ${packageName}`);
+          logger.success(`Successfully installed ${packageName}`);
           resolve({ success: true, packageName, version });
         } else {
-          console.error(`Failed to install ${packageName}:`, stderr);
+                      logger.error(`Failed to install ${packageName}:`, stderr);
           reject(new Error(`npm install failed with code ${code}: ${stderr}`));
         }
       });
@@ -152,7 +153,7 @@ class MCPPackageManager {
    */
   async uninstallPackage(packageName) {
     return new Promise((resolve, reject) => {
-      console.log(`Uninstalling MCP package: ${packageName}`);
+      logger.info(`Uninstalling MCP package: ${packageName}`);
       
       const npm = spawn('npm', ['uninstall', packageName], {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -172,10 +173,10 @@ class MCPPackageManager {
 
       npm.on('close', (code) => {
         if (code === 0) {
-          console.log(`Successfully uninstalled ${packageName}`);
+          logger.success(`Successfully uninstalled ${packageName}`);
           resolve({ success: true, packageName });
         } else {
-          console.error(`Failed to uninstall ${packageName}:`, stderr);
+                      logger.error(`Failed to uninstall ${packageName}:`, stderr);
           reject(new Error(`npm uninstall failed with code ${code}: ${stderr}`));
         }
       });
@@ -313,14 +314,14 @@ export class MCPClient {
    */
   async connect() {
     try {
-      console.log(`🔗 正在连接到MCP服务器: ${this.fullServerUrl}`);
+      logger.info(`🔗 正在连接到MCP服务器: ${this.fullServerUrl}`);
 
       // 初始化连接
       const initResult = await this.initialize();
       
       if (initResult.success) {
         this.isConnected = true;
-        console.log('✅ MCP客户端连接成功');
+        logger.success('✅ MCP客户端连接成功');
         
         // 获取服务器能力
         await this.loadServerCapabilities();
@@ -333,7 +334,7 @@ export class MCPClient {
         throw new Error(initResult.error || '初始化失败');
       }
     } catch (error) {
-      console.error('❌ MCP客户端连接失败:', error);
+      logger.error('❌ MCP客户端连接失败:', error);
       this.isConnected = false;
       throw error;
     }
@@ -345,7 +346,7 @@ export class MCPClient {
   async disconnect() {
     this.isConnected = false;
     this.connection = null;
-    console.log('🔌 MCP客户端已断开连接');
+    logger.info('🔌 MCP客户端已断开连接');
   }
 
   /**
@@ -391,7 +392,7 @@ export class MCPClient {
         toolsResult.tools.forEach(tool => {
           this.availableTools.set(tool.name, tool);
         });
-        console.log(`📦 发现 ${this.availableTools.size} 个远程工具`);
+        logger.info(`📦 发现 ${this.availableTools.size} 个远程工具`);
       }
 
       // 获取可用资源
@@ -400,7 +401,7 @@ export class MCPClient {
         resourcesResult.resources.forEach(resource => {
           this.availableResources.set(resource.uri, resource);
         });
-        console.log(`📁 发现 ${this.availableResources.size} 个远程资源`);
+        logger.info(`📁 发现 ${this.availableResources.size} 个远程资源`);
       }
 
       // 获取可用提示
@@ -409,10 +410,10 @@ export class MCPClient {
         promptsResult.prompts.forEach(prompt => {
           this.availablePrompts.set(prompt.name, prompt);
         });
-        console.log(`💡 发现 ${this.availablePrompts.size} 个远程提示`);
+        logger.info(`💡 发现 ${this.availablePrompts.size} 个远程提示`);
       }
     } catch (error) {
-      console.warn('⚠️ 加载服务器能力时出现错误:', error.message);
+              logger.warn('⚠️ 加载服务器能力时出现错误:', error.message);
     }
   }
 
@@ -629,7 +630,7 @@ export class MCPClient {
    */
   async loadLocalMCPPackages() {
     try {
-      console.log('🔍 正在发现本地MCP包...');
+      logger.info('🔍 正在发现本地MCP包...');
       
       const localPackages = await this.packageManager.discoverLocalPackages();
       const results = [];
@@ -639,7 +640,7 @@ export class MCPClient {
           const result = await this.loadPackageServices(pkg.name);
           results.push(result);
         } catch (error) {
-          console.warn(`Failed to load package ${pkg.name}:`, error.message);
+          logger.warn(`Failed to load package ${pkg.name}:`, error.message);
           results.push({ success: false, packageName: pkg.name, error: error.message });
         }
       }
@@ -647,25 +648,25 @@ export class MCPClient {
       const successCount = results.filter(r => r.success).length;
       const totalCount = results.length;
       
-      console.log(`📦 自动加载了 ${successCount}/${totalCount} 个本地MCP包`);
+              logger.info(`📦 自动加载了 ${successCount}/${totalCount} 个本地MCP包`);
       
       if (successCount > 0) {
-        console.log('✅ 成功加载的包:');
+                  logger.info('✅ 成功加载的包:');
         results.filter(r => r.success).forEach(result => {
-          console.log(`  - ${result.packageName} (${result.loadedServices} 个服务)`);
+                      logger.info(`  - ${result.packageName} (${result.loadedServices} 个服务)`);
         });
       }
       
       if (totalCount > successCount) {
-        console.log('⚠️ 加载失败的包:');
+                  logger.warn('⚠️ 加载失败的包:');
         results.filter(r => !r.success).forEach(result => {
-          console.log(`  - ${result.packageName}: ${result.error}`);
+                      logger.warn(`  - ${result.packageName}: ${result.error}`);
         });
       }
 
       return results;
     } catch (error) {
-      console.warn('⚠️ 加载本地MCP包时出现错误:', error.message);
+      logger.warn('⚠️ 加载本地MCP包时出现错误:', error.message);
       return [];
     }
   }
@@ -700,7 +701,7 @@ export class MCPClient {
             this.localTools.set(tool.name, tool);
             loadedServices++;
           } catch (error) {
-            console.warn(`Failed to load tool ${toolConfig.name} from ${packageName}:`, error.message);
+            logger.warn(`Failed to load tool ${toolConfig.name} from ${packageName}:`, error.message);
           }
         }
       }
@@ -721,15 +722,15 @@ export class MCPClient {
             this.localResources.set(resource.uri, resource);
             loadedServices++;
           } catch (error) {
-            console.warn(`Failed to load resource ${resourceConfig.uri} from ${packageName}:`, error.message);
+            logger.warn(`Failed to load resource ${resourceConfig.uri} from ${packageName}:`, error.message);
           }
         }
       }
 
-      console.log(`Loaded ${loadedServices} services from package ${packageName}`);
+      logger.info(`Loaded ${loadedServices} services from package ${packageName}`);
       return { success: true, packageName, loadedServices };
     } catch (error) {
-      console.error(`Failed to load services from package ${packageName}:`, error);
+      logger.error(`Failed to load services from package ${packageName}:`, error);
       throw error;
     }
   }
@@ -853,7 +854,7 @@ export class MCPClient {
         try {
           callback(data);
         } catch (error) {
-          console.error(`Error in event listener for ${event}:`, error);
+          logger.error(`Error in event listener for ${event}:`, error);
         }
       });
     }

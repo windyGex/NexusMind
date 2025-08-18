@@ -1,0 +1,199 @@
+.web-scraping-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.web-scraping-container .ant-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.web-scraping-container .ant-card-head {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.web-scraping-container .ant-card-head-title {
+  color: white;
+  font-weight: 600;
+}
+
+.web-scraping-container .ant-input {
+  border-radius: 6px;
+}
+
+.web-scraping-container .ant-btn {
+  border-radius: 6px;
+  height: 40px;
+  font-weight: 500;
+}
+
+.web-scraping-container .ant-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+}
+
+.web-scraping-container .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.web-scraping-container .ant-table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.web-scraping-container .ant-table-thead > tr > th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+.web-scraping-container .ant-statistic-title {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.web-scraping-container .ant-statistic-content {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.web-scraping-container .ant-progress-bg {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.web-scraping-container .ant-tag {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.web-scraping-container .ant-list-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.web-scraping-container .ant-descriptions-item-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.web-scraping-container .ant-alert {
+  border-radius: 8px;
+}
+
+.web-scraping-container .ant-divider {
+  margin: 24px 0;
+}
+
+.web-scraping-container .ant-space {
+  width: 100%;
+}
+
+.web-scraping-container .ant-typography h2 {
+  margin-bottom: 24px;
+  color: #333;
+}
+
+.web-scraping-container .ant-typography h4 {
+  color: #333;
+  margin-bottom: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .web-scraping-container {
+    padding: 16px;
+  }
+  
+  .web-scraping-container .ant-row {
+    margin: 0 !important;
+  }
+  
+  .web-scraping-container .ant-col {
+    padding: 8px !important;
+  }
+  
+  .web-scraping-container .ant-statistic-content {
+    font-size: 20px;
+  }
+}
+
+/* 动画效果 */
+.web-scraping-container .ant-card {
+  transition: all 0.3s ease;
+}
+
+.web-scraping-container .ant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.web-scraping-container .ant-btn {
+  transition: all 0.3s ease;
+}
+
+.web-scraping-container .ant-input {
+  transition: all 0.3s ease;
+}
+
+.web-scraping-container .ant-input:focus {
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+/* 加载状态样式 */
+.web-scraping-container .ant-spin {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+/* 统计卡片样式 */
+.web-scraping-container .ant-card-small {
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.web-scraping-container .ant-card-small:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+/* 链接样式 */
+.web-scraping-container a {
+  color: #667eea;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.web-scraping-container a:hover {
+  color: #5a6fd8;
+  text-decoration: underline;
+}
+
+/* 成功/失败状态样式 */
+.web-scraping-container .ant-tag-green {
+  background: #f6ffed;
+  border-color: #b7eb8f;
+  color: #52c41a;
+}
+
+.web-scraping-container .ant-tag-red {
+  background: #fff2f0;
+  border-color: #ffccc7;
+  color: #ff4d4f;
+}
+
+/* 进度条样式 */
+.web-scraping-container .ant-progress {
+  margin: 16px 0;
+}
+
+.web-scraping-container .ant-progress-text {
+  font-weight: 600;
+  color: #667eea;
+} 

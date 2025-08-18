@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import logger from '../../utils/logger.js';
 
 /**
  * LLM客户端
@@ -59,7 +60,7 @@ export class LLMClient {
       };
 
     } catch (error) {
-      console.error('LLM generation error:', error);
+      logger.error('LLM generation error:', error);
       throw new Error(`LLM调用失败: ${error.message}`);
     }
   }
@@ -90,7 +91,7 @@ export class LLMClient {
       return stream;
 
     } catch (error) {
-      console.error('LLM stream generation error:', error);
+      logger.error('LLM stream generation error:', error);
       throw new Error(`LLM流式调用失败: ${error.message}`);
     }
   }
@@ -111,7 +112,7 @@ export class LLMClient {
       };
 
     } catch (error) {
-      console.error('Embedding generation error:', error);
+      logger.error('Embedding generation error:', error);
       throw new Error(`嵌入生成失败: ${error.message}`);
     }
   }
@@ -132,7 +133,7 @@ export class LLMClient {
       };
 
     } catch (error) {
-      console.error('Batch embedding generation error:', error);
+      logger.error('Batch embedding generation error:', error);
       throw new Error(`批量嵌入生成失败: ${error.message}`);
     }
   }
@@ -148,7 +149,7 @@ export class LLMClient {
       return this.cosineSimilarity(embedding1, embedding2);
 
     } catch (error) {
-      console.error('Similarity calculation error:', error);
+      logger.error('Similarity calculation error:', error);
       throw new Error(`相似度计算失败: ${error.message}`);
     }
   }
@@ -190,7 +191,7 @@ export class LLMClient {
       return models.data;
 
     } catch (error) {
-      console.error('Model info error:', error);
+      logger.error('Model info error:', error);
       throw new Error(`获取模型信息失败: ${error.message}`);
     }
   }
@@ -204,7 +205,7 @@ export class LLMClient {
       return true;
 
     } catch (error) {
-      console.error('Connection test failed:', error);
+      logger.error('Connection test failed:', error);
       return false;
     }
   }
