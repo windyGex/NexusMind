@@ -240,11 +240,131 @@
   box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
 }
 
+/* 优化图片显示 */
+.markdown-image {
+  max-width: 100%;
+  max-height: 400px;
+  height: auto;
+  border-radius: 8px;
+  margin: 8px 0;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.markdown-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* 优化代码块显示 */
+.message-item .ant-card-body pre {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-radius: 6px !important;
+  padding: 12px !important;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace !important;
+  font-size: 12px !important;
+  overflow-x: auto !important;
+  margin: 8px 0 !important;
+  border: 1px solid #334155 !important;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* 优化表格显示 */
+.message-item table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.message-item th,
+.message-item td {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.message-item th {
+  background-color: #f7fafc;
+  font-weight: bold;
+}
+
+/* 优化引用块显示 */
+.message-item blockquote {
+  border-left: 4px solid #4299e1;
+  padding-left: 16px;
+  margin: 12px 0;
+  background-color: #f7fafc;
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+}
+
+/* 优化列表显示 */
+.message-item ul,
+.message-item ol {
+  margin-left: 20px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.message-item li {
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+/* 优化内联代码显示 */
+.message-item code:not(pre code) {
+  background-color: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  border: 1px solid #e1e1e1;
+  color: #e53e3e;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+/* 优化标题显示 */
+.message-item h1 {
+  font-size: 20px;
+  margin-bottom: 16px;
+  color: #1a202c;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.message-item h2 {
+  font-size: 18px;
+  margin-bottom: 14px;
+  color: #2d3748;
+}
+
+.message-item h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #4a5568;
+}
+
+/* 消息卡片阴影优化 */
+.message-item .ant-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.message-item .ant-card:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .messages-container {
     margin: 8px;
-    padding: 16px;
+    padding: 12px;
   }
   
   .sidebar-content {
@@ -253,6 +373,34 @@
   
   .chat-input-container {
     padding: 16px;
+  }
+
+  .message-item .ant-card {
+    max-width: 95% !important;
+  }
+
+  .markdown-image {
+    max-height: 250px;
+  }
+
+  .message-item .ant-card-body pre {
+    font-size: 11px !important;
+    max-height: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .messages-container {
+    margin: 4px;
+    padding: 8px;
+  }
+
+  .message-item .ant-card-body {
+    padding: 8px 12px !important;
+  }
+
+  .markdown-image {
+    max-height: 200px;
   }
 }
 

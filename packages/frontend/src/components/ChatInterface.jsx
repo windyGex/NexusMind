@@ -44,17 +44,62 @@ const ChatInterface = ({
       case 'user':
         return (
           <div style={{ textAlign: 'right' }}>
-            <Card size="small" style={{ display: 'inline-block', maxWidth: '80%', backgroundColor: '#e6f7ff' }}>
-              <Text>{message.content}</Text>
+            <Card 
+              size="small" 
+              style={{ 
+                display: 'inline-block', 
+                maxWidth: '80%', 
+                backgroundColor: '#e6f7ff' 
+              }}
+              bodyStyle={{ 
+                padding: '12px 16px',
+                lineHeight: '1.5'
+              }}
+            >
+              <Text style={{ fontSize: '14px', color: '#2c3e50' }}>
+                {message.content}
+              </Text>
             </Card>
           </div>
         );
 
       case 'assistant':
         return (
-          <Card size="small" style={{ maxWidth: '90%', backgroundColor: '#f6ffed' }}>
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#f6ffed',
+              padding: '8px 16px' // 增加内边距
+            }}
+            bodyStyle={{ 
+              padding: '16px 20px', // Card body的内边距
+              lineHeight: '1.6' // 改善行高
+            }}
+          >
             <ReactMarkdown
               components={{
+                // 图片组件优化
+                img({ node, src, alt, ...props }) {
+                  return (
+                    <img
+                      src={src}
+                      alt={alt}
+                      {...props}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '400px', // 限制图片最大高度
+                        height: 'auto',
+                        borderRadius: '8px',
+                        marginTop: '8px',
+                        marginBottom: '8px',
+                        display: 'block',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                  );
+                },
+                // 代码块组件
                 code({ node, inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '');
                   return !inline && match ? (
@@ -62,14 +107,154 @@ const ChatInterface = ({
                       style={tomorrow}
                       language={match[1]}
                       PreTag="div"
+                      customStyle={{
+                        margin: '12px 0',
+                        borderRadius: '6px',
+                        fontSize: '13px'
+                      }}
                       {...props}
                     >
                       {String(children).replace(/\n$/, '')}
                     </SyntaxHighlighter>
                   ) : (
-                    <code className={className} {...props}>
+                    <code 
+                      className={className} 
+                      style={{
+                        backgroundColor: '#f5f5f5',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        border: '1px solid #e1e1e1'
+                      }}
+                      {...props}
+                    >
                       {children}
                     </code>
+                  );
+                },
+                // 段落组件
+                p({ children }) {
+                  return (
+                    <p style={{ 
+                      marginBottom: '12px', 
+                      fontSize: '14px',
+                      color: '#2c3e50'
+                    }}>
+                      {children}
+                    </p>
+                  );
+                },
+                // 列表组件
+                ul({ children }) {
+                  return (
+                    <ul style={{ 
+                      marginLeft: '20px', 
+                      marginBottom: '12px',
+                      fontSize: '14px'
+                    }}>
+                      {children}
+                    </ul>
+                  );
+                },
+                ol({ children }) {
+                  return (
+                    <ol style={{ 
+                      marginLeft: '20px', 
+                      marginBottom: '12px',
+                      fontSize: '14px'
+                    }}>
+                      {children}
+                    </ol>
+                  );
+                },
+                // 标题组件
+                h1({ children }) {
+                  return (
+                    <h1 style={{ 
+                      fontSize: '20px', 
+                      marginBottom: '16px',
+                      color: '#1a202c',
+                      borderBottom: '2px solid #e2e8f0',
+                      paddingBottom: '8px'
+                    }}>
+                      {children}
+                    </h1>
+                  );
+                },
+                h2({ children }) {
+                  return (
+                    <h2 style={{ 
+                      fontSize: '18px', 
+                      marginBottom: '14px',
+                      color: '#2d3748'
+                    }}>
+                      {children}
+                    </h2>
+                  );
+                },
+                h3({ children }) {
+                  return (
+                    <h3 style={{ 
+                      fontSize: '16px', 
+                      marginBottom: '12px',
+                      color: '#4a5568'
+                    }}>
+                      {children}
+                    </h3>
+                  );
+                },
+                // 引用组件
+                blockquote({ children }) {
+                  return (
+                    <blockquote style={{
+                      borderLeft: '4px solid #4299e1',
+                      paddingLeft: '16px',
+                      margin: '12px 0',
+                      backgroundColor: '#f7fafc',
+                      padding: '12px 16px',
+                      borderRadius: '0 6px 6px 0',
+                      fontStyle: 'italic'
+                    }}>
+                      {children}
+                    </blockquote>
+                  );
+                },
+                // 表格组件
+                table({ children }) {
+                  return (
+                    <div style={{ overflowX: 'auto', margin: '12px 0' }}>
+                      <table style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        {children}
+                      </table>
+                    </div>
+                  );
+                },
+                th({ children }) {
+                  return (
+                    <th style={{
+                      border: '1px solid #e2e8f0',
+                      padding: '8px 12px',
+                      backgroundColor: '#f7fafc',
+                      fontWeight: 'bold',
+                      fontSize: '13px'
+                    }}>
+                      {children}
+                    </th>
+                  );
+                },
+                td({ children }) {
+                  return (
+                    <td style={{
+                      border: '1px solid #e2e8f0',
+                      padding: '8px 12px',
+                      fontSize: '13px'
+                    }}>
+                      {children}
+                    </td>
                   );
                 }
               }}
@@ -81,14 +266,32 @@ const ChatInterface = ({
 
       case 'thinking':
         return (
-          <Card size="small" style={{ maxWidth: '90%', backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }}>
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#f0f9ff', 
+              borderColor: '#bae6fd' 
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
             <Space direction="vertical" size="small" style={{ width: '100%' }}>
               <Space>
                 <ClockCircleOutlined style={{ color: '#1890ff' }} />
                 <Text type="secondary">思考过程</Text>
               </Space>
               <div className="json-viewer">
-                <pre>{message.content}</pre>
+                <pre style={{ 
+                  margin: 0, 
+                  fontSize: '12px',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word'
+                }}>
+                  {message.content}
+                </pre>
               </div>
             </Space>
           </Card>
@@ -96,7 +299,18 @@ const ChatInterface = ({
 
       case 'tool_start':
         return (
-          <Card size="small" style={{ maxWidth: '90%', backgroundColor: '#fef3c7', borderColor: '#fbbf24' }}>
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#fef3c7', 
+              borderColor: '#fbbf24' 
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
             <Space direction="vertical" size="small" style={{ width: '100%' }}>
               <Space>
                 <ToolOutlined style={{ color: '#f59e0b' }} />
@@ -105,9 +319,16 @@ const ChatInterface = ({
               </Space>
               {message.args && (
                 <div>
-                  <Text type="secondary">参数:</Text>
+                  <Text type="secondary" style={{ fontSize: '13px' }}>参数:</Text>
                   <div className="json-viewer">
-                    <pre>{JSON.stringify(message.args, null, 2)}</pre>
+                    <pre style={{ 
+                      margin: 0, 
+                      fontSize: '12px',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}>
+                      {JSON.stringify(message.args, null, 2)}
+                    </pre>
                   </div>
                 </div>
               )}
@@ -117,7 +338,18 @@ const ChatInterface = ({
 
       case 'tool_result':
         return (
-          <Card size="small" style={{ maxWidth: '90%', backgroundColor: '#dcfce7', borderColor: '#22c55e' }}>
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#dcfce7', 
+              borderColor: '#22c55e' 
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
             <Space direction="vertical" size="small" style={{ width: '100%' }}>
               <Space>
                 <CheckCircleOutlined style={{ color: '#16a34a' }} />
@@ -125,7 +357,16 @@ const ChatInterface = ({
                 <Tag color="success">完成</Tag>
               </Space>
               <div className="json-viewer">
-                <pre>{JSON.stringify(message.result, null, 2)}</pre>
+                <pre style={{ 
+                  margin: 0, 
+                  fontSize: '12px',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  maxHeight: '300px',
+                  overflowY: 'auto'
+                }}>
+                  {JSON.stringify(message.result, null, 2)}
+                </pre>
               </div>
             </Space>
           </Card>
@@ -133,31 +374,70 @@ const ChatInterface = ({
 
       case 'tool_error':
         return (
-          <Card size="small" style={{ maxWidth: '90%', backgroundColor: '#fee2e2', borderColor: '#ef4444' }}>
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#fee2e2', 
+              borderColor: '#ef4444' 
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
             <Space direction="vertical" size="small" style={{ width: '100%' }}>
               <Space>
                 <ExclamationCircleOutlined style={{ color: '#dc2626' }} />
                 <Text strong type="danger">工具错误: {message.tool}</Text>
                 <Tag color="error">失败</Tag>
               </Space>
-              <Text type="danger">{message.error}</Text>
+              <Text type="danger" style={{ fontSize: '13px' }}>
+                {message.error}
+              </Text>
             </Space>
           </Card>
         );
 
       case 'system':
         return (
-          <Card size="small" style={{ maxWidth: '90%', backgroundColor: '#f3f4f6', borderColor: '#d1d5db' }}>
-            <Text type="secondary">{message.content}</Text>
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#f3f4f6', 
+              borderColor: '#d1d5db' 
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
+            <Text type="secondary" style={{ fontSize: '13px' }}>
+              {message.content}
+            </Text>
           </Card>
         );
 
       case 'error':
         return (
-          <Card size="small" style={{ maxWidth: '90%', backgroundColor: '#fee2e2', borderColor: '#ef4444' }}>
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#fee2e2', 
+              borderColor: '#ef4444' 
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
             <Space>
               <ExclamationCircleOutlined style={{ color: '#dc2626' }} />
-              <Text type="danger">{message.content}</Text>
+              <Text type="danger" style={{ fontSize: '13px' }}>
+                {message.content}
+              </Text>
             </Space>
           </Card>
         );
