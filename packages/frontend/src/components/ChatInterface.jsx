@@ -268,13 +268,13 @@ const ChatInterface = ({
           <Card 
             size="small" 
             style={{ 
-              maxWidth: '90%', 
+              maxWidth: '95%', /* 增加宽度从90%到95% */
               backgroundColor: '#f0f9ff', 
               borderColor: '#bae6fd' 
             }}
             bodyStyle={{ 
-              padding: '12px 16px',
-              lineHeight: '1.5'
+              padding: '10px 16px', /* 减小垂直padding */
+              lineHeight: '1.4' /* 减小行高 */
             }}
           >
             <Collapse 
@@ -286,7 +286,7 @@ const ChatInterface = ({
                   label: (
                     <Space>
                       <ClockCircleOutlined style={{ color: '#1890ff' }} />
-                      <Text type="secondary" style={{ fontSize: '13px' }}>
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
                         思考过程
                       </Text>
                       <Tag size="small" color="blue">点击展开</Tag>
@@ -349,15 +349,15 @@ const ChatInterface = ({
           <Card 
             size="small" 
             style={{ 
-              maxWidth: '90%',
+              maxWidth: '95%', /* 增加宽度从90%到95% */
               ...cardStyle
             }}
             bodyStyle={{ 
-              padding: '12px 16px',
-              lineHeight: '1.5'
+              padding: '10px 16px', /* 减小垂直padding */
+              lineHeight: '1.4' /* 减小行高 */
             }}
           >
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space direction="vertical" size="small" style={{ width: '100%', gap: '6px' /* 减小组件间距 */ }}>
               <Space>
                 {titleIcon}
                 <Text strong className={isError ? 'danger' : ''}>

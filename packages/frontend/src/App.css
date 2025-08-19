@@ -367,10 +367,11 @@
 }
 
 .message-item .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-header {
-  padding: 8px 0 !important;
+  padding: 6px 0 !important; /* 减小垂直padding，降低高度 */
   background: transparent !important;
   border-radius: 4px !important;
   transition: all 0.2s ease !important;
+  min-height: 28px !important; /* 设置最小高度，确保紧凑 */
 }
 
 .message-item .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-header:hover {
@@ -383,7 +384,7 @@
 }
 
 .message-item .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-content > .ant-collapse-content-box {
-  padding: 8px 0 0 0 !important;
+  padding: 6px 0 0 0 !important; /* 减小padding */
 }
 
 /* 折叠标签样式 */
@@ -399,6 +400,35 @@
 .message-item .ant-collapse-ghost .ant-collapse-expand-icon {
   color: #1890ff !important;
   font-size: 12px !important;
+}
+
+/* 思考过程和工具执行卡片收起状态优化 */
+.message-item .ant-card-small > .ant-card-body {
+  padding: 10px 16px !important; /* 统一减小内边距 */
+}
+
+/* 思考过程卡片特殊优化 */
+.message-item .ant-card[style*="background-color: rgb(240, 249, 255)"] {
+  min-height: 46px !important; /* 设置思考过程卡片最小高度 */
+}
+
+/* 工具执行卡片特殊优化 */
+.message-item .ant-card[style*="background-color: rgb(254, 243, 199)"],
+.message-item .ant-card[style*="background-color: rgb(220, 252, 231)"],
+.message-item .ant-card[style*="background-color: rgb(254, 226, 226)"] {
+  min-height: 50px !important; /* 设置工具执行卡片最小高度 */
+}
+
+/* 收起状态的标签和图标尺寸优化 */
+.message-item .ant-tag-small {
+  font-size: 10px !important;
+  line-height: 16px !important;
+  padding: 1px 6px !important;
+}
+
+/* Space组件间距优化 */
+.message-item .ant-space-compact .ant-space-item:not(:last-child) {
+  margin-right: 6px !important;
 }
 
 /* 用户消息特殊样式 */
