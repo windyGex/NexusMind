@@ -577,73 +577,7 @@ const ChatInterface = ({
           </div>
         ))}
 
-        {/* 当前工具执行状态 */}
-        {currentTool && (
-          <div className="message-item">
-            <Space align="start" style={{ width: '100%' }}>
-              <Avatar icon={<ToolOutlined />} style={{ backgroundColor: '#faad14' }} />
-              <div style={{ flex: 1 }}>
-                <Card 
-                  size="small" 
-                  className={`tool-execution ${currentTool.status}`}
-                  style={{ maxWidth: '90%' }}
-                  bodyStyle={{ 
-                    padding: '12px 16px',
-                    lineHeight: '1.5'
-                  }}
-                >
-                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                    <Space>
-                      {currentTool.status === 'running' && <Spin size="small" />}
-                      <Text strong>
-                        {currentTool.status === 'running' && '正在执行: '}
-                        {currentTool.status === 'completed' && '执行完成: '}
-                        {currentTool.status === 'error' && '执行失败: '}
-                        {currentTool.name}
-                      </Text>
-                      <Tag color={currentTool.status === 'running' ? 'processing' : currentTool.status === 'completed' ? 'success' : 'error'}>
-                        {currentTool.status === 'running' ? '执行中' : currentTool.status === 'completed' ? '完成' : '失败'}
-                      </Tag>
-                    </Space>
-                    {currentTool.args && (
-                      <Collapse 
-                        ghost
-                        size="small"
-                        items={[
-                          {
-                            key: '1',
-                            label: (
-                              <Text type="secondary" style={{ fontSize: '12px' }}>
-                                工具参数 <Tag size="small" color="orange">点击查看</Tag>
-                              </Text>
-                            ),
-                            children: (
-                              <div className="json-viewer">
-                                <pre style={{ 
-                                  margin: 0, 
-                                  fontSize: '12px',
-                                  whiteSpace: 'pre-wrap',
-                                  wordBreak: 'break-word'
-                                }}>
-                                  {JSON.stringify(currentTool.args, null, 2)}
-                                </pre>
-                              </div>
-                            )
-                          }
-                        ]}
-                        style={{
-                          backgroundColor: 'transparent',
-                          border: 'none',
-                          marginTop: '8px'
-                        }}
-                      />
-                    )}
-                  </Space>
-                </Card>
-              </div>
-            </Space>
-          </div>
-        )}
+
 
         {/* 思考指示器 */}
         {thinking && (
