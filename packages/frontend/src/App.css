@@ -95,8 +95,8 @@
 
 .tool-execution.completed {
   background: #f0f9ff;
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+  border-color: #bae6fd;
+  box-shadow: 0 0 0 3px rgba(186, 230, 253, 0.1);
 }
 
 .tool-execution.error {
@@ -414,7 +414,7 @@
 
 /* 工具执行卡片特殊优化 - 基于边框色识别 */
 .message-item .ant-card[style*="border-color: rgb(251, 191, 36)"],
-.message-item .ant-card[style*="border-color: rgb(34, 197, 94)"],
+.message-item .ant-card[style*="border-color: rgb(186, 230, 253)"],
 .message-item .ant-card[style*="border-color: rgb(239, 68, 68)"] {
   min-height: 50px !important; /* 设置工具执行卡片最小高度 */
 }

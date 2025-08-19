@@ -290,7 +290,6 @@ const ChatInterface = ({
                       <Text type="secondary" style={{ fontSize: '12px' }}>
                         思考过程
                       </Text>
-                      <Tag size="small" color="blue">点击展开</Tag>
                     </Space>
                   ),
                   children: (
@@ -325,7 +324,7 @@ const ChatInterface = ({
         const cardStyle = isError 
           ? { backgroundColor: '#f0f9ff', borderColor: '#ef4444' }
           : isCompleted 
-          ? { backgroundColor: '#f0f9ff', borderColor: '#22c55e' }
+          ? { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' } /* 完成状态边框改为淡蓝色 */
           : { backgroundColor: '#f0f9ff', borderColor: '#fbbf24' };
         
         const iconStyle = isError 
@@ -378,7 +377,7 @@ const ChatInterface = ({
                       key: 'args',
                       label: (
                         <Text type="secondary" style={{ fontSize: '12px' }}>
-                          工具参数 <Tag size="small" color={isError ? "red" : isCompleted ? "green" : "orange"}>点击查看</Tag>
+                          工具参数
                         </Text>
                       ),
                       children: (
@@ -413,7 +412,7 @@ const ChatInterface = ({
                       key: 'result',
                       label: (
                         <Text type="secondary" style={{ fontSize: '12px' }}>
-                          执行结果 <Tag size="small" color="green">点击查看</Tag>
+                          执行结果
                         </Text>
                       ),
                       children: (
