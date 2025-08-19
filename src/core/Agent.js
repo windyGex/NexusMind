@@ -258,44 +258,69 @@ export class Agent {
     const availableTools = this.tools.listAvailable();
     const memory = this.memory.getRelevant(userInput, 3);
     
-    const analysisPrompt = `分析以下任务并返回JSON格式分析。
+    // 筛选最相关的工具
+    const relevantTools = this.getRelevantTools(userInput, availableTools);
+    
+    const analysisPrompt = `请分析以下任务并返回严格的JSON格式分析，不要包含任何其他内容。
 
 任务: ${userInput}
 
-可用工具: ${availableTools.slice(0, 5).map(tool => tool.name).join(', ')}
+可用相关工具:
+${relevantTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n')}
 
-返回格式：
+相关记忆:
+${memory.map(m => `- ${m.content}`).join('\n')}
+
+请严格按照以下JSON格式返回，不要添加任何解释或其他文本：
 {
-  "taskType": "query",
-  "complexity": "simple",
+  "taskType": "query/calculation/search/navigation/weather/general",
+  "complexity": "simple/medium/complex",
   "requiresTools": true,
   "multiStep": true,
-  "coreRequirements": ["获取天气信息"],
-  "suggestedTools": ["amap:maps_weather"],
+  "coreRequirements": ["具体需求1", "具体需求2"],
+  "suggestedTools": ["工具1", "工具2"],
   "estimatedSteps": 2,
-  "challenges": ["需要确定城市代码"],
-  "successCriteria": ["获取准确天气信息"]
+  "challenges": ["挑战1"],
+  "successCriteria": ["成功标准1"]
 }`;
 
     const response = await this.llm.generate(analysisPrompt, {
-      temperature: 0.2,
-      max_tokens: 1000
+      temperature: 0.1,
+      max_tokens: 800
     });
 
+    // 尝试清理并解析JSON
+    let cleanJson = response.content.trim();
+    
+    // 移除可能的markdown代码块标记
+    cleanJson = cleanJson.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    
+    // 移除前后的非JSON内容
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanJson = jsonMatch[0];
+    }
+
     try {
-      return JSON.parse(response.content);
+      const analysis = JSON.parse(cleanJson);
+      logger.debug('任务分析成功:', analysis);
+      return analysis;
     } catch (error) {
-      logger.warn('任务分析JSON解析失败，使用默认分析');
+      logger.warn('任务分析JSON解析失败，使用智能默认分析');
+      
+      // 创建更智能的默认分析
+      const suggestedTools = this.selectToolsForTask(userInput, availableTools);
+      
       return {
-        taskType: 'general',
+        taskType: this.detectTaskType(userInput),
         complexity: 'medium',
-        requiresTools: true,
+        requiresTools: suggestedTools.length > 0,
         multiStep: true,
         coreRequirements: [userInput],
-        suggestedTools: availableTools.slice(0, 3).map(t => t.name),
-        estimatedSteps: 3,
-        challenges: ['需要进一步分析'],
-        successCriteria: ['提供有用的回答']
+        suggestedTools: suggestedTools.slice(0, 3),
+        estimatedSteps: Math.min(suggestedTools.length + 1, 4),
+        challenges: ['需要调用外部工具获取信息'],
+        successCriteria: ['提供准确完整的回答']
       };
     }
   }
@@ -305,60 +330,70 @@ export class Agent {
    */
   async createPlan(userInput, context, taskAnalysis) {
     const availableTools = this.tools.listAvailable();
+    const relevantTools = taskAnalysis.suggestedTools || this.selectToolsForTask(userInput, availableTools);
     
-    const planPrompt = `为任务制定执行计划。
+    const planPrompt = `基于任务分析制定详细执行计划，严格返回JSON格式，不要包含任何其他内容。
 
 任务: ${userInput}
+任务分析: ${JSON.stringify(taskAnalysis)}
 
-可用工具: ${availableTools.slice(0, 3).map(tool => `${tool.name}: ${tool.description}`).join(', ')}
+相关工具详情:
+${relevantTools.map(toolName => {
+  const tool = availableTools.find(t => t.name === toolName);
+  return tool ? `- ${tool.name}: ${tool.description}` : `- ${toolName}: 工具`;
+}).join('\n')}
 
-返回JSON计划：
+请严格按照以下JSON格式返回计划，不要添加任何解释：
 {
-  "strategy": "使用地图工具查询天气",
+  "strategy": "具体执行策略描述",
   "steps": [
     {
       "stepNumber": 1,
-      "stepName": "查询天气",
+      "stepName": "步骤名称",
       "type": "tool_call",
-      "description": "调用天气工具",
-      "tool": "amap:maps_weather",
-      "args": {"city": "杭州"},
-      "expectedOutput": "天气信息",
+      "description": "步骤描述",
+      "tool": "具体工具名",
+      "args": {"参数名": "参数值"},
+      "expectedOutput": "预期输出",
       "dependencies": [],
-      "fallbackOptions": ["使用其他工具"]
+      "fallbackOptions": ["备选方案"]
     }
   ],
-  "expectedOutcome": "获取准确天气信息",
-  "riskAssessment": ["API调用失败"],
-  "qualityChecks": ["验证数据完整性"]
+  "expectedOutcome": "最终预期结果",
+  "riskAssessment": ["风险评估"],
+  "qualityChecks": ["质量检查项"]
 }`;
 
     const response = await this.llm.generate(planPrompt, {
-      temperature: 0.3,
+      temperature: 0.2,
       max_tokens: 2000
     });
 
+    // 清理并解析JSON
+    let cleanJson = response.content.trim();
+    cleanJson = cleanJson.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanJson = jsonMatch[0];
+    }
+
     try {
-      return JSON.parse(response.content);
+      const plan = JSON.parse(cleanJson);
+      logger.debug('计划制定成功:', plan);
+      return plan;
     } catch (error) {
-      logger.warn('计划制定JSON解析失败，创建简单计划');
+      logger.warn('计划制定JSON解析失败，创建智能默认计划');
+      
+      // 创建基于任务分析的智能默认计划
+      const steps = this.createSmartDefaultSteps(userInput, taskAnalysis, availableTools);
+      
       return {
-        strategy: "基于可用工具逐步解决问题",
-        steps: [
-          {
-            stepNumber: 1,
-            stepName: "分析和处理用户请求",
-            type: "reasoning",
-            description: "理解并分析用户需求",
-            reasoning: userInput,
-            expectedOutput: "对用户需求的理解",
-            dependencies: [],
-            fallbackOptions: ["直接回答"]
-          }
-        ],
-        expectedOutcome: "提供有用的回答",
-        riskAssessment: ["可能需要更多信息"],
-        qualityChecks: ["检查回答是否完整"]
+        strategy: `针对${taskAnalysis.taskType}任务的系统化解决方案`,
+        steps: steps,
+        expectedOutcome: taskAnalysis.successCriteria[0] || "提供准确完整的回答",
+        riskAssessment: taskAnalysis.challenges || ["工具调用可能失败"],
+        qualityChecks: ["验证结果准确性", "确保信息完整性"]
       };
     }
   }
@@ -860,6 +895,151 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
         characteristics: ['全局规划', '结构化执行', '质量评估', '系统性思考']
       }
     ];
+  }
+
+  /**
+   * 获取与任务相关的工具
+   */
+  getRelevantTools(userInput, availableTools) {
+    const input = userInput.toLowerCase();
+    
+    // 根据关键词匹配相关工具
+    const relevant = availableTools.filter(tool => {
+      const toolInfo = `${tool.name} ${tool.description || ''}`.toLowerCase();
+      
+      // 天气相关
+      if (input.includes('天气') || input.includes('weather')) {
+        return toolInfo.includes('weather') || toolInfo.includes('天气');
+      }
+      
+      // 导航路线相关
+      if (input.includes('路线') || input.includes('导航') || input.includes('怎么去') || input.includes('到')) {
+        return toolInfo.includes('direction') || toolInfo.includes('路线') || toolInfo.includes('导航');
+      }
+      
+      // 搜索相关
+      if (input.includes('搜索') || input.includes('查找') || input.includes('搜')) {
+        return toolInfo.includes('search') || toolInfo.includes('搜索') || toolInfo.includes('web');
+      }
+      
+      // 地理位置相关
+      if (input.includes('地址') || input.includes('位置') || input.includes('在哪')) {
+        return toolInfo.includes('geo') || toolInfo.includes('address') || toolInfo.includes('位置');
+      }
+      
+      return false;
+    });
+    
+    // 如果没有匹配的，返回前10个工具
+    return relevant.length > 0 ? relevant : availableTools.slice(0, 10);
+  }
+
+  /**
+   * 为任务选择合适的工具
+   */
+  selectToolsForTask(userInput, availableTools) {
+    const input = userInput.toLowerCase();
+    const selected = [];
+    
+    // 天气查询
+    if (input.includes('天气') || input.includes('weather')) {
+      const weatherTool = availableTools.find(t => t.name.includes('weather'));
+      if (weatherTool) selected.push(weatherTool.name);
+    }
+    
+    // 路线导航
+    if (input.includes('路线') || input.includes('导航') || input.includes('怎么去')) {
+      const directionTool = availableTools.find(t => t.name.includes('direction'));
+      if (directionTool) selected.push(directionTool.name);
+    }
+    
+    // 搜索功能
+    if (input.includes('搜索') || input.includes('查') || input.includes('找')) {
+      const searchTool = availableTools.find(t => t.name.includes('search') || t.name.includes('web'));
+      if (searchTool) selected.push(searchTool.name);
+    }
+    
+    return selected;
+  }
+
+  /**
+   * 检测任务类型
+   */
+  detectTaskType(userInput) {
+    const input = userInput.toLowerCase();
+    
+    if (input.includes('天气')) return 'weather';
+    if (input.includes('路线') || input.includes('导航')) return 'navigation';
+    if (input.includes('搜索') || input.includes('查')) return 'search';
+    if (input.includes('地址') || input.includes('位置')) return 'location';
+    
+    return 'query';
+  }
+
+  /**
+   * 创建智能默认步骤
+   */
+  createSmartDefaultSteps(userInput, taskAnalysis, availableTools) {
+    const steps = [];
+    const suggestedTools = taskAnalysis.suggestedTools || [];
+    
+    if (suggestedTools.length > 0) {
+      // 基于建议的工具创建步骤
+      suggestedTools.forEach((toolName, index) => {
+        const tool = availableTools.find(t => t.name === toolName);
+        if (tool) {
+          steps.push({
+            stepNumber: index + 1,
+            stepName: `调用${tool.name}`,
+            type: "tool_call",
+            description: `使用${tool.name}获取信息`,
+            tool: tool.name,
+            args: this.generateToolArgs(userInput, tool),
+            expectedOutput: "工具执行结果",
+            dependencies: [],
+            fallbackOptions: ["使用其他工具"]
+          });
+        }
+      });
+    }
+    
+    // 如果没有工具步骤，添加一个推理步骤
+    if (steps.length === 0) {
+      steps.push({
+        stepNumber: 1,
+        stepName: "分析用户需求",
+        type: "reasoning",
+        description: "理解并分析用户需求",
+        reasoning: userInput,
+        expectedOutput: "对用户需求的理解",
+        dependencies: [],
+        fallbackOptions: ["直接回答"]
+      });
+    }
+    
+    return steps;
+  }
+
+  /**
+   * 为工具生成参数
+   */
+  generateToolArgs(userInput, tool) {
+    // 基于工具类型和用户输入生成合理的参数
+    if (tool.name.includes('weather')) {
+      // 提取城市名
+      const cityMatch = userInput.match(/([\u4e00-\u9fa5]+)/);
+      return { city: cityMatch ? cityMatch[1] : '杭州' };
+    }
+    
+    if (tool.name.includes('search')) {
+      return { query: userInput };
+    }
+    
+    if (tool.name.includes('direction')) {
+      return { destination: userInput };
+    }
+    
+    return {};
   }
 
   /**
