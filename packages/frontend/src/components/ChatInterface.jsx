@@ -43,24 +43,23 @@ const ChatInterface = ({
     switch (message.type) {
       case 'user':
         return (
-          <div style={{ textAlign: 'right' }}>
-            <Card 
-              size="small" 
-              style={{ 
-                display: 'inline-block', 
-                maxWidth: '80%', 
-                backgroundColor: '#e6f7ff' 
-              }}
-              bodyStyle={{ 
-                padding: '12px 16px',
-                lineHeight: '1.5'
-              }}
-            >
-              <Text style={{ fontSize: '14px', color: '#2c3e50' }}>
-                {message.content}
-              </Text>
-            </Card>
-          </div>
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#e6f7ff',
+              marginLeft: 'auto',
+              marginRight: 0
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
+            <Text style={{ fontSize: '14px', color: '#2c3e50' }}>
+              {message.content}
+            </Text>
+          </Card>
         );
 
       case 'assistant':
@@ -542,17 +541,33 @@ const ChatInterface = ({
 
         {messages.map((message) => (
           <div key={message.id} className="message-item">
-            <Space align="start" style={{ width: '100%' }}>
-              {renderAvatar(message)}
-              <div style={{ flex: 1 }}>
-                {renderMessageContent(message)}
-                <div style={{ marginTop: '4px' }}>
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    {dayjs(message.timestamp).format('HH:mm:ss')}
-                  </Text>
+            {message.type === 'user' ? (
+              // 用户消息布局：头像在右侧，消息左对齐到头像
+              <Space align="start" style={{ width: '100%', justifyContent: 'flex-end' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  {renderMessageContent(message)}
+                  <div style={{ marginTop: '4px' }}>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      {dayjs(message.timestamp).format('HH:mm:ss')}
+                    </Text>
+                  </div>
                 </div>
-              </div>
-            </Space>
+                {renderAvatar(message)}
+              </Space>
+            ) : (
+              // 其他消息布局：头像在左侧
+              <Space align="start" style={{ width: '100%' }}>
+                {renderAvatar(message)}
+                <div style={{ flex: 1 }}>
+                  {renderMessageContent(message)}
+                  <div style={{ marginTop: '4px' }}>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      {dayjs(message.timestamp).format('HH:mm:ss')}
+                    </Text>
+                  </div>
+                </div>
+              </Space>
+            )}
           </div>
         ))}
 
@@ -565,6 +580,11 @@ const ChatInterface = ({
                 <Card 
                   size="small" 
                   className={`tool-execution ${currentTool.status}`}
+                  style={{ maxWidth: '90%' }}
+                  bodyStyle={{ 
+                    padding: '12px 16px',
+                    lineHeight: '1.5'
+                  }}
                 >
                   <Space direction="vertical" size="small" style={{ width: '100%' }}>
                     <Space>

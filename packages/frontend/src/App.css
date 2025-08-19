@@ -84,10 +84,7 @@
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   border: 1px solid #f59e0b;
   border-radius: 6px;
-  padding: 8px 12px;
-  margin: 6px 0;
   transition: all 0.3s ease;
-  font-size: 11px;
 }
 
 .tool-execution.running {
@@ -402,6 +399,19 @@
 .message-item .ant-collapse-ghost .ant-collapse-expand-icon {
   color: #1890ff !important;
   font-size: 12px !important;
+}
+
+/* 用户消息特殊样式 */
+.message-item .user-message-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.message-item .user-timestamp {
+  text-align: right;
+  margin-top: 4px;
 }
 
 /* 响应式设计 */
