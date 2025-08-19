@@ -226,7 +226,7 @@ export class Agent {
 
       // 阶段4: 评估结果
       const finalResult = await this.evaluateResult(userInput, executionResult, plan);
-      logger.debug('结果评估完成:', finalResult);
+      logger.info('结果评估完成:', finalResult.finalAnswer);
 
       // 记录Plan & Solve思考过程到记忆
       this.memory.add('reasoning', {
@@ -235,7 +235,7 @@ export class Agent {
         analysis: taskAnalysis,
         plan: plan,
         execution: executionResult,
-        evaluation: finalResult,
+        finalResult: finalResult,
         timestamp: new Date()
       });
 
@@ -343,6 +343,11 @@ ${relevantTools.map(toolName => {
   return tool ? `- ${tool.name}: ${tool.description} 参数：${tool.parameters ? JSON.stringify(tool.parameters) : ''}` : `- ${toolName}: 工具`;
 }).join('\n')}
 
+重要说明：
+- 在步骤的 args 参数中，可以使用 {step_N_result} 格式引用前面步骤的结果
+- 例如：{step_1_result} 表示引用步骤1的结果，{step_2_result} 表示引用步骤2的结果
+- 系统会自动将 {step_N_result} 替换为对应步骤的实际执行结果
+
 请严格按照以下JSON格式返回计划，不要添加任何解释：
 {
   "strategy": "具体执行策略描述",
@@ -353,7 +358,7 @@ ${relevantTools.map(toolName => {
       "type": "tool_call",
       "description": "步骤描述",
       "tool": "具体工具名",
-      "args": {"参数名": "参数值"},
+      "args": {"参数名": "参数值", "可选引用": "{step_1_result}"},
       "expectedOutput": "预期输出",
       "dependencies": [],
       "fallbackOptions": ["备选方案"]
@@ -485,18 +490,10 @@ ${relevantTools.map(toolName => {
    */
   async executeToolStep(step, previousResults) {
     try {
-      // 处理工具参数，可能包含对前面步骤结果的引用
-      let processedArgs = { ...step.args };
-      
-      // 简单的变量替换，支持 {step_N_result} 格式
-      const argsStr = JSON.stringify(processedArgs);
-      const processedArgsStr = argsStr.replace(/\{step_(\d+)_result\}/g, (match, stepNum) => {
-        const stepResult = previousResults.get(parseInt(stepNum));
-        return stepResult ? JSON.stringify(stepResult.content || stepResult) : match;
-      });
-      processedArgs = JSON.parse(processedArgsStr);
+      // 使用大模型进行智能参数处理和变量替换
+      const processedArgs = await this.processToolArgsWithLLM(step, previousResults);
 
-      logger.debug(`执行工具: ${step.tool}, 参数:`, processedArgs);
+      logger.info(`执行工具: ${step.tool}, 参数:`, processedArgs);
       const actualToolId = this.mapToolName(step.tool);
       const toolResult = await this.tools.execute(actualToolId, processedArgs);
       
@@ -510,6 +507,89 @@ ${relevantTools.map(toolName => {
     } catch (error) {
       logger.error(`工具执行失败: ${step.tool}`, error);
       throw error;
+    }
+  }
+
+  /**
+   * 使用大模型处理工具参数和变量替换
+   */
+  async processToolArgsWithLLM(step, previousResults) {
+    try {
+      // 获取工具信息
+      const availableTools = this.tools.listAvailable();
+      const toolInfo = availableTools.find(t => t.name === step.tool);
+      
+      // 构建前面步骤的结果信息
+      const previousResultsInfo = Array.from(previousResults.entries()).map(([stepNum, result]) => ({
+        stepNumber: stepNum,
+        stepName: result.stepName || `步骤${stepNum}`,
+        result: result.content || result,
+        type: result.type || 'tool_call'
+      }));
+
+      // 构建大模型提示词
+      const argsProcessingPrompt = `你是一个智能参数处理专家。请根据前面步骤的执行结果，智能处理当前步骤的工具参数。
+
+当前步骤信息：
+- 步骤名称: ${step.stepName}
+- 步骤描述: ${step.description}
+- 工具名称: ${step.tool}
+- 原始参数: ${JSON.stringify(step.args, null, 2)}
+
+工具信息：
+${toolInfo ? `
+- 工具描述: ${toolInfo.description}
+- 参数类型: ${JSON.stringify(toolInfo.parameters, null, 2)}
+` : '- 工具信息: 未找到详细描述'}
+
+前面步骤的执行结果：
+${previousResultsInfo.map(info => `
+步骤 ${info.stepNumber} (${info.stepName}):
+${typeof info.result === 'string' ? info.result : JSON.stringify(info.result, null, 2)}
+`).join('\n')}
+
+任务要求：
+1. 分析原始参数中是否包含对前面步骤结果的引用（如 {step_1_result}）
+2. 根据前面步骤的实际执行结果，智能替换这些引用
+3. 确保替换后的参数符合工具的参数类型要求
+4. 如果参数需要转换格式（如从JSON字符串提取特定字段），请进行相应处理
+5. 如果找不到对应的步骤结果，保持原始参数不变
+
+请严格按照以下JSON格式返回处理后的参数，不要添加任何解释：
+${JSON.stringify(step.args, null, 2)}
+
+注意：
+- 只返回JSON格式的参数对象
+- 不要添加任何额外的文本或解释
+- 确保参数类型和格式正确
+- 如果原始参数中没有变量引用，直接返回原始参数`;
+
+      const response = await this.llm.generate(argsProcessingPrompt, {
+        temperature: 0.1, // 使用较低的温度确保一致性
+        max_tokens: 5000,
+        conversationHistory: this.conversationHistory
+      });
+
+      // 清理并解析JSON
+      let cleanJson = response.content.trim();
+      cleanJson = cleanJson.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      
+      const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanJson = jsonMatch[0];
+      }
+
+      try {
+        const processedArgs = JSON.parse(cleanJson);
+        logger.debug('参数处理成功:', processedArgs);
+        return processedArgs;
+      } catch (error) {
+        logger.warn('参数处理JSON解析失败，使用原始参数:', error.message);
+        return step.args;
+      }
+    } catch (error) {
+      logger.error('参数处理失败，使用原始参数:', error);
+      return step.args;
     }
   }
 
@@ -619,96 +699,83 @@ ${Array.from(previousResults.entries()).map(([stepNum, result]) =>
    * 结果评估阶段
    */
   async evaluateResult(userInput, executionResult, plan) {
-    // 找到最终的答案（通常是最后一个成功的步骤结果或综合步骤的结果）
-    let finalAnswer = '';
-    const successfulResults = executionResult.results.filter(r => !r.error);
-    
-    if (successfulResults.length > 0) {
-      // 优先选择综合类型的结果
-      const synthesisResult = successfulResults.find(r => r.result.type === 'synthesis');
-      if (synthesisResult) {
-        finalAnswer = synthesisResult.result.content;
-      } else {
-        // 否则选择最后一个成功的结果
-        const lastResult = successfulResults[successfulResults.length - 1];
-        finalAnswer = lastResult.result.content || JSON.stringify(lastResult.result);
-      }
-    }
-
-    // 如果没有成功的结果，尝试从部分结果中构建答案
-    if (!finalAnswer && executionResult.results.length > 0) {
-      const partialResults = executionResult.results
-        .filter(r => r.result && r.result.content)
-        .map(r => r.result.content)
-        .join('\n');
-      
-      if (partialResults) {
-        finalAnswer = `基于部分执行结果，我为您提供以下信息：\n${partialResults}`;
-      }
-    }
-
-    // 评估结果质量
-    const evaluation = await this.assessResultQuality(userInput, finalAnswer, executionResult, plan);
-
-    return {
-      finalAnswer: finalAnswer || '抱歉，我无法完成这个任务。',
-      evaluation: evaluation,
-      executionSummary: {
-        totalSteps: plan.steps.length,
-        successfulSteps: successfulResults.length,
-        failedSteps: executionResult.results.length - successfulResults.length,
-        overallSuccess: executionResult.overallSuccess
-      }
-    };
-  }
-
-  /**
-   * 评估结果质量
-   */
-  async assessResultQuality(userInput, finalAnswer, executionResult, plan) {
-    const evaluationPrompt = `你是一个智能质量评估专家。请评估执行结果的质量。
+    // 使用大模型根据执行情况总结最终结果
+    const summaryPrompt = `你是一个智能结果总结专家。请根据执行情况为用户提供最终的答案。
 
 原始任务: ${userInput}
-最终答案: ${finalAnswer}
-执行摘要: 
-- 总步骤数: ${plan.steps.length}
-- 成功步骤: ${executionResult.results.filter(r => !r.error).length}
-- 失败步骤: ${executionResult.results.filter(r => r.error).length}
 
-请从以下维度评估结果质量，并返回JSON格式：
-{
-  "completeness": {"score": 8, "comment": "完整性评价"},
-  "accuracy": {"score": 9, "comment": "准确性评价"},
-  "usefulness": {"score": 7, "comment": "实用性评价"},
-  "clarity": {"score": 8, "comment": "清晰度评价"},
-  "overall": {"score": 8, "comment": "总体评价"},
-  "strengths": ["优点1", "优点2"],
-  "improvements": ["改进建议1", "改进建议2"]
-}
+执行计划: ${JSON.stringify(plan, null, 2)}
 
-评分范围：1-10分，只返回JSON，不要添加其他内容。`;
+执行结果:
+${executionResult.results.map((result, index) => `
+步骤 ${index + 1} (${result.step.stepName}):
+- 类型: ${result.step.type}
+- 工具: ${result.step.tool || '无'}
+- 状态: ${result.error ? '失败' : '成功'}
+- 结果: ${result.error ? result.error.message : (result.result.content || JSON.stringify(result.result))}
+`).join('\n')}
+
+任务要求：
+1. 分析所有步骤的执行情况
+2. 基于成功的步骤结果，为用户提供完整、准确的最终答案
+3. 如果所有步骤都失败，提供合理的解释和建议
+4. 如果部分步骤成功，基于可用信息提供最佳答案
+5. 确保答案直接回应用户的原始问题
+
+请直接返回最终答案，不要添加任何评估或评分内容。`;
 
     try {
-      const response = await this.llm.generate(evaluationPrompt, {
-        temperature: 0.2,
+      const response = await this.llm.generate(summaryPrompt, {
+        temperature: 0.3,
         max_tokens: 30000,
         conversationHistory: this.conversationHistory
       });
 
-      return JSON.parse(response.content);
-    } catch (error) {
-      logger.warn('结果评估失败，使用默认评估');
+      const finalAnswer = response.content.trim();
+
       return {
-        completeness: { score: 7, comment: "基础评估" },
-        accuracy: { score: 7, comment: "基础评估" },
-        usefulness: { score: 7, comment: "基础评估" },
-        clarity: { score: 7, comment: "基础评估" },
-        overall: { score: 7, comment: "任务已完成" },
-        strengths: ["提供了回答"],
-        improvements: ["可进一步优化"]
+        finalAnswer: finalAnswer || '抱歉，我无法完成这个任务。',
+        executionSummary: {
+          totalSteps: plan.steps.length,
+          successfulSteps: executionResult.results.filter(r => !r.error).length,
+          failedSteps: executionResult.results.filter(r => r.error).length,
+          overallSuccess: executionResult.overallSuccess
+        }
+      };
+    } catch (error) {
+      logger.error('结果总结失败:', error);
+      
+      // 回退到简单的结果提取
+      const successfulResults = executionResult.results.filter(r => !r.error);
+      let fallbackAnswer = '';
+      
+      if (successfulResults.length > 0) {
+        const lastResult = successfulResults[successfulResults.length - 1];
+        fallbackAnswer = lastResult.result.content || JSON.stringify(lastResult.result);
+      } else if (executionResult.results.length > 0) {
+        const partialResults = executionResult.results
+          .filter(r => r.result && r.result.content)
+          .map(r => r.result.content)
+          .join('\n');
+        
+        if (partialResults) {
+          fallbackAnswer = `基于部分执行结果，我为您提供以下信息：\n${partialResults}`;
+        }
+      }
+
+      return {
+        finalAnswer: fallbackAnswer || '抱歉，我无法完成这个任务。',
+        executionSummary: {
+          totalSteps: plan.steps.length,
+          successfulSteps: successfulResults.length,
+          failedSteps: executionResult.results.length - successfulResults.length,
+          overallSuccess: executionResult.overallSuccess
+        }
       };
     }
   }
+
+
 
   /**
    * 构建ReAct提示
