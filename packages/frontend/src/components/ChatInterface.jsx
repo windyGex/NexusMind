@@ -269,12 +269,13 @@ const ChatInterface = ({
             size="small" 
             style={{ 
               maxWidth: '95%', /* 增加宽度从90%到95% */
-              backgroundColor: '#f0f9ff', 
-              borderColor: '#bae6fd' 
+              backgroundColor: '#ffffff', /* 修改为白色背景 */
+              borderColor: '#e5e7eb' /* 修改为浅灰色边框 */
             }}
             bodyStyle={{ 
               padding: '10px 16px', /* 减小垂直padding */
-              lineHeight: '1.4' /* 减小行高 */
+              lineHeight: '1.4', /* 减小行高 */
+              minWidth: '400px'
             }}
           >
             <Collapse 
@@ -320,12 +321,12 @@ const ChatInterface = ({
         const isError = status === 'error';
         const isRunning = status === 'running';
         
-        // 根据状态确定样式
+        // 根据状态确定样式 - 统一使用白色背景
         const cardStyle = isError 
-          ? { backgroundColor: '#fee2e2', borderColor: '#ef4444' }
+          ? { backgroundColor: '#ffffff', borderColor: '#ef4444' }
           : isCompleted 
-          ? { backgroundColor: '#dcfce7', borderColor: '#22c55e' }
-          : { backgroundColor: '#fef3c7', borderColor: '#fbbf24' };
+          ? { backgroundColor: '#ffffff', borderColor: '#22c55e' }
+          : { backgroundColor: '#ffffff', borderColor: '#fbbf24' };
         
         const iconStyle = isError 
           ? { color: '#dc2626' }
@@ -354,7 +355,8 @@ const ChatInterface = ({
             }}
             bodyStyle={{ 
               padding: '10px 16px', /* 减小垂直padding */
-              lineHeight: '1.4' /* 减小行高 */
+              lineHeight: '1.4', /* 减小行高 */
+              minWidth: '400px'
             }}
           >
             <Space direction="vertical" size="small" style={{ width: '100%', gap: '6px' /* 减小组件间距 */ }}>

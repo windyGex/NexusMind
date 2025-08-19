@@ -81,26 +81,26 @@
 }
 
 .tool-execution {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: #ffffff;
   border: 1px solid #f59e0b;
   border-radius: 6px;
   transition: all 0.3s ease;
 }
 
 .tool-execution.running {
-  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+  background: #ffffff;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .tool-execution.completed {
-  background: linear-gradient(135deg, #dcfce7 0%, #86efac 100%);
+  background: #ffffff;
   border-color: #22c55e;
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
 }
 
 .tool-execution.error {
-  background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%);
+  background: #ffffff;
   border-color: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
@@ -408,14 +408,14 @@
 }
 
 /* 思考过程卡片特殊优化 */
-.message-item .ant-card[style*="background-color: rgb(240, 249, 255)"] {
+.message-item .ant-card[style*="border-color: rgb(229, 231, 235)"] {
   min-height: 46px !important; /* 设置思考过程卡片最小高度 */
 }
 
-/* 工具执行卡片特殊优化 */
-.message-item .ant-card[style*="background-color: rgb(254, 243, 199)"],
-.message-item .ant-card[style*="background-color: rgb(220, 252, 231)"],
-.message-item .ant-card[style*="background-color: rgb(254, 226, 226)"] {
+/* 工具执行卡片特殊优化 - 基于边框色识别 */
+.message-item .ant-card[style*="border-color: rgb(251, 191, 36)"],
+.message-item .ant-card[style*="border-color: rgb(34, 197, 94)"],
+.message-item .ant-card[style*="border-color: rgb(239, 68, 68)"] {
   min-height: 50px !important; /* 设置工具执行卡片最小高度 */
 }
 
