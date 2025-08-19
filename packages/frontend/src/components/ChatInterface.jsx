@@ -372,6 +372,7 @@ const ChatInterface = ({
                 <Collapse 
                   ghost
                   size="small"
+                  defaultActiveKey={[]} /* 默认收起 */
                   items={[
                     {
                       key: 'args',
@@ -407,6 +408,7 @@ const ChatInterface = ({
                 <Collapse 
                   ghost
                   size="small"
+                  defaultActiveKey={[]} /* 默认收起 */
                   items={[
                     {
                       key: 'result',
