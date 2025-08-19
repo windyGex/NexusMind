@@ -278,22 +278,40 @@ const ChatInterface = ({
               lineHeight: '1.5'
             }}
           >
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
-              <Space>
-                <ClockCircleOutlined style={{ color: '#1890ff' }} />
-                <Text type="secondary">思考过程</Text>
-              </Space>
-              <div className="json-viewer">
-                <pre style={{ 
-                  margin: 0, 
-                  fontSize: '12px',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word'
-                }}>
-                  {message.content}
-                </pre>
-              </div>
-            </Space>
+            <Collapse 
+              ghost
+              size="small"
+              items={[
+                {
+                  key: '1',
+                  label: (
+                    <Space>
+                      <ClockCircleOutlined style={{ color: '#1890ff' }} />
+                      <Text type="secondary" style={{ fontSize: '13px' }}>
+                        思考过程
+                      </Text>
+                      <Tag size="small" color="blue">点击展开</Tag>
+                    </Space>
+                  ),
+                  children: (
+                    <div className="json-viewer">
+                      <pre style={{ 
+                        margin: 0, 
+                        fontSize: '12px',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word'
+                      }}>
+                        {message.content}
+                      </pre>
+                    </div>
+                  )
+                }
+              ]}
+              style={{
+                backgroundColor: 'transparent',
+                border: 'none'
+              }}
+            />
           </Card>
         );
 
@@ -318,19 +336,37 @@ const ChatInterface = ({
                 <Tag color="processing" icon={<Spin size="small" />}>执行中</Tag>
               </Space>
               {message.args && (
-                <div>
-                  <Text type="secondary" style={{ fontSize: '13px' }}>参数:</Text>
-                  <div className="json-viewer">
-                    <pre style={{ 
-                      margin: 0, 
-                      fontSize: '12px',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word'
-                    }}>
-                      {JSON.stringify(message.args, null, 2)}
-                    </pre>
-                  </div>
-                </div>
+                <Collapse 
+                  ghost
+                  size="small"
+                  items={[
+                    {
+                      key: '1',
+                      label: (
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                          工具参数 <Tag size="small" color="orange">点击查看</Tag>
+                        </Text>
+                      ),
+                      children: (
+                        <div className="json-viewer">
+                          <pre style={{ 
+                            margin: 0, 
+                            fontSize: '12px',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word'
+                          }}>
+                            {JSON.stringify(message.args, null, 2)}
+                          </pre>
+                        </div>
+                      )
+                    }
+                  ]}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    marginTop: '8px'
+                  }}
+                />
               )}
             </Space>
           </Card>
@@ -356,18 +392,39 @@ const ChatInterface = ({
                 <Text strong>工具结果: {message.tool}</Text>
                 <Tag color="success">完成</Tag>
               </Space>
-              <div className="json-viewer">
-                <pre style={{ 
-                  margin: 0, 
-                  fontSize: '12px',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  maxHeight: '300px',
-                  overflowY: 'auto'
-                }}>
-                  {JSON.stringify(message.result, null, 2)}
-                </pre>
-              </div>
+              <Collapse 
+                ghost
+                size="small"
+                items={[
+                  {
+                    key: '1',
+                    label: (
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        详细结果 <Tag size="small" color="green">点击查看</Tag>
+                      </Text>
+                    ),
+                    children: (
+                      <div className="json-viewer">
+                        <pre style={{ 
+                          margin: 0, 
+                          fontSize: '12px',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          maxHeight: '300px',
+                          overflowY: 'auto'
+                        }}>
+                          {JSON.stringify(message.result, null, 2)}
+                        </pre>
+                      </div>
+                    )
+                  }
+                ]}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  marginTop: '8px'
+                }}
+              />
             </Space>
           </Card>
         );
@@ -523,12 +580,37 @@ const ChatInterface = ({
                       </Tag>
                     </Space>
                     {currentTool.args && (
-                      <div>
-                        <Text type="secondary">参数:</Text>
-                        <div className="json-viewer">
-                          <pre>{JSON.stringify(currentTool.args, null, 2)}</pre>
-                        </div>
-                      </div>
+                      <Collapse 
+                        ghost
+                        size="small"
+                        items={[
+                          {
+                            key: '1',
+                            label: (
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                工具参数 <Tag size="small" color="orange">点击查看</Tag>
+                              </Text>
+                            ),
+                            children: (
+                              <div className="json-viewer">
+                                <pre style={{ 
+                                  margin: 0, 
+                                  fontSize: '12px',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word'
+                                }}>
+                                  {JSON.stringify(currentTool.args, null, 2)}
+                                </pre>
+                              </div>
+                            )
+                          }
+                        ]}
+                        style={{
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          marginTop: '8px'
+                        }}
+                      />
                     )}
                   </Space>
                 </Card>

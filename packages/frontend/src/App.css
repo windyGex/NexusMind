@@ -360,6 +360,50 @@
   transform: translateY(-1px);
 }
 
+/* 折叠组件样式优化 */
+.message-item .ant-collapse-ghost {
+  background: transparent !important;
+}
+
+.message-item .ant-collapse-ghost > .ant-collapse-item {
+  border: none !important;
+}
+
+.message-item .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-header {
+  padding: 8px 0 !important;
+  background: transparent !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+}
+
+.message-item .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-header:hover {
+  background: rgba(0, 0, 0, 0.02) !important;
+}
+
+.message-item .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-content {
+  background: transparent !important;
+  border: none !important;
+}
+
+.message-item .ant-collapse-ghost > .ant-collapse-item > .ant-collapse-content > .ant-collapse-content-box {
+  padding: 8px 0 0 0 !important;
+}
+
+/* 折叠标签样式 */
+.message-item .ant-tag {
+  border-radius: 10px;
+  font-size: 10px;
+  line-height: 16px;
+  height: 18px;
+  margin-left: 4px;
+}
+
+/* 思考过程特殊样式 */
+.message-item .ant-collapse-ghost .ant-collapse-expand-icon {
+  color: #1890ff !important;
+  font-size: 12px !important;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .messages-container {
