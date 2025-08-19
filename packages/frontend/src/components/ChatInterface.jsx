@@ -314,14 +314,43 @@ const ChatInterface = ({
           </Card>
         );
 
-      case 'tool_start':
+      case 'tool_execution':
+        const { status, result, error, args, tool, timestamp, completedAt } = message;
+        const isCompleted = status === 'completed';
+        const isError = status === 'error';
+        const isRunning = status === 'running';
+        
+        // 根据状态确定样式
+        const cardStyle = isError 
+          ? { backgroundColor: '#fee2e2', borderColor: '#ef4444' }
+          : isCompleted 
+          ? { backgroundColor: '#dcfce7', borderColor: '#22c55e' }
+          : { backgroundColor: '#fef3c7', borderColor: '#fbbf24' };
+        
+        const iconStyle = isError 
+          ? { color: '#dc2626' }
+          : isCompleted 
+          ? { color: '#16a34a' }
+          : { color: '#f59e0b' };
+        
+        const titleIcon = isError 
+          ? <ExclamationCircleOutlined style={iconStyle} />
+          : isCompleted 
+          ? <CheckCircleOutlined style={iconStyle} />
+          : <ToolOutlined style={iconStyle} />;
+        
+        const statusTag = isError 
+          ? <Tag color="error">失败</Tag>
+          : isCompleted 
+          ? <Tag color="success">完成</Tag>
+          : <Tag color="processing" icon={<Spin size="small" />}>执行中</Tag>;
+        
         return (
           <Card 
             size="small" 
             style={{ 
-              maxWidth: '90%', 
-              backgroundColor: '#fef3c7', 
-              borderColor: '#fbbf24' 
+              maxWidth: '90%',
+              ...cardStyle
             }}
             bodyStyle={{ 
               padding: '12px 16px',
@@ -330,20 +359,24 @@ const ChatInterface = ({
           >
             <Space direction="vertical" size="small" style={{ width: '100%' }}>
               <Space>
-                <ToolOutlined style={{ color: '#f59e0b' }} />
-                <Text strong>调用工具: {message.tool}</Text>
-                <Tag color="processing" icon={<Spin size="small" />}>执行中</Tag>
+                {titleIcon}
+                <Text strong className={isError ? 'danger' : ''}>
+                  工具执行: {tool}
+                </Text>
+                {statusTag}
               </Space>
-              {message.args && (
+              
+              {/* 工具参数 */}
+              {args && (
                 <Collapse 
                   ghost
                   size="small"
                   items={[
                     {
-                      key: '1',
+                      key: 'args',
                       label: (
                         <Text type="secondary" style={{ fontSize: '12px' }}>
-                          工具参数 <Tag size="small" color="orange">点击查看</Tag>
+                          工具参数 <Tag size="small" color={isError ? "red" : isCompleted ? "green" : "orange"}>点击查看</Tag>
                         </Text>
                       ),
                       children: (
@@ -354,7 +387,7 @@ const ChatInterface = ({
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-word'
                           }}>
-                            {JSON.stringify(message.args, null, 2)}
+                            {JSON.stringify(args, null, 2)}
                           </pre>
                         </div>
                       )
@@ -367,90 +400,65 @@ const ChatInterface = ({
                   }}
                 />
               )}
-            </Space>
-          </Card>
-        );
-
-      case 'tool_result':
-        return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '90%', 
-              backgroundColor: '#dcfce7', 
-              borderColor: '#22c55e' 
-            }}
-            bodyStyle={{ 
-              padding: '12px 16px',
-              lineHeight: '1.5'
-            }}
-          >
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
-              <Space>
-                <CheckCircleOutlined style={{ color: '#16a34a' }} />
-                <Text strong>工具结果: {message.tool}</Text>
-                <Tag color="success">完成</Tag>
-              </Space>
-              <Collapse 
-                ghost
-                size="small"
-                items={[
-                  {
-                    key: '1',
-                    label: (
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        详细结果 <Tag size="small" color="green">点击查看</Tag>
-                      </Text>
-                    ),
-                    children: (
-                      <div className="json-viewer">
-                        <pre style={{ 
-                          margin: 0, 
-                          fontSize: '12px',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          maxHeight: '300px',
-                          overflowY: 'auto'
-                        }}>
-                          {JSON.stringify(message.result, null, 2)}
-                        </pre>
-                      </div>
-                    )
-                  }
-                ]}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: 'none',
+              
+              {/* 执行结果 */}
+              {isCompleted && result && (
+                <Collapse 
+                  ghost
+                  size="small"
+                  items={[
+                    {
+                      key: 'result',
+                      label: (
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                          执行结果 <Tag size="small" color="green">点击查看</Tag>
+                        </Text>
+                      ),
+                      children: (
+                        <div className="json-viewer">
+                          <pre style={{ 
+                            margin: 0, 
+                            fontSize: '12px',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            maxHeight: '300px',
+                            overflowY: 'auto'
+                          }}>
+                            {JSON.stringify(result, null, 2)}
+                          </pre>
+                        </div>
+                      )
+                    }
+                  ]}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    marginTop: '8px'
+                  }}
+                />
+              )}
+              
+              {/* 错误信息 */}
+              {isError && error && (
+                <div style={{ 
+                  backgroundColor: '#fef2f2',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  border: '1px solid #fecaca',
                   marginTop: '8px'
-                }}
-              />
-            </Space>
-          </Card>
-        );
-
-      case 'tool_error':
-        return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '90%', 
-              backgroundColor: '#fee2e2', 
-              borderColor: '#ef4444' 
-            }}
-            bodyStyle={{ 
-              padding: '12px 16px',
-              lineHeight: '1.5'
-            }}
-          >
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
-              <Space>
-                <ExclamationCircleOutlined style={{ color: '#dc2626' }} />
-                <Text strong type="danger">工具错误: {message.tool}</Text>
-                <Tag color="error">失败</Tag>
-              </Space>
-              <Text type="danger" style={{ fontSize: '13px' }}>
-                {message.error}
-              </Text>
+                }}>
+                  <Text type="danger" style={{ fontSize: '13px' }}>
+                    {error}
+                  </Text>
+                </div>
+              )}
+              
+              {/* 执行时间信息 */}
+              {completedAt && (
+                <Text type="secondary" style={{ fontSize: '11px' }}>
+                  执行耗时: {Math.round((completedAt - timestamp) / 1000 * 100) / 100}秒
+                </Text>
+              )}
             </Space>
           </Card>
         );
@@ -509,9 +517,7 @@ const ChatInterface = ({
         return <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />;
       case 'assistant':
       case 'thinking':
-      case 'tool_start':
-      case 'tool_result':
-      case 'tool_error':
+      case 'tool_execution':
         return <Avatar icon={<RobotOutlined />} style={{ backgroundColor: '#52c41a' }} />;
       case 'system':
       case 'error':

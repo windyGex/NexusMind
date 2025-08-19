@@ -98,34 +98,45 @@ function App() {
             status: 'running'
           });
           setMessages(prev => [...prev, {
-            id: Date.now(),
-            type: 'tool_start',
+            id: `tool-${data.tool}-${Date.now()}`,
+            type: 'tool_execution',
             tool: data.tool,
             args: data.args,
+            status: 'running',
             timestamp: new Date()
           }]);
           break;
           
         case 'tool_result':
           setCurrentTool(prev => prev ? { ...prev, status: 'completed' } : null);
-          setMessages(prev => [...prev, {
-            id: Date.now(),
-            type: 'tool_result',
-            tool: data.tool,
-            result: data.result,
-            timestamp: new Date()
-          }]);
+          setMessages(prev => prev.map(msg => {
+            // 找到对应的工具执行消息并更新
+            if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
+              return {
+                ...msg,
+                status: 'completed',
+                result: data.result,
+                completedAt: new Date()
+              };
+            }
+            return msg;
+          }));
           break;
           
         case 'tool_error':
           setCurrentTool(prev => prev ? { ...prev, status: 'error' } : null);
-          setMessages(prev => [...prev, {
-            id: Date.now(),
-            type: 'tool_error',
-            tool: data.tool,
-            error: data.error,
-            timestamp: new Date()
-          }]);
+          setMessages(prev => prev.map(msg => {
+            // 找到对应的工具执行消息并更新
+            if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
+              return {
+                ...msg,
+                status: 'error',
+                error: data.error,
+                completedAt: new Date()
+              };
+            }
+            return msg;
+          }));
           break;
           
         case 'agent_response':
