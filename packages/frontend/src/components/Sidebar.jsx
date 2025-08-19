@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Typography, Space, Button, Tag, Divider, List, Tooltip, Collapse, Spin, Select, message } from 'antd';
+import { Card, Typography, Space, Button, Tag, Divider, List, Tooltip, Collapse, Spin, Select, message, Menu } from 'antd';
 import { 
   RobotOutlined, 
   ToolOutlined, 
@@ -14,13 +14,14 @@ import {
   MessageOutlined,
   TeamOutlined,
   ThunderboltOutlined,
-  ProjectOutlined
+  ProjectOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
 const { Panel } = Collapse;
 
-const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, localTools, toolsLoading }) => {
+const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, localTools, toolsLoading, currentView, onViewChange }) => {
   const [activeKeys, setActiveKeys] = useState(['1', '2']);
   const [thinkingModes, setThinkingModes] = useState(null);
   const [changingMode, setChangingMode] = useState(false);
@@ -101,11 +102,44 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
     setActiveKeys(keys);
   };
 
+  // 导航菜单项
+  const menuItems = [
+    {
+      key: 'chat',
+      icon: <MessageOutlined />,
+      label: '智能对话',
+    },
+    {
+      key: 'mcp-config',
+      icon: <SettingOutlined />,
+      label: 'MCP配置',
+    },
+  ];
+
   return (
     <div className="sidebar-content">
-      {/* 功能介绍 */}
+      {/* 导航菜单 */}
       <div className="sidebar-section">
-        <Title level={5}>智能对话</Title>
+        <Menu
+          mode="horizontal"
+          selectedKeys={[currentView]}
+          items={menuItems}
+          onClick={({ key }) => onViewChange(key)}
+          style={{ 
+            borderBottom: 'none',
+            background: 'transparent',
+            marginBottom: '16px'
+          }}
+        />
+      </div>
+
+      <Divider />
+
+      {currentView === 'chat' && (
+        <>
+          {/* 功能介绍 */}
+          <div className="sidebar-section">
+            <Title level={5}>智能对话</Title>
         <Space direction="vertical" style={{ width: '100%' }}>
           <div className="stat-item">
             <Text className="stat-label">功能特性</Text>
@@ -353,6 +387,17 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
           </div>
         </Space>
       </div>
+        </>
+      )}
+
+      {currentView === 'mcp-config' && (
+        <div className="sidebar-section">
+          <Title level={5}>MCP配置</Title>
+          <Text type="secondary">
+            在右侧面板中管理MCP服务器配置
+          </Text>
+        </div>
+      )}
     </div>
   );
 };

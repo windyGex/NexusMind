@@ -34,7 +34,7 @@ class DevServer {
       '--watch', '../src',
       '--ext', 'js,json,mjs',
       '--ignore', 'node_modules',
-      '--delay', '1000',
+      '--delay', '1',
       '--verbose'
     ];
 

@@ -121,23 +121,50 @@ async function loadMCPServers() {
   try {
     logger.info('加载MCP服务器配置...');
     
-    // 使用默认的高德地图MCP服务器配置
-    const servers = {
-      'amap': {
-        name: '高德地图',
-        serverUrl: process.env.MCP_SERVER_URL || 'https://mcp.amap.com/mcp',
-        apiKey: process.env.MCP_API_KEY || 'df2d1657542aabd58302835c17737791'
-      }
-    };
+    // 从配置文件加载MCP服务器配置
+    const { mcpConfigService } = await import('./services/mcpConfigService.js');
+    const config = await mcpConfigService.loadConfig();
     
-    for (const [serverId, config] of Object.entries(servers)) {
-      logger.debug(`添加MCP服务器: ${serverId}`);
-      await mcpServerManager.addServer(serverId, config);
+    for (const serverConfig of config.servers) {
+      logger.debug(`添加MCP服务器: ${serverConfig.id}`);
+      await mcpServerManager.addServer(serverConfig.id, {
+        name: serverConfig.name,
+        serverUrl: serverConfig.serverUrl,
+        apiKey: serverConfig.apiKey,
+        type: serverConfig.type
+      });
     }
     
-    logger.success(`成功加载 ${Object.keys(servers).length} 个MCP服务器`);
+    logger.success(`成功加载 ${config.servers.length} 个MCP服务器`);
   } catch (error) {
     logger.error('加载MCP服务器配置失败:', error);
+  }
+}
+
+// 重新加载MCP服务器配置
+async function reloadMCPServers() {
+  try {
+    logger.info('重新加载MCP服务器配置...');
+    
+    // 清除现有的MCP服务器
+    if (mcpServerManager) {
+      await mcpServerManager.disconnectAll();
+      mcpServerManager.clearServers();
+    }
+    
+    // 重新加载配置
+    await loadMCPServers();
+    
+    // 更新Agent的MCP工具列表
+    if (agent) {
+      await agent.updateMCPTools();
+    }
+    
+    logger.success('MCP服务器配置重新加载完成');
+    return true;
+  } catch (error) {
+    logger.error('重新加载MCP服务器配置失败:', error);
+    return false;
   }
 }
 
@@ -333,6 +360,7 @@ async function handleChatMessage(ws, data, clientId) {
       }
 
       // 发送工具调用开始
+      console.log(`🔧 发送 tool_start 消息: ${toolName}`, args);
       ws.send(JSON.stringify({
         type: 'tool_start',
         tool: toolName,
@@ -340,23 +368,112 @@ async function handleChatMessage(ws, data, clientId) {
       }));
       
       try {
-        const result = await originalExecute.call(this, toolName, args);
+        // 检查是否为MCP工具且支持流式响应
+        const toolInfo = agent.tools.getTool(toolName);
+        const isMCPTool = toolInfo && toolInfo.mcpMetadata;
+        const isStreamableTool = isMCPTool && (
+          toolInfo.mcpMetadata.type === 'streamable-http' ||
+          toolInfo.mcpMetadata.streamable === true
+        );
         
-        // 检查是否被中止
-        if (abortController.signal.aborted) {
-          throw new Error('任务已被用户中止');
+        if (isStreamableTool && agent.mcpServerManager) {
+          // 使用流式调用
+          console.log(`🌊 使用流式调用: ${toolName}`);
+          
+          let streamDataCount = 0;
+          const result = await agent.mcpServerManager.callStreamableTool(
+            toolInfo.mcpMetadata.serverId,
+            toolName,
+            args,
+            {
+              onStreamData: (data) => {
+                streamDataCount++;
+                console.log(`📦 流数据 ${streamDataCount}:`, data);
+                
+                // 检查是否被中止
+                if (abortController.signal.aborted) {
+                  throw new Error('任务已被用户中止');
+                }
+                
+                // 发送流数据到前端
+                ws.send(JSON.stringify({
+                  type: 'tool_stream_data',
+                  tool: toolName,
+                  data: data,
+                  sequence: streamDataCount
+                }));
+              },
+              onProgress: (progress) => {
+                console.log(`📈 进度更新:`, progress);
+                
+                // 发送进度更新到前端
+                ws.send(JSON.stringify({
+                  type: 'tool_progress',
+                  tool: toolName,
+                  progress: progress
+                }));
+              },
+              onComplete: (completeData) => {
+                console.log(`✅ 流式调用完成:`, completeData);
+                
+                // 发送完成通知到前端
+                ws.send(JSON.stringify({
+                  type: 'tool_stream_complete',
+                  tool: toolName,
+                  data: completeData
+                }));
+              },
+              onError: (error) => {
+                console.log(`❌ 流式调用错误:`, error);
+                
+                // 发送错误到前端
+                ws.send(JSON.stringify({
+                  type: 'tool_stream_error',
+                  tool: toolName,
+                  error: error
+                }));
+              }
+            }
+          );
+          
+          // 检查是否被中止
+          if (abortController.signal.aborted) {
+            throw new Error('任务已被用户中止');
+          }
+          
+          // 发送最终结果
+          console.log(`✅ 发送 tool_result 消息: ${toolName} (流式)`, result);
+          ws.send(JSON.stringify({
+            type: 'tool_result',
+            tool: toolName,
+            result: result,
+            streamable: true,
+            streamDataCount: streamDataCount
+          }));
+          
+          return result;
+        } else {
+          // 普通调用
+          const result = await originalExecute.call(this, toolName, args);
+          
+          // 检查是否被中止
+          if (abortController.signal.aborted) {
+            throw new Error('任务已被用户中止');
+          }
+          
+          // 发送工具调用结果
+          console.log(`✅ 发送 tool_result 消息: ${toolName}`, result);
+          ws.send(JSON.stringify({
+            type: 'tool_result',
+            tool: toolName,
+            result: result
+          }));
+          
+          return result;
         }
-        
-        // 发送工具调用结果
-        ws.send(JSON.stringify({
-          type: 'tool_result',
-          tool: toolName,
-          result: result
-        }));
-        
-        return result;
       } catch (error) {
         // 发送工具调用错误
+        console.log(`❌ 发送 tool_error 消息: ${toolName}`, error.message);
         ws.send(JSON.stringify({
           type: 'tool_error',
           tool: toolName,
@@ -448,6 +565,15 @@ async function handleChatMessage(ws, data, clientId) {
 import { webScrapingTools } from './tools/webScrapingTools.js';
 import { stockInvestmentTools, registerStockInvestmentTools } from './tools/stockInvestmentTools.js';
 
+// 导入路由
+import mcpConfigRouter from './routes/mcpConfig.js';
+
+// 将重新加载函数暴露给路由
+app.locals.reloadMCPServers = reloadMCPServers;
+
+// 注册路由
+app.use('/api/mcp', mcpConfigRouter);
+
 // REST API路由
 app.get('/api/health', (req, res) => {
   res.json({
@@ -483,8 +609,8 @@ app.get('/api/agent/tools', (req, res) => {
   }
 });
 
-// 获取MCP服务器状态
-app.get('/api/mcp/status', (req, res) => {
+// 获取MCP服务器状态（移动到不同路径避免冲突）
+app.get('/api/mcp-status', (req, res) => {
   if (!mcpServerManager) {
     res.json({ error: 'MCP服务器管理器未初始化' });
     return;

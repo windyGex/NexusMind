@@ -15,7 +15,7 @@
     "NODE_ENV": "development"
   },
   "exec": "node src/index.js",
-  "delay": 1000,
+  "delay": 1,
   "verbose": true,
   "colours": true,
   "restartable": "rs",

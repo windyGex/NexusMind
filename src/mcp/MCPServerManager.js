@@ -350,6 +350,36 @@ export class MCPServerManager {
   }
 
   /**
+   * 断开所有服务器连接
+   */
+  async disconnectAll() {
+    const disconnectPromises = [];
+    
+    for (const [serverId, server] of this.servers) {
+      try {
+        console.log(`🔌 断开服务器 ${serverId} 连接...`);
+        disconnectPromises.push(server.client.disconnect());
+      } catch (error) {
+        console.error(`❌ 断开服务器 ${serverId} 连接失败:`, error);
+      }
+    }
+    
+    await Promise.allSettled(disconnectPromises);
+    console.log('🔌 所有MCP服务器连接已断开');
+  }
+
+  /**
+   * 清除所有服务器
+   */
+  clearServers() {
+    this.servers.clear();
+    this.toolRegistry.clear();
+    this.serverCapabilities.clear();
+    this.connectionStatus.clear();
+    console.log('🗑️ 已清除所有MCP服务器配置');
+  }
+
+  /**
    * 事件监听
    */
   on(event, callback) {

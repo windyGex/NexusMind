@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Layout, theme, ConfigProvider, App as AntApp } from 'antd';
 import ChatInterface from './components/ChatInterface';
 import Sidebar from './components/Sidebar';
+import MCPConfig from './components/MCPConfig';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useTools } from './hooks/useTools';
@@ -15,7 +16,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTool, setCurrentTool] = useState(null);
   const [thinking, setThinking] = useState('');
-  // 移除了视图切换功能，只保留智能对话
+  const [currentView, setCurrentView] = useState('chat'); // 'chat' 或 'mcp-config'
   
   const { token } = theme.useToken();
   
@@ -93,6 +94,7 @@ function App() {
           break;
           
         case 'tool_start':
+          console.log('🔧 收到 tool_start 消息:', data);
           setCurrentTool({
             name: data.tool,
             args: data.args,
@@ -109,26 +111,33 @@ function App() {
           break;
           
         case 'tool_result':
+          console.log('✅ 收到 tool_result 消息:', data);
           setCurrentTool(prev => prev ? { ...prev, status: 'completed' } : null);
-          setMessages(prev => prev.map(msg => {
-            // 找到对应的工具执行消息并更新
-            if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
-              return {
-                ...msg,
-                status: 'completed',
-                result: data.result,
-                completedAt: new Date()
-              };
-            }
-            return msg;
-          }));
+          setMessages(prev => {
+            console.log('🔍 查找匹配的工具执行消息，当前消息列表:', prev.map(m => ({id: m.id, type: m.type, tool: m.tool, status: m.status})));
+            return prev.map(msg => {
+              // 找到对应的工具执行消息并更新
+              if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
+                console.log('🎯 找到匹配的工具执行消息，更新状态为completed');
+                return {
+                  ...msg,
+                  status: 'completed',
+                  result: data.result,
+                  completedAt: new Date()
+                };
+              }
+              return msg;
+            });
+          });
           break;
           
         case 'tool_error':
+          console.log('❌ 收到 tool_error 消息:', data);
           setCurrentTool(prev => prev ? { ...prev, status: 'error' } : null);
           setMessages(prev => prev.map(msg => {
             // 找到对应的工具执行消息并更新
             if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
+              console.log('🎯 找到匹配的工具执行消息，更新状态为error');
               return {
                 ...msg,
                 status: 'error',
@@ -258,6 +267,8 @@ function App() {
               mcpTools={mcpTools}
               localTools={localTools}
               toolsLoading={toolsLoading}
+              currentView={currentView}
+              onViewChange={setCurrentView}
             />
           </Sider>
           
@@ -270,15 +281,19 @@ function App() {
               flexDirection: 'column',
               overflow: 'hidden'
             }}>
-              <ChatInterface
-                messages={messages}
-                isProcessing={isProcessing}
-                thinking={thinking}
-                currentTool={currentTool}
-                onSendMessage={handleSendMessage}
-                onAbort={handleAbort}
-                isConnected={isConnected}
-              />
+              {currentView === 'chat' ? (
+                <ChatInterface
+                  messages={messages}
+                  isProcessing={isProcessing}
+                  thinking={thinking}
+                  currentTool={currentTool}
+                  onSendMessage={handleSendMessage}
+                  onAbort={handleAbort}
+                  isConnected={isConnected}
+                />
+              ) : currentView === 'mcp-config' ? (
+                <MCPConfig />
+              ) : null}
             </Content>
           </Layout>
         </Layout>
