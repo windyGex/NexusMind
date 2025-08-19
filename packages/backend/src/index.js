@@ -518,11 +518,17 @@ app.post('/api/agent/reset', (req, res) => {
     res.json({ error: 'Agent未初始化' });
     return;
   }
-  agent.reset();
-  res.json({
-    message: 'Agent已重置',
-    status: agent.getStatus()
-  });
+  
+  try {
+    agent.resetConversation();
+    res.json({
+      message: '对话上下文已重置',
+      status: agent.getStatus()
+    });
+  } catch (error) {
+    logger.error('重置对话失败:', error);
+    res.status(500).json({ error: '重置对话失败' });
+  }
 });
 
 app.get('/api/agent/tools', (req, res) => {

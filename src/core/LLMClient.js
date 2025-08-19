@@ -28,12 +28,13 @@ export class LLMClient {
     try {
       const mergedOptions = { ...this.defaultOptions, ...options };
       
-      const response = await this.client.chat.completions.create({
-        model: this.defaultModel,
-        messages: [
-          {
-            role: 'system',
-            content: `你是一个智能助手，具备以下特点：
+      // 构建消息数组，支持对话历史
+      const messages = [];
+      
+      // 添加系统消息
+      messages.push({
+        role: 'system',
+        content: `你是一个智能助手，具备以下特点：
 
 1. **准确性**: 提供准确、可靠的信息和答案
 2. **完整性**: 确保回答全面，不遗漏重要信息
@@ -42,13 +43,36 @@ export class LLMClient {
 5. **实用性**: 提供有实际价值的建议和解决方案
 6. **适应性**: 根据用户需求调整回答的深度和风格
 
-请根据用户的问题提供高质量的回答。如果问题涉及计算、推理或复杂分析，请详细展示你的思考过程。`
-          },
-          {
-            role: 'user',
-            content: prompt
+请根据用户的问题提供高质量的回答。如果问题涉及计算、推理或复杂分析，请详细展示你的思考过程。
+
+重要：请结合之前的对话上下文来理解用户的当前问题，保持对话的连贯性和相关性。`
+      });
+      
+      // 如果有对话历史，添加到消息中
+      if (options.conversationHistory && Array.isArray(options.conversationHistory)) {
+        // 限制历史消息数量，避免token过多
+        const maxHistoryLength = 10; // 最多保留10轮对话
+        const recentHistory = options.conversationHistory.slice(-maxHistoryLength);
+        
+        for (const msg of recentHistory) {
+          if (msg.role === 'user' || msg.role === 'assistant') {
+            messages.push({
+              role: msg.role,
+              content: msg.content
+            });
           }
-        ],
+        }
+      }
+      
+      // 添加当前用户输入
+      messages.push({
+        role: 'user',
+        content: prompt
+      });
+      
+      const response = await this.client.chat.completions.create({
+        model: this.defaultModel,
+        messages: messages,
         ...mergedOptions
       });
 

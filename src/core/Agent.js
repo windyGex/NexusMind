@@ -136,7 +136,8 @@ export class Agent {
       // 获取LLM响应
       const response = await this.llm.generate(prompt, {
         temperature: 0.3,
-        max_tokens: 8000
+        max_tokens: 8000,
+        conversationHistory: this.conversationHistory
       });
 
       const thought = response.content;
@@ -286,7 +287,8 @@ ${memory.map(m => `- ${m.content}`).join('\n')}
 
     const response = await this.llm.generate(analysisPrompt, {
       temperature: 0.1,
-      max_tokens: 800
+      max_tokens: 800,
+      conversationHistory: this.conversationHistory
     });
 
     // 尝试清理并解析JSON
@@ -366,7 +368,8 @@ ${relevantTools.map(toolName => {
 
     const response = await this.llm.generate(planPrompt, {
       temperature: 0.2,
-      max_tokens: 2000
+      max_tokens: 2000,
+      conversationHistory: this.conversationHistory
     });
 
     // 清理并解析JSON
@@ -551,7 +554,8 @@ ${relevantTools.map(toolName => {
 
     const response = await this.llm.generate(reasoningPrompt, {
       temperature: 0.4,
-      max_tokens: 1500
+      max_tokens: 1500,
+      conversationHistory: this.conversationHistory
     });
 
     try {
@@ -599,7 +603,8 @@ ${Array.from(previousResults.entries()).map(([stepNum, result]) =>
 
     const response = await this.llm.generate(synthesisPrompt, {
       temperature: 0.3,
-      max_tokens: 1500
+      max_tokens: 1500,
+      conversationHistory: this.conversationHistory
     });
 
     return {
@@ -689,7 +694,8 @@ ${Array.from(previousResults.entries()).map(([stepNum, result]) =>
     try {
       const response = await this.llm.generate(evaluationPrompt, {
         temperature: 0.2,
-        max_tokens: 800
+        max_tokens: 800,
+        conversationHistory: this.conversationHistory
       });
 
       return JSON.parse(response.content);
@@ -752,7 +758,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   "reasoning": "详细的推理过程，包括问题分析、策略制定、工具选择理由等",
   "action": "工具名称 或 null",
   "args": "工具参数，JSON对象格式 或 null",
-  "finalAnswer": "如果任务完成，给出完整、准确的最终答案 或 null",
+  "finalAnswer": "如果任务完成，给出完整、准确的最终答案 或 null，输出markdown格式, 尽量充分的展示完整的内容，比如图片或者表格等",
   "shouldStop": 如果任务完成返回true, 否则返回false
 }
 
@@ -848,6 +854,23 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   }
 
 
+
+  /**
+   * 重置对话上下文
+   */
+  resetConversation() {
+    this.conversationHistory = [];
+    this.currentTask = null;
+    this.currentPlan = null;
+    
+    // 清空对话相关的记忆
+    if (this.memory) {
+      this.memory.clear('conversation');
+    }
+    
+    logger.info('对话上下文已重置');
+    return true;
+  }
 
   /**
    * 设置思维模式
