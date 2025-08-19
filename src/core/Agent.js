@@ -260,15 +260,12 @@ export class Agent {
     const availableTools = this.tools.listAvailable();
     const memory = this.memory.getRelevant(userInput, 3);
     
-    // 筛选最相关的工具
-    const relevantTools = this.getRelevantTools(userInput, availableTools);
-    
     const analysisPrompt = `请分析以下任务并返回严格的JSON格式分析，不要包含任何其他内容。
 
 任务: ${userInput}
 
 可用相关工具:
-${relevantTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n')}
+${availableTools.map(tool => `- ${tool.name}: ${tool.description} 参数：${tool.parameters ? JSON.stringify(tool.parameters) : ''}`).join('\n')}
 
 相关记忆:
 ${memory.map(m => `- ${m.content}`).join('\n')}
@@ -343,7 +340,7 @@ ${memory.map(m => `- ${m.content}`).join('\n')}
 相关工具详情:
 ${relevantTools.map(toolName => {
   const tool = availableTools.find(t => t.name === toolName);
-  return tool ? `- ${tool.name}: ${tool.description}` : `- ${toolName}: 工具`;
+  return tool ? `- ${tool.name}: ${tool.description} 参数：${tool.parameters ? JSON.stringify(tool.parameters) : ''}` : `- ${toolName}: 工具`;
 }).join('\n')}
 
 请严格按照以下JSON格式返回计划，不要添加任何解释：
@@ -390,11 +387,9 @@ ${relevantTools.map(toolName => {
       logger.warn('计划制定JSON解析失败，创建智能默认计划');
       
       // 创建基于任务分析的智能默认计划
-      const steps = this.createSmartDefaultSteps(userInput, taskAnalysis, availableTools);
-      
       return {
         strategy: `针对${taskAnalysis.taskType}任务的系统化解决方案`,
-        steps: steps,
+        steps: [],
         expectedOutcome: taskAnalysis.successCriteria[0] || "提供准确完整的回答",
         riskAssessment: taskAnalysis.challenges || ["工具调用可能失败"],
         qualityChecks: ["验证结果准确性", "确保信息完整性"]
@@ -923,43 +918,6 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   }
 
   /**
-   * 获取与任务相关的工具
-   */
-  getRelevantTools(userInput, availableTools) {
-    const input = userInput.toLowerCase();
-    
-    // 根据关键词匹配相关工具
-    const relevant = availableTools.filter(tool => {
-      const toolInfo = `${tool.name} ${tool.description || ''}`.toLowerCase();
-      
-      // 天气相关
-      if (input.includes('天气') || input.includes('weather')) {
-        return toolInfo.includes('weather') || toolInfo.includes('天气');
-      }
-      
-      // 导航路线相关
-      if (input.includes('路线') || input.includes('导航') || input.includes('怎么去') || input.includes('到')) {
-        return toolInfo.includes('direction') || toolInfo.includes('路线') || toolInfo.includes('导航');
-      }
-      
-      // 搜索相关
-      if (input.includes('搜索') || input.includes('查找') || input.includes('搜')) {
-        return toolInfo.includes('search') || toolInfo.includes('搜索') || toolInfo.includes('web');
-      }
-      
-      // 地理位置相关
-      if (input.includes('地址') || input.includes('位置') || input.includes('在哪')) {
-        return toolInfo.includes('geo') || toolInfo.includes('address') || toolInfo.includes('位置');
-      }
-      
-      return false;
-    });
-    
-    // 如果没有匹配的，返回前10个工具
-    return relevant.length > 0 ? relevant : availableTools.slice(0, 10);
-  }
-
-  /**
    * 为任务选择合适的工具
    */
   selectToolsForTask(userInput, availableTools) {
@@ -1000,51 +958,6 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
     
     return 'query';
   }
-
-  /**
-   * 创建智能默认步骤
-   */
-  createSmartDefaultSteps(userInput, taskAnalysis, availableTools) {
-    const steps = [];
-    const suggestedTools = taskAnalysis.suggestedTools || [];
-    
-    if (suggestedTools.length > 0) {
-      // 基于建议的工具创建步骤
-      suggestedTools.forEach((toolName, index) => {
-        const tool = availableTools.find(t => t.name === toolName);
-        if (tool) {
-          steps.push({
-            stepNumber: index + 1,
-            stepName: `调用${tool.name}`,
-            type: "tool_call",
-            description: `使用${tool.name}获取信息`,
-            tool: tool.name,
-            args: this.generateToolArgs(userInput, tool),
-            expectedOutput: "工具执行结果",
-            dependencies: [],
-            fallbackOptions: ["使用其他工具"]
-          });
-        }
-      });
-    }
-    
-    // 如果没有工具步骤，添加一个推理步骤
-    if (steps.length === 0) {
-      steps.push({
-        stepNumber: 1,
-        stepName: "分析用户需求",
-        type: "reasoning",
-        description: "理解并分析用户需求",
-        reasoning: userInput,
-        expectedOutput: "对用户需求的理解",
-        dependencies: [],
-        fallbackOptions: ["直接回答"]
-      });
-    }
-    
-    return steps;
-  }
-
   /**
    * 为工具生成参数
    */
@@ -1326,7 +1239,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
         });
 
         registeredCount++;
-        logger.success(`已注册MCP工具: ${mcpTool.name}`);
+        // logger.success(`已注册MCP工具: ${mcpTool.name}`);
       } catch (error) {
         logger.error(`❌ 注册MCP工具失败 ${mcpTool.name}:`, error);
       }
