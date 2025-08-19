@@ -136,7 +136,7 @@ export class Agent {
       // 获取LLM响应
       const response = await this.llm.generate(prompt, {
         temperature: 0.3,
-        max_tokens: 400000,
+        max_tokens: 30000,
         conversationHistory: this.conversationHistory
       });
 
@@ -173,7 +173,8 @@ export class Agent {
           }
           
           logger.debug(`执行工具: ${parsed.action}, 参数:`, toolArgs);
-          const toolResult = await this.tools.execute(parsed.action, toolArgs);
+          const actualToolId = this.mapToolName(parsed.action);
+          const toolResult = await this.tools.execute(actualToolId, toolArgs);
           logger.debug('Tool execution result:', toolResult);
           currentThought += `\n思考: ${parsed.reasoning}\n行动: ${parsed.action}(${JSON.stringify(toolArgs)})\n观察: 工具执行结果-${JSON.stringify(toolResult)}\n`;
         } catch (error) {
@@ -287,7 +288,7 @@ ${memory.map(m => `- ${m.content}`).join('\n')}
 
     const response = await this.llm.generate(analysisPrompt, {
       temperature: 0.1,
-      max_tokens: 400000,
+      max_tokens: 30000,
       conversationHistory: this.conversationHistory
     });
 
@@ -368,7 +369,7 @@ ${relevantTools.map(toolName => {
 
     const response = await this.llm.generate(planPrompt, {
       temperature: 0.2,
-      max_tokens: 400000,
+      max_tokens: 30000,
       conversationHistory: this.conversationHistory
     });
 
@@ -501,7 +502,8 @@ ${relevantTools.map(toolName => {
       processedArgs = JSON.parse(processedArgsStr);
 
       logger.debug(`执行工具: ${step.tool}, 参数:`, processedArgs);
-      const toolResult = await this.tools.execute(step.tool, processedArgs);
+      const actualToolId = this.mapToolName(step.tool);
+      const toolResult = await this.tools.execute(actualToolId, processedArgs);
       
       return {
         success: true,
@@ -554,7 +556,7 @@ ${relevantTools.map(toolName => {
 
     const response = await this.llm.generate(reasoningPrompt, {
       temperature: 0.4,
-      max_tokens: 400000,
+      max_tokens: 30000,
       conversationHistory: this.conversationHistory
     });
 
@@ -603,7 +605,7 @@ ${Array.from(previousResults.entries()).map(([stepNum, result]) =>
 
     const response = await this.llm.generate(synthesisPrompt, {
       temperature: 0.3,
-      max_tokens: 400000,
+      max_tokens: 30000,
       conversationHistory: this.conversationHistory
     });
 
@@ -694,7 +696,7 @@ ${Array.from(previousResults.entries()).map(([stepNum, result]) =>
     try {
       const response = await this.llm.generate(evaluationPrompt, {
         temperature: 0.2,
-        max_tokens: 400000,
+        max_tokens: 30000,
         conversationHistory: this.conversationHistory
       });
 
@@ -1305,7 +1307,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
 
         // 注册MCP工具到本地工具注册表
         this.tools.registerTool(toolId, {
-          name: mcpTool.name,
+          name: toolId, // 使用完整的工具ID作为名称
           description: mcpTool.description || `MCP工具: ${mcpTool.name}`,
           category: 'mcp',
           parameters: this.convertMCPInputSchemaToParameters(mcpTool.inputSchema),
@@ -1318,6 +1320,7 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
             serverId: mcpTool.serverId,
             serverName: mcpTool.serverName,
             toolId: toolId,
+            originalName: mcpTool.name, // 保存原始名称
             type: 'mcp'
           }
         });
@@ -1413,6 +1416,30 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   }
 
   /**
+   * 将显示名称映射到实际工具ID
+   */
+  mapToolName(displayName) {
+    // 首先尝试直接获取工具（可能是本地工具或完整ID）
+    if (this.tools.getTool(displayName)) {
+      return displayName;
+    }
+    
+    // 检查是否需要添加服务器前缀
+    const allTools = this.tools.listAvailable();
+    
+    for (const tool of allTools) {
+      const toolInfo = this.tools.getTool(tool.name);
+      
+      if (toolInfo && toolInfo.mcpMetadata && toolInfo.mcpMetadata.originalName === displayName) {
+        return tool.name; // 返回实际的工具ID
+      }
+    }
+    
+    // 如果没找到映射，返回原名称
+    return displayName;
+  }
+
+  /**
    * 获取所有可用工具（包括本地工具和MCP工具）
    */
   getAllAvailableTools() {
@@ -1429,9 +1456,20 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
     allTools.forEach(tool => {
       const toolInfo = this.tools.getTool(tool.name);
       
-      // 检查是否是MCP工具（通过名称格式判断）
-      if (tool.name.includes('maps_') || tool.name.includes('amap:')) {
-        // 提取服务器ID和工具名称
+      // 检查是否是MCP工具（优先通过mcpMetadata判断）
+      if (toolInfo && toolInfo.mcpMetadata) {
+        // 这是已注册的MCP工具（通过mcpMetadata识别）
+        const displayName = toolInfo.mcpMetadata.originalName || tool.name;
+        categorizedTools.mcp.push({
+          ...tool,
+          name: displayName, // 使用原始名称显示给用户
+          actualToolId: tool.name, // 保存实际的工具ID用于调用
+          type: 'mcp',
+          serverId: toolInfo.mcpMetadata.serverId,
+          serverName: toolInfo.mcpMetadata.serverName
+        });
+      } else if (tool.name.includes('maps_') || tool.name.includes('amap:')) {
+        // 备用识别方法（向后兼容）
         let serverId = 'amap';
         let toolName = tool.name;
         
@@ -1443,19 +1481,13 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
         
         categorizedTools.mcp.push({
           ...tool,
+          name: toolName, // 显示简化的名称
+          actualToolId: tool.name, // 保存实际的工具ID
           type: 'mcp',
           serverId: serverId,
           serverName: serverId
         });
-      } else if (toolInfo && toolInfo.mcpMetadata) {
-        // 这是已注册的MCP工具（通过mcpMetadata识别）
-        logger.debug(`✅ 通过mcpMetadata识别为MCP工具: ${tool.name}`);
-        categorizedTools.mcp.push({
-          ...tool,
-          type: 'mcp',
-          serverId: toolInfo.mcpMetadata.serverId,
-          serverName: toolInfo.mcpMetadata.serverName
-        });
+
       } else {
         // 这是本地工具
         categorizedTools.local.push({

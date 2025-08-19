@@ -467,6 +467,99 @@ app.get('/api/agent/status', (req, res) => {
   res.json(agent.getStatus());
 });
 
+// 获取工具列表
+app.get('/api/agent/tools', (req, res) => {
+  if (!agent) {
+    res.json({ error: 'Agent未初始化' });
+    return;
+  }
+  
+  try {
+    const tools = agent.getAllAvailableTools();
+    res.json(tools);
+  } catch (error) {
+    logger.error('获取工具列表失败:', error);
+    res.status(500).json({ error: '获取工具列表失败' });
+  }
+});
+
+// 获取MCP服务器状态
+app.get('/api/mcp/status', (req, res) => {
+  if (!mcpServerManager) {
+    res.json({ error: 'MCP服务器管理器未初始化' });
+    return;
+  }
+  
+  try {
+    const status = mcpServerManager.getServerStatus();
+    res.json(status);
+  } catch (error) {
+    logger.error('获取MCP状态失败:', error);
+    res.status(500).json({ error: '获取MCP状态失败' });
+  }
+});
+
+// 调试工具注册信息
+app.get('/api/debug/tools', (req, res) => {
+  if (!agent) {
+    res.json({ error: 'Agent未初始化' });
+    return;
+  }
+  
+  try {
+    const allTools = agent.tools.listAvailable();
+    const toolDetails = allTools.map(tool => {
+      const toolInfo = agent.tools.getTool(tool.name);
+      return {
+        name: tool.name,
+        description: tool.description,
+        category: tool.category,
+        mcpMetadata: toolInfo?.mcpMetadata || null
+      };
+    });
+    
+    res.json({
+      totalTools: allTools.length,
+      tools: toolDetails
+    });
+  } catch (error) {
+    logger.error('获取调试工具信息失败:', error);
+    res.status(500).json({ error: '获取调试工具信息失败' });
+  }
+});
+
+// 测试工具调用
+app.post('/api/test/tool/:toolName', async (req, res) => {
+  if (!agent) {
+    res.json({ error: 'Agent未初始化' });
+    return;
+  }
+  
+  const { toolName } = req.params;
+  const { args = {} } = req.body;
+  
+  try {
+    logger.info(`测试工具调用: ${toolName}`, args);
+    const actualToolId = agent.mapToolName(toolName);
+    logger.info(`映射后的工具ID: ${actualToolId}`);
+    const result = await agent.tools.execute(actualToolId, args);
+    res.json({
+      success: true,
+      toolName,
+      args,
+      result
+    });
+  } catch (error) {
+    logger.error(`测试工具调用失败: ${toolName}`, error);
+    res.status(500).json({
+      success: false,
+      toolName,
+      args,
+      error: error.message
+    });
+  }
+});
+
 // 获取支持的思维模式
 app.get('/api/agent/thinking-modes', (req, res) => {
   if (!agent) {

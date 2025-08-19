@@ -16,7 +16,7 @@ export class AgentConfig {
       model: process.env.OPENAI_MODEL || 'doubao-seed-1.6',
       baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
       temperature: parseFloat(process.env.LLM_TEMPERATURE) || 0.7,
-      maxTokens: parseInt(process.env.LLM_MAX_TOKENS) || 400000
+      maxTokens: parseInt(process.env.LLM_MAX_TOKENS) || 30000
     };
 
     this.agent = {

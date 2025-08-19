@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Input, Button, Card, Avatar, Typography, Space, Spin, Tag, Collapse } from 'antd';
 import { SendOutlined, UserOutlined, RobotOutlined, ToolOutlined, ExclamationCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, StopOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import dayjs from 'dayjs';
@@ -77,6 +78,7 @@ const ChatInterface = ({
             }}
           >
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 // 图片组件优化
                 img({ node, src, alt, ...props }) {
