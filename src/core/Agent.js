@@ -136,7 +136,7 @@ export class Agent {
       // 获取LLM响应
       const response = await this.llm.generate(prompt, {
         temperature: 0.3,
-        max_tokens: 8000,
+        max_tokens: 400000,
         conversationHistory: this.conversationHistory
       });
 
@@ -287,7 +287,7 @@ ${memory.map(m => `- ${m.content}`).join('\n')}
 
     const response = await this.llm.generate(analysisPrompt, {
       temperature: 0.1,
-      max_tokens: 800,
+      max_tokens: 400000,
       conversationHistory: this.conversationHistory
     });
 
@@ -368,7 +368,7 @@ ${relevantTools.map(toolName => {
 
     const response = await this.llm.generate(planPrompt, {
       temperature: 0.2,
-      max_tokens: 2000,
+      max_tokens: 400000,
       conversationHistory: this.conversationHistory
     });
 
@@ -554,7 +554,7 @@ ${relevantTools.map(toolName => {
 
     const response = await this.llm.generate(reasoningPrompt, {
       temperature: 0.4,
-      max_tokens: 1500,
+      max_tokens: 400000,
       conversationHistory: this.conversationHistory
     });
 
@@ -603,7 +603,7 @@ ${Array.from(previousResults.entries()).map(([stepNum, result]) =>
 
     const response = await this.llm.generate(synthesisPrompt, {
       temperature: 0.3,
-      max_tokens: 1500,
+      max_tokens: 400000,
       conversationHistory: this.conversationHistory
     });
 
@@ -694,7 +694,7 @@ ${Array.from(previousResults.entries()).map(([stepNum, result]) =>
     try {
       const response = await this.llm.generate(evaluationPrompt, {
         temperature: 0.2,
-        max_tokens: 800,
+        max_tokens: 400000,
         conversationHistory: this.conversationHistory
       });
 

@@ -39,7 +39,7 @@ export class ToolSelector {
     try {
       const response = await context.llm.generate(prompt, {
         temperature: 0.3,
-        max_tokens: 500
+        max_tokens: 400000
       });
       
       return this.parseLLMSelectionResponse(response, availableTools);
