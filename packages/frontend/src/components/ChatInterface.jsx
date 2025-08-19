@@ -269,8 +269,8 @@ const ChatInterface = ({
             size="small" 
             style={{ 
               maxWidth: '95%', /* 增加宽度从90%到95% */
-              backgroundColor: '#ffffff', /* 修改为白色背景 */
-              borderColor: '#e5e7eb' /* 修改为浅灰色边框 */
+              backgroundColor: '#f0f9ff', /* 修改为淡蓝色背景 */
+              borderColor: '#bae6fd' /* 修改为淡蓝色边框 */
             }}
             bodyStyle={{ 
               padding: '10px 16px', /* 减小垂直padding */
@@ -321,12 +321,12 @@ const ChatInterface = ({
         const isError = status === 'error';
         const isRunning = status === 'running';
         
-        // 根据状态确定样式 - 统一使用白色背景
+        // 根据状态确定样式 - 统一使用淡蓝色背景
         const cardStyle = isError 
-          ? { backgroundColor: '#ffffff', borderColor: '#ef4444' }
+          ? { backgroundColor: '#f0f9ff', borderColor: '#ef4444' }
           : isCompleted 
-          ? { backgroundColor: '#ffffff', borderColor: '#22c55e' }
-          : { backgroundColor: '#ffffff', borderColor: '#fbbf24' };
+          ? { backgroundColor: '#f0f9ff', borderColor: '#22c55e' }
+          : { backgroundColor: '#f0f9ff', borderColor: '#fbbf24' };
         
         const iconStyle = isError 
           ? { color: '#dc2626' }

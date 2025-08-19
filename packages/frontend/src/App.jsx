@@ -69,6 +69,7 @@ function App() {
         case 'aborted':
           setIsProcessing(false);
           setCurrentTool(null);
+          setThinking(''); // 清空思考状态
           setMessages(prev => [...prev, {
             id: Date.now(),
             type: 'system',
@@ -142,6 +143,7 @@ function App() {
         case 'agent_response':
           setIsProcessing(false);
           setCurrentTool(null);
+          setThinking(''); // 清空思考状态
           setMessages(prev => [...prev, {
             id: Date.now(),
             type: 'assistant',
@@ -159,6 +161,7 @@ function App() {
         case 'error':
           setIsProcessing(false);
           setCurrentTool(null);
+          setThinking(''); // 清空思考状态
           setMessages(prev => [...prev, {
             id: Date.now(),
             type: 'error',

@@ -81,26 +81,26 @@
 }
 
 .tool-execution {
-  background: #ffffff;
+  background: #f0f9ff;
   border: 1px solid #f59e0b;
   border-radius: 6px;
   transition: all 0.3s ease;
 }
 
 .tool-execution.running {
-  background: #ffffff;
+  background: #f0f9ff;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .tool-execution.completed {
-  background: #ffffff;
+  background: #f0f9ff;
   border-color: #22c55e;
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
 }
 
 .tool-execution.error {
-  background: #ffffff;
+  background: #f0f9ff;
   border-color: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
@@ -408,7 +408,7 @@
 }
 
 /* 思考过程卡片特殊优化 */
-.message-item .ant-card[style*="border-color: rgb(229, 231, 235)"] {
+.message-item .ant-card[style*="border-color: rgb(186, 230, 253)"] {
   min-height: 46px !important; /* 设置思考过程卡片最小高度 */
 }
 
