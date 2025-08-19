@@ -159,6 +159,18 @@ function App() {
     }
   }, [lastMessage]);
 
+  // 管理currentTool的自动清理
+  useEffect(() => {
+    if (currentTool && (currentTool.status === 'completed' || currentTool.status === 'error')) {
+      const delay = currentTool.status === 'error' ? 3000 : 2000; // 错误状态显示更久
+      const timer = setTimeout(() => {
+        setCurrentTool(null);
+      }, delay);
+      
+      return () => clearTimeout(timer); // 清理定时器
+    }
+  }, [currentTool]);
+
   // 发送消息
   const handleSendMessage = (message) => {
     if (!isConnected) {
