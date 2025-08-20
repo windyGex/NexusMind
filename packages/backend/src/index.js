@@ -484,6 +484,14 @@ async function handleChatMessage(ws, data, clientId) {
       }
     };
 
+    // 设置Plan & Solve状态更新回调
+    targetAgent.onPlanSolveUpdate = (update) => {
+      ws.send(JSON.stringify({
+        type: 'plan_solve_update',
+        ...update
+      }));
+    };
+
     // 处理用户输入
     let response;
     if (agentType === 'universal') {

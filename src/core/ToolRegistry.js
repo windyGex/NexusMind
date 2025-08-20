@@ -1,5 +1,6 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { webScrapingToolRegistry } from '../tools/webScrapingToolRegistry.js';
 
 // 加载环境变量
 dotenv.config();
@@ -35,7 +36,7 @@ export class ToolRegistry {
 
     this.registerTool('web_search', {
       name: 'web_search',
-      description: '使用 Serper API 搜索互联网上的最新信息，获取实时数据、新闻、技术文档、学术资料等。返回结构化的搜索结果，包括标题、摘要和链接。适用于需要最新信息或特定领域知识的查询。',
+      description: '使用 Serper API 搜索互联网上的最新信息，获取实时数据、新闻、技术文档、学术资料等。返回结构化的搜索结果，包括标题、摘要和链接。适用于需要最新信息或特定领域知识的查询。返回结果需要进一步通过网页抓取工具获得详细信息',
       category: 'information',
       parameters: {
         query: {
@@ -102,6 +103,9 @@ export class ToolRegistry {
       },
       execute: this.searchMemory.bind(this)
     });
+
+    // 注册网页抓取工具
+    this.registerWebScrapingTools();
   }
 
   /**
@@ -202,8 +206,20 @@ export class ToolRegistry {
         const value = args[paramName];
         
         // 类型检查
-        if (paramDef.type && typeof value !== paramDef.type) {
-          throw new Error(`参数类型错误: ${paramName} 期望 ${paramDef.type}, 实际 ${typeof value}`);
+        if (paramDef.type) {
+          let isValidType = false;
+          
+          if (paramDef.type === 'array') {
+            isValidType = Array.isArray(value);
+          } else if (paramDef.type === 'object') {
+            isValidType = typeof value === 'object' && value !== null && !Array.isArray(value);
+          } else {
+            isValidType = typeof value === paramDef.type;
+          }
+          
+          if (!isValidType) {
+            throw new Error(`参数类型错误: ${paramName} 期望 ${paramDef.type}, 实际 ${Array.isArray(value) ? 'array' : typeof value}`);
+          }
         }
 
         // 枚举值检查
@@ -239,6 +255,15 @@ export class ToolRegistry {
    */
   getCategories() {
     return Array.from(this.categories.keys());
+  }
+
+  /**
+   * 注册网页抓取工具
+   */
+  registerWebScrapingTools() {
+    for (const [toolName, toolDefinition] of Object.entries(webScrapingToolRegistry)) {
+      this.registerTool(toolName, toolDefinition);
+    }
   }
 
   /**
@@ -313,7 +338,7 @@ export class ToolRegistry {
     try {
       const response = await axios.post('https://google.serper.dev/search', {
         q: query,
-        num: 1
+        num: 5
       }, {
         headers: {
           'X-API-KEY': SERPER_API_KEY,

@@ -212,20 +212,28 @@ export class Agent {
     
     try {
       // 阶段1: 分析任务
+      this.sendPlanSolveUpdate('task_analysis', '正在分析任务...', null);
       const taskAnalysis = await this.analyzeTask(userInput, context);
+      this.sendPlanSolveUpdate('task_analysis', '任务分析完成', taskAnalysis);
       logger.debug('任务分析完成:', taskAnalysis);
 
       // 阶段2: 制定计划
+      this.sendPlanSolveUpdate('plan_creation', '正在制定执行计划...', null);
       const plan = await this.createPlan(userInput, context, taskAnalysis);
       this.currentPlan = plan;
+      this.sendPlanSolveUpdate('plan_creation', '计划制定完成', plan);
       logger.debug('计划制定完成:', plan);
 
       // 阶段3: 执行计划
+      this.sendPlanSolveUpdate('plan_execution', '开始执行计划...', { totalSteps: plan.steps.length });
       const executionResult = await this.executePlan(plan, userInput, context);
+      this.sendPlanSolveUpdate('plan_execution', '计划执行完成', executionResult);
       logger.debug('计划执行完成:', executionResult);
 
       // 阶段4: 评估结果
+      this.sendPlanSolveUpdate('result_evaluation', '正在评估结果...', null);
       const finalResult = await this.evaluateResult(userInput, executionResult, plan);
+      this.sendPlanSolveUpdate('result_evaluation', '结果评估完成', finalResult);
       logger.info('结果评估完成:', finalResult.finalAnswer);
 
       // 记录Plan & Solve思考过程到记忆
@@ -250,6 +258,21 @@ export class Agent {
       }
       
       return `抱歉，在使用Plan & Solve模式处理您的请求时出现了错误: ${error.message}`;
+    }
+  }
+
+  /**
+   * 发送Plan & Solve执行状态更新
+   */
+  sendPlanSolveUpdate(phase, message, data) {
+    // 这个方法将在WebSocket连接中实现
+    if (this.onPlanSolveUpdate) {
+      this.onPlanSolveUpdate({
+        phase,
+        message,
+        data,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 
@@ -415,6 +438,15 @@ ${relevantTools.map(toolName => {
       try {
         logger.info(`🔄 执行步骤 ${step.stepNumber}: ${step.stepName}`);
         
+        // 发送步骤开始执行的状态更新
+        this.sendPlanSolveUpdate('step_start', `开始执行步骤 ${step.stepNumber}: ${step.stepName}`, {
+          stepNumber: step.stepNumber,
+          stepName: step.stepName,
+          stepType: step.type,
+          totalSteps: plan.steps.length,
+          currentStep: step.stepNumber
+        });
+        
         // 检查依赖
         const missingDeps = step.dependencies?.filter(dep => !stepResults.has(dep)) || [];
         if (missingDeps.length > 0) {
@@ -441,6 +473,17 @@ ${relevantTools.map(toolName => {
           step: step,
           result: stepResult,
           timestamp: new Date()
+        });
+
+        // 发送步骤完成的状态更新
+        this.sendPlanSolveUpdate('step_complete', `步骤 ${step.stepNumber} 执行完成`, {
+          stepNumber: step.stepNumber,
+          stepName: step.stepName,
+          stepType: step.type,
+          result: stepResult,
+          totalSteps: plan.steps.length,
+          currentStep: step.stepNumber,
+          completedSteps: step.stepNumber
         });
 
         logger.info(`✅ 步骤 ${step.stepNumber} 执行完成`);
@@ -474,6 +517,17 @@ ${relevantTools.map(toolName => {
           result: stepResults.get(step.stepNumber),
           timestamp: new Date(),
           error: error.message
+        });
+
+        // 发送步骤失败的状态更新
+        this.sendPlanSolveUpdate('step_error', `步骤 ${step.stepNumber} 执行失败: ${error.message}`, {
+          stepNumber: step.stepNumber,
+          stepName: step.stepName,
+          stepType: step.type,
+          error: error.message,
+          totalSteps: plan.steps.length,
+          currentStep: step.stepNumber,
+          completedSteps: step.stepNumber - 1
         });
       }
     }

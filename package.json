@@ -29,7 +29,9 @@
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
     "reset": "npm run clean && npm run install:all",
     "install:playwright": "npx playwright install",
-    "test:search": "node test/search-analysis-test.js"
+    "test:search": "node test/search-analysis-test.js",
+    "test:web-scraping": "node test/web-scraping-test.js",
+    "demo:web-scraping": "node examples/web-scraping-demo.js"
   },
   "keywords": [
     "llm",

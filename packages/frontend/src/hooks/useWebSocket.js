@@ -4,6 +4,7 @@ export const useWebSocket = (url) => {
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [planSolveStatus, setPlanSolveStatus] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttempts = useRef(0);
@@ -30,8 +31,13 @@ export const useWebSocket = (url) => {
         // 更新处理状态
         if (data.type === 'agent_start') {
           setIsProcessing(true);
+          setPlanSolveStatus(null); // 重置plan_solve状态
         } else if (data.type === 'agent_response' || data.type === 'error' || data.type === 'aborted') {
           setIsProcessing(false);
+          setPlanSolveStatus(null); // 重置plan_solve状态
+        } else if (data.type === 'plan_solve_update') {
+          // 处理plan_solve状态更新
+          setPlanSolveStatus(data);
         }
       };
 
@@ -118,6 +124,7 @@ export const useWebSocket = (url) => {
     isConnected,
     lastMessage,
     isProcessing,
+    planSolveStatus,
     sendMessage,
     sendAbort,
     connect,

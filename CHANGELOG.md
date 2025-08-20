@@ -1,5 +1,168 @@
 # 变更日志
 
+## [2025-01-27] - Plan & Solve 模式执行步骤可视化
+
+### 🚀 新功能
+
+#### Plan & Solve 模式执行步骤可视化
+- **实时状态更新**: 在界面上实时显示 Plan & Solve 模式的执行进度
+- **阶段指示器**: 显示任务分析、计划制定、计划执行、结果评估四个主要阶段
+- **步骤进度**: 实时显示当前执行的步骤编号、名称和类型
+- **计划预览**: 在计划制定完成后显示详细的执行计划
+- **状态标签**: 使用不同颜色的标签区分执行状态（进行中、完成、失败）
+
+### 🔧 技术实现
+
+#### 后端更新
+- **Agent.js**: 添加 `sendPlanSolveUpdate` 方法，支持发送执行状态更新
+- **WebSocket集成**: 在 `planSolveMethod` 中添加状态更新回调
+- **步骤监控**: 在 `executePlan` 方法中添加步骤开始、完成、失败的状态通知
+
+#### 前端更新
+- **useWebSocket Hook**: 添加 `planSolveStatus` 状态管理
+- **ChatInterface组件**: 新增 `plan_solve_update` 消息类型渲染
+- **实时显示**: 在消息列表中实时显示 Plan & Solve 执行状态
+- **进度指示**: 显示步骤进度和类型信息
+
+### 📊 用户体验优化
+- **可视化进度**: 用户可以清楚看到智能体的思考过程
+- **透明执行**: 每个步骤的执行状态都有明确的指示
+- **计划预览**: 在执行前可以查看完整的执行计划
+- **错误反馈**: 步骤失败时提供详细的错误信息
+
+## [2025-01-27] - 网页抓取工具集成
+
+### 🌐 新增功能
+
+#### 1. 本地网页抓取工具
+- **功能**: 实现了完整的本地网页抓取工具集，支持多种抓取模式
+- **工具列表**:
+  - `web_scraper`: 基础网页内容抓取，支持文本、链接、图片、元数据提取
+  - `batch_web_scraper`: 批量网页抓取，支持并发控制
+  - `precise_content_extractor`: 精确内容提取，使用自定义CSS选择器
+  - `web_content_analyzer`: 网页内容分析，支持基础、详细、SEO分析
+
+#### 2. 技术特性
+- **多引擎支持**: 使用JSDOM和Cheerio双引擎，提供灵活的内容解析
+- **智能缓存**: 内置缓存机制，避免重复抓取相同页面
+- **用户代理轮换**: 随机用户代理，提高抓取成功率
+- **错误处理**: 完善的错误处理和重试机制
+- **并发控制**: 批量抓取时支持并发数量控制
+
+#### 3. 内容提取能力
+- **文本提取**: 智能识别主要内容区域，提取标题、段落、标题结构
+- **链接提取**: 提取页面中的所有外部链接
+- **图片提取**: 提取图片信息，包括alt文本、尺寸等
+- **元数据提取**: 提取Open Graph、Twitter Card、meta标签等
+- **自定义选择器**: 支持CSS选择器精确提取特定内容
+
+### 📁 文件结构
+
+#### 新增文件
+- `src/tools/webScrapingTools.js`: 网页抓取工具核心类
+- `src/tools/webScrapingToolRegistry.js`: 工具注册定义
+- `test/web-scraping-test.js`: 工具测试文件
+
+#### 修改文件
+- `src/core/ToolRegistry.js`: 集成网页抓取工具注册
+
+### 🔧 技术实现
+
+#### 1. WebScrapingTools类
+```javascript
+class WebScrapingTools {
+  // 核心方法
+  async scrapeWebPage(url, options) // 基础网页抓取
+  async scrapeWithCheerio(url, options) // 精确内容提取
+  async scrapeMultiplePages(urls, options) // 批量抓取
+  extractTextContent(document, customSelectors) // 文本内容提取
+  extractMetaData(document) // 元数据提取
+  extractLinks(document) // 链接提取
+  extractImages(document) // 图片提取
+}
+```
+
+#### 2. 工具注册
+```javascript
+// 自动注册到ToolRegistry
+this.registerWebScrapingTools();
+
+// 工具分类: web-scraping
+// 支持参数验证和错误处理
+```
+
+#### 3. 缓存机制
+- 基于URL的缓存键
+- 自动缓存抓取结果
+- 支持缓存清理和统计
+
+### 🧪 测试验证
+
+#### 测试覆盖
+- 基础网页抓取功能
+- 工具注册和集成
+- Agent工具调用
+- 批量抓取功能
+- 精确内容提取
+- 特定网站测试
+
+#### 测试命令
+```bash
+node test/web-scraping-test.js
+```
+
+### 📋 使用示例
+
+#### 基础抓取
+```javascript
+const result = await agent.tools.execute('web_scraper', {
+  url: 'https://example.com',
+  options: {
+    extractText: true,
+    extractLinks: true,
+    extractMeta: true
+  }
+});
+```
+
+#### 批量抓取
+```javascript
+const result = await agent.tools.execute('batch_web_scraper', {
+  urls: ['https://site1.com', 'https://site2.com'],
+  options: {
+    concurrency: 3,
+    extractText: true
+  }
+});
+```
+
+#### 精确提取
+```javascript
+const result = await agent.tools.execute('precise_content_extractor', {
+  url: 'https://example.com',
+  selectors: {
+    title: 'h1.title',
+    content: '.main-content',
+    author: '.author-name'
+  }
+});
+```
+
+### 🔗 依赖关系
+
+#### 核心依赖
+- `axios`: HTTP请求
+- `jsdom`: HTML解析
+- `cheerio`: 精确内容提取
+- `lodash`: 工具函数
+
+#### 项目集成
+- 自动注册到Agent工具系统
+- 支持MCP协议集成
+- 与现有搜索工具协同工作
+
+---
+
 ## [2025-01-27] - Plan & Solve模式优化
 
 ### 🧠 重大改进

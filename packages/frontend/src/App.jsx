@@ -27,6 +27,7 @@ function App() {
     sendAbort,
     lastMessage, 
     isProcessing: wsIsProcessing,
+    planSolveStatus,
     connect, 
     disconnect 
   } = useWebSocket('ws://localhost:3002');
@@ -287,6 +288,7 @@ function App() {
                   isProcessing={isProcessing}
                   thinking={thinking}
                   currentTool={currentTool}
+                  planSolveStatus={planSolveStatus}
                   onSendMessage={handleSendMessage}
                   onAbort={handleAbort}
                   isConnected={isConnected}

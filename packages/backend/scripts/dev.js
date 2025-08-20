@@ -31,7 +31,7 @@ class DevServer {
     const args = [
       '--config', 'nodemon.json',
       '--watch', 'src',
-      '--watch', '../src',
+      '--watch', '../../src',
       '--ext', 'js,json,mjs',
       '--ignore', 'node_modules',
       '--delay', '1',
