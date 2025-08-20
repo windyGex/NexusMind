@@ -277,6 +277,82 @@ export class Agent {
   }
 
   /**
+   * 获取思考过程描述
+   */
+  getThinkingProcessDescription(phase, data) {
+    switch (phase) {
+      case 'task_analysis':
+        return {
+          title: '任务分析阶段',
+          description: '正在分析任务类型、复杂度和所需工具...',
+          icon: '🔍',
+          details: data ? `任务类型: ${data.taskType || '未知'}, 复杂度: ${data.complexity || '未知'}` : '',
+          jsonData: data ? JSON.stringify(data, null, 2) : null
+        };
+      case 'plan_creation':
+        return {
+          title: '计划制定阶段',
+          description: '正在制定详细的执行计划...',
+          icon: '📋',
+          details: data && data.steps ? `计划包含 ${data.steps.length} 个步骤` : '',
+          jsonData: data ? JSON.stringify(data, null, 2) : null
+        };
+      case 'plan_execution':
+        return {
+          title: '计划执行阶段',
+          description: '正在按计划执行任务...',
+          icon: '⚡',
+          details: data ? `总步骤数: ${data.totalSteps || 0}, 已完成: ${data.completedSteps || 0}` : '',
+          jsonData: data ? JSON.stringify(data, null, 2) : null
+        };
+      case 'step_start':
+        return {
+          title: '步骤执行',
+          description: `开始执行步骤 ${data?.stepNumber || 'N/A'}: ${data?.stepName || 'N/A'}`,
+          icon: '🔄',
+          details: data?.stepType === 'tool_call' ? '📦 调用工具获取信息' : 
+                  data?.stepType === 'reasoning' ? '🧠 进行逻辑推理和分析' : 
+                  data?.stepType === 'synthesis' ? '🔗 整合多个步骤的结果' : '处理数据',
+          jsonData: data ? JSON.stringify(data, null, 2) : null
+        };
+      case 'step_complete':
+        return {
+          title: '步骤完成',
+          description: `步骤 ${data?.stepNumber || 'N/A'} 执行完成: ${data?.stepName || 'N/A'}`,
+          icon: '✅',
+          details: data?.stepType === 'tool_call' ? '📦 工具调用成功，已获取所需信息' : 
+                  data?.stepType === 'reasoning' ? '🧠 推理分析完成，得出相关结论' : 
+                  data?.stepType === 'synthesis' ? '🔗 结果整合完成，准备下一步' : '处理完成',
+          jsonData: data ? JSON.stringify(data, null, 2) : null
+        };
+      case 'step_error':
+        return {
+          title: '步骤失败',
+          description: `步骤 ${data?.stepNumber || 'N/A'} 执行失败: ${data?.stepName || 'N/A'}`,
+          icon: '❌',
+          details: `错误: ${data?.error || '未知错误'}`,
+          jsonData: data ? JSON.stringify(data, null, 2) : null
+        };
+      case 'result_evaluation':
+        return {
+          title: '结果评估阶段',
+          description: '正在评估最终结果的质量和完整性...',
+          icon: '📊',
+          details: '检查结果的准确性、完整性和实用性',
+          jsonData: data ? JSON.stringify(data, null, 2) : null
+        };
+      default:
+        return {
+          title: '处理中',
+          description: message || '正在处理...',
+          icon: '⏳',
+          details: '',
+          jsonData: data ? JSON.stringify(data, null, 2) : null
+        };
+    }
+  }
+
+  /**
    * 任务分析阶段
    */
   async analyzeTask(userInput, context) {
@@ -431,6 +507,7 @@ ${relevantTools.map(toolName => {
   async executePlan(plan, userInput, context) {
     const executionResults = [];
     const stepResults = new Map(); // 存储每步的结果，供后续步骤使用
+    let completedSteps = 0; // 跟踪已完成的步骤数
     
     logger.info(`📋 开始执行计划，共 ${plan.steps.length} 个步骤`);
 
@@ -444,7 +521,8 @@ ${relevantTools.map(toolName => {
           stepName: step.stepName,
           stepType: step.type,
           totalSteps: plan.steps.length,
-          currentStep: step.stepNumber
+          currentStep: step.stepNumber,
+          completedSteps: completedSteps
         });
         
         // 检查依赖
@@ -475,6 +553,8 @@ ${relevantTools.map(toolName => {
           timestamp: new Date()
         });
 
+        completedSteps++; // 增加已完成步骤数
+
         // 发送步骤完成的状态更新
         this.sendPlanSolveUpdate('step_complete', `步骤 ${step.stepNumber} 执行完成`, {
           stepNumber: step.stepNumber,
@@ -483,7 +563,7 @@ ${relevantTools.map(toolName => {
           result: stepResult,
           totalSteps: plan.steps.length,
           currentStep: step.stepNumber,
-          completedSteps: step.stepNumber
+          completedSteps: completedSteps
         });
 
         logger.info(`✅ 步骤 ${step.stepNumber} 执行完成`);
@@ -504,12 +584,14 @@ ${relevantTools.map(toolName => {
             error: error.message,
             fallback: step.fallbackOptions[0]
           });
+          completedSteps++; // 即使失败也算作完成（有备选方案）
         } else {
           // 没有备选方案，记录错误但继续执行
           stepResults.set(step.stepNumber, {
             success: false,
             error: error.message
           });
+          // 不增加completedSteps，因为步骤失败了
         }
 
         executionResults.push({
@@ -527,7 +609,7 @@ ${relevantTools.map(toolName => {
           error: error.message,
           totalSteps: plan.steps.length,
           currentStep: step.stepNumber,
-          completedSteps: step.stepNumber - 1
+          completedSteps: completedSteps
         });
       }
     }
@@ -621,7 +703,8 @@ ${JSON.stringify(step.args, null, 2)}
       const response = await this.llm.generate(argsProcessingPrompt, {
         temperature: 0.1, // 使用较低的温度确保一致性
         max_tokens: 5000,
-        conversationHistory: this.conversationHistory
+        conversationHistory: this.conversationHistory,
+        needSendToFrontend: false,
       });
 
       // 清理并解析JSON

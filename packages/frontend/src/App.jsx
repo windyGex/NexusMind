@@ -28,6 +28,7 @@ function App() {
     lastMessage, 
     isProcessing: wsIsProcessing,
     planSolveStatus,
+    planSolveProgress,
     connect, 
     disconnect 
   } = useWebSocket('ws://localhost:3002');
@@ -289,9 +290,11 @@ function App() {
                   thinking={thinking}
                   currentTool={currentTool}
                   planSolveStatus={planSolveStatus}
+                  planSolveProgress={planSolveProgress}
                   onSendMessage={handleSendMessage}
                   onAbort={handleAbort}
                   isConnected={isConnected}
+                  sidebarCollapsed={collapsed}
                 />
               ) : currentView === 'mcp-config' ? (
                 <MCPConfig />

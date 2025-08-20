@@ -323,18 +323,16 @@ async function handleChatMessage(ws, data, clientId) {
     // 创建一个自定义的LLM客户端来支持流式输出和中止
     let streamBuffer = '';
     
-    agent.llm.generate = async function(prompt, options = {}) {
+    agent.llm.generate = async function(prompt, options = {needSendToFrontend: true}) {
       // 检查是否被中止
       if (abortController.signal.aborted) {
         throw new Error('任务已被用户中止');
       }
-
-      // 发送思考过程
+        // 发送思考过程
       ws.send(JSON.stringify({
         type: 'thinking',
         content: '正在分析您的问题...'
       }));
-      
       // 调用原始的generate方法
       const response = await originalGenerate.call(this, prompt, options);
       
@@ -342,12 +340,13 @@ async function handleChatMessage(ws, data, clientId) {
       if (abortController.signal.aborted) {
         throw new Error('任务已被用户中止');
       }
-      
-      // 发送思考完成
-      ws.send(JSON.stringify({
-        type: 'thinking_complete',
-        content: response.content
-      }));
+      if(options.needSendToFrontend){
+        // 发送思考完成
+        ws.send(JSON.stringify({
+          type: 'thinking_complete',
+          content: response.content
+        }));
+      }
       
       return response;
     };

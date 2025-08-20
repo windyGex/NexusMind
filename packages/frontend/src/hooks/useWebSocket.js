@@ -5,6 +5,7 @@ export const useWebSocket = (url) => {
   const [lastMessage, setLastMessage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [planSolveStatus, setPlanSolveStatus] = useState(null);
+  const [planSolveProgress, setPlanSolveProgress] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttempts = useRef(0);
@@ -32,12 +33,34 @@ export const useWebSocket = (url) => {
         if (data.type === 'agent_start') {
           setIsProcessing(true);
           setPlanSolveStatus(null); // 重置plan_solve状态
+          // 不重置进度状态，保持显示
         } else if (data.type === 'agent_response' || data.type === 'error' || data.type === 'aborted') {
           setIsProcessing(false);
           setPlanSolveStatus(null); // 重置plan_solve状态
+          // 不重置进度状态，保持显示
         } else if (data.type === 'plan_solve_update') {
           // 处理plan_solve状态更新
           setPlanSolveStatus(data);
+          
+          // 更新进度状态（保留之前的进度信息）
+          if (data.data && (data.phase === 'plan_execution' || data.phase === 'step_start' || data.phase === 'step_complete' || data.phase === 'step_error')) {
+            setPlanSolveProgress(prev => ({
+              ...prev,
+              ...data.data,
+              phase: data.phase,
+              message: data.message,
+              timestamp: data.timestamp
+            }));
+          } else if (data.phase) {
+            // 对于其他阶段，也更新进度状态以显示思考过程
+            setPlanSolveProgress(prev => ({
+              ...prev,
+              phase: data.phase,
+              message: data.message,
+              timestamp: data.timestamp,
+              data: data.data
+            }));
+          }
         }
       };
 
@@ -125,6 +148,7 @@ export const useWebSocket = (url) => {
     lastMessage,
     isProcessing,
     planSolveStatus,
+    planSolveProgress,
     sendMessage,
     sendAbort,
     connect,

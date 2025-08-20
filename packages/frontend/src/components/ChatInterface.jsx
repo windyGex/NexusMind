@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Input, Button, Card, Avatar, Typography, Space, Spin, Tag, Collapse } from 'antd';
-import { SendOutlined, UserOutlined, RobotOutlined, ToolOutlined, ExclamationCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { SendOutlined, UserOutlined, RobotOutlined, ToolOutlined, ExclamationCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, StopOutlined, DownOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -17,11 +17,14 @@ const ChatInterface = ({
   thinking, 
   currentTool, 
   planSolveStatus,
+  planSolveProgress,
   onSendMessage, 
   onAbort,
-  isConnected 
+  isConnected,
+  sidebarCollapsed = false
 }) => {
   const [inputValue, setInputValue] = useState('');
+  const [expandedTools, setExpandedTools] = useState(new Set());
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -71,17 +74,16 @@ const ChatInterface = ({
             style={{ 
               maxWidth: '90%', 
               backgroundColor: '#f6ffed',
-              padding: '8px 16px' // 增加内边距
+              padding: '8px 16px'
             }}
             bodyStyle={{ 
-              padding: '16px 20px', // Card body的内边距
-              lineHeight: '1.6' // 改善行高
+              padding: '16px 20px',
+              lineHeight: '1.6'
             }}
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                // 图片组件优化
                 img({ node, src, alt, ...props }) {
                   return (
                     <img
@@ -90,7 +92,7 @@ const ChatInterface = ({
                       {...props}
                       style={{
                         maxWidth: '100%',
-                        maxHeight: '400px', // 限制图片最大高度
+                        maxHeight: '400px',
                         height: 'auto',
                         borderRadius: '8px',
                         marginTop: '8px',
@@ -101,7 +103,6 @@ const ChatInterface = ({
                     />
                   );
                 },
-                // 代码块组件
                 code({ node, inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '');
                   return !inline && match ? (
@@ -134,7 +135,6 @@ const ChatInterface = ({
                     </code>
                   );
                 },
-                // 段落组件
                 p({ children }) {
                   return (
                     <p style={{ 
@@ -146,7 +146,6 @@ const ChatInterface = ({
                     </p>
                   );
                 },
-                // 列表组件
                 ul({ children }) {
                   return (
                     <ul style={{ 
@@ -169,7 +168,6 @@ const ChatInterface = ({
                     </ol>
                   );
                 },
-                // 标题组件
                 h1({ children }) {
                   return (
                     <h1 style={{ 
@@ -205,7 +203,6 @@ const ChatInterface = ({
                     </h3>
                   );
                 },
-                // 引用组件
                 blockquote({ children }) {
                   return (
                     <blockquote style={{
@@ -221,7 +218,6 @@ const ChatInterface = ({
                     </blockquote>
                   );
                 },
-                // 表格组件
                 table({ children }) {
                   return (
                     <div style={{ overflowX: 'auto', margin: '12px 0' }}>
@@ -271,13 +267,13 @@ const ChatInterface = ({
           <Card 
             size="small" 
             style={{ 
-              maxWidth: '95%', /* 增加宽度从90%到95% */
-              backgroundColor: '#f0f9ff', /* 修改为淡蓝色背景 */
-              borderColor: '#bae6fd' /* 修改为淡蓝色边框 */
+              maxWidth: '95%',
+              backgroundColor: '#f0f9ff',
+              borderColor: '#bae6fd'
             }}
             bodyStyle={{ 
-              padding: '10px 16px', /* 减小垂直padding */
-              lineHeight: '1.4', /* 减小行高 */
+              padding: '10px 16px',
+              lineHeight: '1.4',
               minWidth: '400px'
             }}
           >
@@ -323,11 +319,10 @@ const ChatInterface = ({
         const isError = status === 'error';
         const isRunning = status === 'running';
         
-        // 根据状态确定样式 - 统一使用淡蓝色背景
         const cardStyle = isError 
           ? { backgroundColor: '#f0f9ff', borderColor: '#ef4444' }
           : isCompleted 
-          ? { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' } /* 完成状态边框改为淡蓝色 */
+          ? { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }
           : { backgroundColor: '#f0f9ff', borderColor: '#fbbf24' };
         
         const iconStyle = isError 
@@ -352,120 +347,160 @@ const ChatInterface = ({
           <Card 
             size="small" 
             style={{ 
-              maxWidth: '95%', /* 增加宽度从90%到95% */
+              maxWidth: '95%',
               ...cardStyle
             }}
             bodyStyle={{ 
-              padding: '10px 16px', /* 减小垂直padding */
-              lineHeight: '1.4', /* 减小行高 */
-              minWidth: '400px'
+              padding: '8px 12px',
+              lineHeight: '1.2',
+              minWidth: '400px',
+              height: expandedTools.has(message.id) ? 'auto' : '45px',
+              overflow: 'hidden'
             }}
           >
-            <Space direction="vertical" size="small" style={{ width: '100%', gap: '6px' /* 减小组件间距 */ }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              height: '100%'
+            }}>
               <Space>
                 {titleIcon}
-                <Text strong className={isError ? 'danger' : ''}>
+                <Text strong className={isError ? 'danger' : ''} style={{ fontSize: '13px' }}>
                   工具执行: {tool}
                 </Text>
                 {statusTag}
               </Space>
               
-              {/* 工具参数 */}
-              {args && (
-                <Collapse 
-                  ghost
+              {(args || (isCompleted && result) || (isError && error)) && (
+                <Button 
+                  type="text" 
                   size="small"
-                  defaultActiveKey={[]} /* 默认收起 */
-                  items={[
-                    {
-                      key: 'args',
-                      label: (
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          工具参数
-                        </Text>
-                      ),
-                      children: (
-                        <div className="json-viewer">
-                          <pre style={{ 
-                            margin: 0, 
-                            fontSize: '12px',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word'
-                          }}>
-                            {JSON.stringify(args, null, 2)}
-                          </pre>
-                        </div>
-                      )
+                  icon={<DownOutlined style={{ 
+                    transform: expandedTools.has(message.id) ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }} />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newExpanded = new Set(expandedTools);
+                    if (newExpanded.has(message.id)) {
+                      newExpanded.delete(message.id);
+                    } else {
+                      newExpanded.add(message.id);
                     }
-                  ]}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    marginTop: '8px'
+                    setExpandedTools(newExpanded);
                   }}
-                />
-              )}
-              
-              {/* 执行结果 */}
-              {isCompleted && result && (
-                <Collapse 
-                  ghost
-                  size="small"
-                  defaultActiveKey={[]} /* 默认收起 */
-                  items={[
-                    {
-                      key: 'result',
-                      label: (
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          执行结果
-                        </Text>
-                      ),
-                      children: (
-                        <div className="json-viewer">
-                          <pre style={{ 
-                            margin: 0, 
-                            fontSize: '12px',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                            maxHeight: '300px',
-                            overflowY: 'auto'
-                          }}>
-                            {JSON.stringify(result, null, 2)}
-                          </pre>
-                        </div>
-                      )
-                    }
-                  ]}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    marginTop: '8px'
+                  style={{ 
+                    fontSize: '11px', 
+                    color: '#8c8c8c',
+                    padding: '2px 4px',
+                    height: '20px'
                   }}
-                />
+                >
+                  详情
+                </Button>
               )}
-              
-              {/* 错误信息 */}
-              {isError && error && (
-                <div style={{ 
-                  backgroundColor: '#fef2f2',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  border: '1px solid #fecaca',
-                  marginTop: '8px'
-                }}>
-                  <Text type="danger" style={{ fontSize: '13px' }}>
-                    {error}
+            </div>
+            
+            {expandedTools.has(message.id) && (
+              <div className="tool-execution-details" style={{ 
+                marginTop: '8px',
+                paddingTop: '8px',
+                borderTop: '1px solid #e2e8f0'
+              }}>
+                {args && (
+                  <Collapse 
+                    ghost
+                    size="small"
+                    defaultActiveKey={[]}
+                    items={[
+                      {
+                        key: 'args',
+                        label: (
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            工具参数
+                          </Text>
+                        ),
+                        children: (
+                          <div className="json-viewer">
+                            <pre style={{ 
+                              margin: 0, 
+                              fontSize: '12px',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word'
+                            }}>
+                              {JSON.stringify(args, null, 2)}
+                            </pre>
+                          </div>
+                        )
+                      }
+                    ]}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      marginTop: '4px'
+                    }}
+                  />
+                )}
+                
+                {isCompleted && result && (
+                  <Collapse 
+                    ghost
+                    size="small"
+                    defaultActiveKey={[]}
+                    items={[
+                      {
+                        key: 'result',
+                        label: (
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            执行结果
+                          </Text>
+                        ),
+                        children: (
+                          <div className="json-viewer">
+                            <pre style={{ 
+                              margin: 0, 
+                              fontSize: '12px',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              maxHeight: '300px',
+                              overflowY: 'auto'
+                            }}>
+                              {JSON.stringify(result, null, 2)}
+                            </pre>
+                          </div>
+                        )
+                      }
+                    ]}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      marginTop: '4px'
+                    }}
+                  />
+                )}
+                
+                {isError && error && (
+                  <div style={{ 
+                    backgroundColor: '#fef2f2',
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    border: '1px solid #fecaca',
+                    marginTop: '4px'
+                  }}>
+                    <Text type="danger" style={{ fontSize: '12px' }}>
+                      {error}
+                    </Text>
+                  </div>
+                )}
+                
+                {completedAt && (
+                  <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px' }}>
+                    执行耗时: {Math.round((completedAt - timestamp) / 1000 * 100) / 100}秒
                   </Text>
-                </div>
-              )}
-              
-              {/* 执行时间信息 */}
-              {completedAt && (
-                <Text type="secondary" style={{ fontSize: '11px' }}>
-                  执行耗时: {Math.round((completedAt - timestamp) / 1000 * 100) / 100}秒
-                </Text>
-              )}
-            </Space>
+                )}
+              </div>
+            )}
           </Card>
         );
 
@@ -546,7 +581,6 @@ const ChatInterface = ({
                 {message.message}
               </Text>
               
-              {/* 显示步骤进度 */}
               {message.data && (message.phase === 'step_start' || message.phase === 'step_complete' || message.phase === 'step_error') && (
                 <div style={{ marginTop: '8px' }}>
                   <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -562,7 +596,6 @@ const ChatInterface = ({
                 </div>
               )}
               
-              {/* 显示计划信息 */}
               {message.data && message.phase === 'plan_creation' && message.data.steps && (
                 <Collapse 
                   ghost
@@ -640,7 +673,260 @@ const ChatInterface = ({
 
   return (
     <div className="chat-container">
-      <div className="messages-container">
+      {/* Plan & Solve 执行状态和任务组合卡片 - 悬浮顶部 */}
+      {planSolveProgress && (
+        <div className="plan-solve-floating" style={{ 
+          position: 'fixed',
+          top: '0',
+          left: sidebarCollapsed ? '80px' : '320px', // 根据Sidebar折叠状态调整
+          right: '0',
+          zIndex: 1000,
+          backgroundColor: '#f8fafc',
+          borderBottom: '1px solid #e2e8f0',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+          padding: '12px 16px',
+          transition: 'left 0.2s ease' // 添加过渡动画
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: '16px', 
+            alignItems: 'flex-start',
+            width: '100%'
+          }}>
+            {/* 左侧：执行状态 */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                  <Space>
+                    <Text strong style={{ fontSize: '14px' }}>
+                      执行状态
+                    </Text>
+                    <Tag color="processing">
+                      {planSolveProgress.completedSteps || 0}/{planSolveProgress.totalSteps || 0}
+                    </Tag>
+                    {planSolveProgress.phase === 'step_start' && <Tag color="processing">执行中</Tag>}
+                    {planSolveProgress.phase === 'step_complete' && <Tag color="success">完成</Tag>}
+                    {planSolveProgress.phase === 'step_error' && <Tag color="error">失败</Tag>}
+                  </Space>
+                  <Button 
+                    size="small" 
+                    type="text" 
+                    onClick={() => window.location.reload()}
+                    style={{ fontSize: '11px', color: '#8c8c8c' }}
+                  >
+                    清除
+                  </Button>
+                </Space>
+                
+                {/* 进度条 */}
+                <div style={{ 
+                  width: '100%', 
+                  backgroundColor: '#e2e8f0', 
+                  borderRadius: '4px',
+                  height: '8px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    width: `${((planSolveProgress.completedSteps || 0) / (planSolveProgress.totalSteps || 1)) * 100}%`,
+                    height: '100%',
+                    backgroundColor: planSolveProgress.phase === 'step_error' ? '#ef4444' : '#1890ff',
+                    transition: 'width 0.3s ease',
+                    borderRadius: '4px'
+                  }} />
+                </div>
+                
+                {/* 当前步骤信息 */}
+                {planSolveProgress.currentStep && (
+                  <div style={{ marginTop: '8px' }}>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      当前步骤: {planSolveProgress.currentStep} - {planSolveProgress.stepName}
+                    </Text>
+                    {planSolveProgress.stepType && (
+                      <Tag size="small" style={{ marginLeft: '8px' }}>
+                        {planSolveProgress.stepType === 'tool_call' ? '工具调用' : 
+                         planSolveProgress.stepType === 'reasoning' ? '推理分析' : 
+                         planSolveProgress.stepType === 'synthesis' ? '结果综合' : planSolveProgress.stepType}
+                      </Tag>
+                    )}
+                  </div>
+                )}
+                
+                {/* 状态消息 */}
+                {planSolveProgress.message && (
+                  <Text type="secondary" style={{ fontSize: '11px', fontStyle: 'italic' }}>
+                    {planSolveProgress.message}
+                  </Text>
+                )}
+              </Space>
+            </div>
+            
+            {/* 右侧：思考过程 */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Text strong style={{ fontSize: '14px' }}>
+                  思考过程
+                </Text>
+                
+                {/* 思考过程内容 */}
+                <div style={{ 
+                  backgroundColor: '#ffffff', 
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '12px',
+                  maxHeight: '200px',
+                  overflowY: 'auto'
+                }}>
+                  {(() => {
+                    const phase = planSolveProgress.phase;
+                    const data = planSolveProgress.data || planSolveProgress;
+                    
+                    switch (phase) {
+                      case 'task_analysis':
+                        return (
+                          <div>
+                            <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                              🔍 任务分析阶段
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              正在分析任务类型、复杂度和所需工具...
+                            </Text>
+                            {data && data.taskType && (
+                              <>
+                                <br />
+                                <Text type="secondary" style={{ fontSize: '10px' }}>
+                                  任务类型: {data.taskType}, 复杂度: {data.complexity || '未知'}
+                                </Text>
+                              </>
+                            )}
+                          </div>
+                        );
+                      case 'plan_creation':
+                        return (
+                          <div>
+                            <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                              📋 计划制定阶段
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              正在制定详细的执行计划...
+                            </Text>
+                            {data && data.steps && (
+                              <>
+                                <br />
+                                <Text type="secondary" style={{ fontSize: '10px' }}>
+                                  计划包含 {data.steps.length} 个步骤
+                                </Text>
+                              </>
+                            )}
+                          </div>
+                        );
+                      case 'plan_execution':
+                        return (
+                          <div>
+                            <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                              ⚡ 计划执行阶段
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              正在按计划执行任务...
+                            </Text>
+                            {data && (
+                              <>
+                                <br />
+                                <Text type="secondary" style={{ fontSize: '10px' }}>
+                                  总步骤数: {data.totalSteps || 0}, 已完成: {data.completedSteps || 0}
+                                </Text>
+                              </>
+                            )}
+                          </div>
+                        );
+                      case 'step_start':
+                        return (
+                          <div>
+                            <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                              🔄 步骤执行
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              开始执行步骤 {planSolveProgress.currentStep}: {planSolveProgress.stepName}
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '10px' }}>
+                              {planSolveProgress.stepType === 'tool_call' ? '📦 调用工具获取信息' : 
+                               planSolveProgress.stepType === 'reasoning' ? '🧠 进行逻辑推理和分析' : 
+                               planSolveProgress.stepType === 'synthesis' ? '🔗 整合多个步骤的结果' : '处理数据'}
+                            </Text>
+                          </div>
+                        );
+                      case 'step_complete':
+                        return (
+                          <div>
+                            <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                              ✅ 步骤完成
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              步骤 {planSolveProgress.currentStep} 执行完成: {planSolveProgress.stepName}
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '10px' }}>
+                              {planSolveProgress.stepType === 'tool_call' ? '📦 工具调用成功，已获取所需信息' : 
+                               planSolveProgress.stepType === 'reasoning' ? '🧠 推理分析完成，得出相关结论' : 
+                               planSolveProgress.stepType === 'synthesis' ? '🔗 结果整合完成，准备下一步' : '处理完成'}
+                            </Text>
+                          </div>
+                        );
+                      case 'step_error':
+                        return (
+                          <div>
+                            <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                              ❌ 步骤失败
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              步骤 {planSolveProgress.currentStep} 执行失败: {planSolveProgress.stepName}
+                            </Text>
+                            <br />
+                            <Text type="danger" style={{ fontSize: '10px' }}>
+                              错误: {planSolveProgress.message}
+                            </Text>
+                          </div>
+                        );
+                      case 'result_evaluation':
+                        return (
+                          <div>
+                            <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                              📊 结果评估阶段
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              正在评估最终结果的质量和完整性...
+                            </Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: '10px' }}>
+                              检查结果的准确性、完整性和实用性
+                            </Text>
+                          </div>
+                        );
+                      default:
+                        return (
+                          <Text type="secondary" style={{ fontSize: '11px' }}>
+                            ⏳ 正在处理...
+                          </Text>
+                        );
+                    }
+                  })()}
+                </div>
+              </Space>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="messages-container" style={{ 
+        paddingTop: planSolveProgress ? '120px' : '0' // 为悬浮卡片留出空间
+      }}>
         {messages.length === 0 && (
           <div style={{ 
             textAlign: 'center', 
@@ -659,7 +945,6 @@ const ChatInterface = ({
         {messages.map((message) => (
           <div key={message.id} className="message-item">
             {message.type === 'user' ? (
-              // 用户消息布局：头像在右侧，消息左对齐到头像
               <Space align="start" style={{ width: '100%', justifyContent: 'flex-end' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                   {renderMessageContent(message)}
@@ -672,7 +957,6 @@ const ChatInterface = ({
                 {renderAvatar(message)}
               </Space>
             ) : (
-              // 其他消息布局：头像在左侧
               <Space align="start" style={{ width: '100%' }}>
                 {renderAvatar(message)}
                 <div style={{ flex: 1 }}>
@@ -687,8 +971,6 @@ const ChatInterface = ({
             )}
           </div>
         ))}
-
-
 
         {/* 思考指示器 */}
         {thinking && (
@@ -738,6 +1020,8 @@ const ChatInterface = ({
             </Space>
           </div>
         )}
+
+
 
         <div ref={messagesEndRef} />
       </div>
