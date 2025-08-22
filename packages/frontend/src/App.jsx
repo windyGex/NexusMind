@@ -17,6 +17,7 @@ function App() {
   const [currentTool, setCurrentTool] = useState(null);
   const [thinking, setThinking] = useState('');
   const [currentView, setCurrentView] = useState('chat'); // 'chat' 或 'mcp-config'
+  const [toolExecutionData, setToolExecutionData] = useState(new Map()); // 存储工具执行数据
   
   const { token } = theme.useToken();
   
@@ -30,7 +31,8 @@ function App() {
     planSolveStatus,
     planSolveProgress,
     connect, 
-    disconnect 
+    disconnect,
+    resetPlanSolveProgress // 用于重置 Plan & Solve 执行进度状态
   } = useWebSocket('ws://localhost:3002');
   
   // Agent状态
@@ -61,6 +63,7 @@ function App() {
           
         case 'agent_start':
           setIsProcessing(true);
+          setToolExecutionData(new Map()); // 清除之前的工具执行数据
           setMessages(prev => [...prev, {
             id: Date.now(),
             type: 'system',
@@ -102,53 +105,107 @@ function App() {
             args: data.args,
             status: 'running'
           });
-          setMessages(prev => [...prev, {
-            id: `tool-${data.tool}-${Date.now()}`,
-            type: 'tool_execution',
-            tool: data.tool,
-            args: data.args,
-            status: 'running',
-            timestamp: new Date()
-          }]);
+          
+          // 在 plan_solve 模式下，将工具数据存储到专门状态中
+          if (agentStatus?.thinkingMode === 'plan_solve') {
+            setToolExecutionData(prev => {
+              const newData = new Map(prev);
+              newData.set(data.tool, {
+                tool: data.tool,
+                args: data.args,
+                status: 'running',
+                timestamp: new Date()
+              });
+              return newData;
+            });
+          } else {
+            // 在非 plan_solve 模式下，正常添加到消息列表
+            setMessages(prev => [...prev, {
+              id: `tool-${data.tool}-${Date.now()}`,
+              type: 'tool_execution',
+              tool: data.tool,
+              args: data.args,
+              status: 'running',
+              timestamp: new Date()
+            }]);
+          }
           break;
           
         case 'tool_result':
           console.log('✅ 收到 tool_result 消息:', data);
           setCurrentTool(prev => prev ? { ...prev, status: 'completed' } : null);
-          setMessages(prev => {
-            console.log('🔍 查找匹配的工具执行消息，当前消息列表:', prev.map(m => ({id: m.id, type: m.type, tool: m.tool, status: m.status})));
-            return prev.map(msg => {
-              // 找到对应的工具执行消息并更新
-              if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
-                console.log('🎯 找到匹配的工具执行消息，更新状态为completed');
-                return {
-                  ...msg,
+          
+          // 在 plan_solve 模式下，更新专门的工具执行数据状态
+          if (agentStatus?.thinkingMode === 'plan_solve') {
+            setToolExecutionData(prev => {
+              const newData = new Map(prev);
+              const existingData = newData.get(data.tool);
+              if (existingData) {
+                newData.set(data.tool, {
+                  ...existingData,
                   status: 'completed',
                   result: data.result,
                   completedAt: new Date()
-                };
+                });
               }
-              return msg;
+              return newData;
             });
-          });
+          } else {
+            // 在非 plan_solve 模式下，正常更新消息列表
+            setMessages(prev => {
+              console.log('🔍 查找匹配的工具执行消息，当前消息列表:', prev.map(m => ({id: m.id, type: m.type, tool: m.tool, status: m.status})));
+              return prev.map(msg => {
+                // 找到对应的工具执行消息并更新
+                if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
+                  console.log('🎯 找到匹配的工具执行消息，更新状态为completed');
+                  return {
+                    ...msg,
+                    status: 'completed',
+                    result: data.result,
+                    completedAt: new Date()
+                  };
+                }
+                return msg;
+              });
+            });
+          }
           break;
           
         case 'tool_error':
           console.log('❌ 收到 tool_error 消息:', data);
           setCurrentTool(prev => prev ? { ...prev, status: 'error' } : null);
-          setMessages(prev => prev.map(msg => {
-            // 找到对应的工具执行消息并更新
-            if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
-              console.log('🎯 找到匹配的工具执行消息，更新状态为error');
-              return {
-                ...msg,
-                status: 'error',
-                error: data.error,
-                completedAt: new Date()
-              };
-            }
-            return msg;
-          }));
+          
+          // 在 plan_solve 模式下，更新专门的工具执行数据状态
+          if (agentStatus?.thinkingMode === 'plan_solve') {
+            setToolExecutionData(prev => {
+              const newData = new Map(prev);
+              const existingData = newData.get(data.tool);
+              if (existingData) {
+                newData.set(data.tool, {
+                  ...existingData,
+                  status: 'error',
+                  error: data.error,
+                  completedAt: new Date()
+                });
+              }
+              return newData;
+            });
+          } else {
+            // 在非 plan_solve 模式下，正常更新消息列表
+            setMessages(prev => prev.map(msg => {
+              // 找到对应的工具执行消息并更新
+              if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
+                console.log('🎯 找到匹配的工具执行消息，更新状态为error');
+                return {
+                  ...msg,
+                  status: 'error',
+                  error: data.error,
+                  completedAt: new Date()
+                };
+              }
+              return msg;
+            }));
+          }
           break;
           
         case 'agent_response':
@@ -291,8 +348,11 @@ function App() {
                   currentTool={currentTool}
                   planSolveStatus={planSolveStatus}
                   planSolveProgress={planSolveProgress}
+                  toolExecutionData={toolExecutionData}
+                  agentStatus={agentStatus}
                   onSendMessage={handleSendMessage}
                   onAbort={handleAbort}
+                  onResetProgress={resetPlanSolveProgress}
                   isConnected={isConnected}
                   sidebarCollapsed={collapsed}
                 />

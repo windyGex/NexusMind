@@ -231,9 +231,18 @@ export class Agent {
       logger.debug('计划执行完成:', executionResult);
 
       // 阶段4: 评估结果
-      this.sendPlanSolveUpdate('result_evaluation', '正在评估结果...', null);
+      this.sendPlanSolveUpdate('result_evaluation', '正在评估结果...', { 
+        steps: plan.steps,
+        totalSteps: plan.steps.length,
+        completedSteps: plan.steps.length
+      });
       const finalResult = await this.evaluateResult(userInput, executionResult, plan);
-      this.sendPlanSolveUpdate('result_evaluation', '结果评估完成', finalResult);
+      this.sendPlanSolveUpdate('result_evaluation', '结果评估完成', {
+        ...finalResult,
+        steps: plan.steps,
+        totalSteps: plan.steps.length,
+        completedSteps: plan.steps.length
+      });
       logger.info('结果评估完成:', finalResult.finalAnswer);
 
       // 记录Plan & Solve思考过程到记忆

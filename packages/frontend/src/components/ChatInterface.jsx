@@ -18,13 +18,17 @@ const ChatInterface = ({
   currentTool, 
   planSolveStatus,
   planSolveProgress,
+  toolExecutionData,
+  agentStatus,
   onSendMessage, 
   onAbort,
+  onResetProgress,
   isConnected,
   sidebarCollapsed = false
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [expandedTools, setExpandedTools] = useState(new Set());
+  const [showJsonData, setShowJsonData] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -711,7 +715,7 @@ const ChatInterface = ({
                   <Button 
                     size="small" 
                     type="text" 
-                    onClick={() => window.location.reload()}
+                    onClick={onResetProgress}
                     style={{ fontSize: '11px', color: '#8c8c8c' }}
                   >
                     清除
@@ -748,6 +752,166 @@ const ChatInterface = ({
                          planSolveProgress.stepType === 'synthesis' ? '结果综合' : planSolveProgress.stepType}
                       </Tag>
                     )}
+                  </div>
+                )}
+                
+                {/* 执行步骤清单 */}
+                {planSolveProgress.data && planSolveProgress.data.steps && (
+                  <div style={{ marginTop: '12px' }}>
+                    <Text type="secondary" style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', display: 'block' }}>
+                      执行步骤清单:
+                    </Text>
+                    <div style={{ 
+                      backgroundColor: '#f8f9fa',
+                      border: '1px solid #e9ecef',
+                      borderRadius: '4px',
+                      padding: '8px'
+                    }}>
+                      {planSolveProgress.data.steps.map((step, index) => {
+                        const isCurrentStep = planSolveProgress.currentStep === step.stepNumber;
+                        const isCompleted = planSolveProgress.completedSteps >= step.stepNumber;
+                        const isError = planSolveProgress.phase === 'step_error' && planSolveProgress.currentStep === step.stepNumber;
+                        
+                        // 获取工具执行数据
+                        const toolData = step.type === 'tool_call' && step.tool ? toolExecutionData?.get(step.tool) : null;
+                        
+                        return (
+                          <div 
+                            key={step.stepNumber} 
+                            style={{ 
+                              padding: '8px 0',
+                              borderBottom: index < planSolveProgress.data.steps.length - 1 ? '1px solid #e9ecef' : 'none'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                              <div style={{ 
+                                width: '16px', 
+                                height: '16px', 
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px',
+                                marginRight: '8px',
+                                marginTop: '2px',
+                                backgroundColor: isError ? '#ef4444' : isCompleted ? '#10b981' : isCurrentStep ? '#3b82f6' : '#d1d5db',
+                                color: 'white',
+                                flexShrink: 0
+                              }}>
+                                {isError ? '❌' : isCompleted ? '✓' : isCurrentStep ? '▶' : step.stepNumber}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <Text style={{ 
+                                  fontSize: '11px', 
+                                  fontWeight: isCurrentStep ? 'bold' : 'normal',
+                                  color: isError ? '#ef4444' : isCurrentStep ? '#3b82f6' : '#374151',
+                                  display: 'block'
+                                }}>
+                                  {step.stepName}
+                                </Text>
+                                <Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>
+                                  {step.type === 'tool_call' ? '📦 工具调用' : 
+                                   step.type === 'reasoning' ? '🧠 推理分析' : 
+                                   step.type === 'synthesis' ? '🔗 结果综合' : step.type}
+                                  {step.tool && ` - ${step.tool}`}
+                                </Text>
+                                
+                                {/* 工具调用详细信息 */}
+                                {step.type === 'tool_call' && toolData && (
+                                  <div style={{ marginTop: '6px' }}>
+                                    {/* 工具参数 */}
+                                    {toolData.args && (
+                                      <Collapse 
+                                        ghost
+                                        size="small"
+                                        items={[
+                                          {
+                                            key: 'args',
+                                            label: (
+                                              <Text type="secondary" style={{ fontSize: '10px' }}>
+                                                🔧 调用参数
+                                              </Text>
+                                            ),
+                                            children: (
+                                              <div style={{
+                                                backgroundColor: '#f1f5f9',
+                                                border: '1px solid #e2e8f0',
+                                                borderRadius: '3px',
+                                                padding: '6px',
+                                                fontSize: '9px',
+                                                fontFamily: 'monospace',
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-all',
+                                                maxHeight: '80px',
+                                                overflowY: 'auto'
+                                              }}>
+                                                {JSON.stringify(toolData.args, null, 2)}
+                                              </div>
+                                            )
+                                          }
+                                        ]}
+                                        style={{ marginTop: '4px' }}
+                                      />
+                                    )}
+                                    
+                                    {/* 执行结果 */}
+                                    {toolData.status === 'completed' && toolData.result && (
+                                      <Collapse 
+                                        ghost
+                                        size="small"
+                                        items={[
+                                          {
+                                            key: 'result',
+                                            label: (
+                                              <Text type="secondary" style={{ fontSize: '10px' }}>
+                                                ✅ 执行结果
+                                              </Text>
+                                            ),
+                                            children: (
+                                              <div style={{
+                                                backgroundColor: '#f0f9ff',
+                                                border: '1px solid #bae6fd',
+                                                borderRadius: '3px',
+                                                padding: '6px',
+                                                fontSize: '9px',
+                                                fontFamily: 'monospace',
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-all',
+                                                maxHeight: '100px',
+                                                overflowY: 'auto'
+                                              }}>
+                                                {typeof toolData.result === 'string' ? toolData.result : JSON.stringify(toolData.result, null, 2)}
+                                              </div>
+                                            )
+                                          }
+                                        ]}
+                                        style={{ marginTop: '4px' }}
+                                      />
+                                    )}
+                                    
+                                    {/* 错误信息 */}
+                                    {toolData.status === 'error' && toolData.error && (
+                                      <div style={{ marginTop: '4px' }}>
+                                        <Text type="danger" style={{ fontSize: '9px', display: 'block' }}>
+                                          ❌ 错误: {toolData.error}
+                                        </Text>
+                                      </div>
+                                    )}
+                                    
+                                    {/* 执行时间 */}
+                                    {toolData.completedAt && (
+                                      <Text type="secondary" style={{ fontSize: '9px', display: 'block', marginTop: '2px' }}>
+                                        执行耗时: {Math.round((toolData.completedAt - toolData.timestamp) / 1000 * 100) / 100}秒
+                                      </Text>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 
@@ -799,6 +963,42 @@ const ChatInterface = ({
                                 </Text>
                               </>
                             )}
+                            {data && (
+                              <>
+                                <br />
+                                <Button 
+                                  type="text" 
+                                  size="small" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    fontSize: '11px', 
+                                    color: '#1890ff',
+                                    marginTop: '4px'
+                                  }}
+                                  onClick={() => setShowJsonData(!showJsonData)}
+                                >
+                                  {showJsonData ? '隐藏' : '显示'} JSON数据
+                                </Button>
+                                {showJsonData && (
+                                  <div style={{
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e9ecef',
+                                    borderRadius: '4px',
+                                    padding: '8px',
+                                    fontSize: '10px',
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all',
+                                    maxHeight: '120px',
+                                    overflowY: 'auto',
+                                    color: '#495057',
+                                    marginTop: '4px'
+                                  }}>
+                                    {JSON.stringify(data, null, 2)}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         );
                       case 'plan_creation':
@@ -817,6 +1017,87 @@ const ChatInterface = ({
                                 <Text type="secondary" style={{ fontSize: '10px' }}>
                                   计划包含 {data.steps.length} 个步骤
                                 </Text>
+                                <br />
+                                <div style={{ 
+                                  marginTop: '8px',
+                                  backgroundColor: '#f8f9fa',
+                                  border: '1px solid #e9ecef',
+                                  borderRadius: '4px',
+                                  padding: '8px'
+                                }}>
+                                  {data.steps.map((step, index) => (
+                                    <div 
+                                      key={step.stepNumber} 
+                                      style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        padding: '2px 0',
+                                        borderBottom: index < data.steps.length - 1 ? '1px solid #e9ecef' : 'none'
+                                      }}
+                                    >
+                                      <div style={{ 
+                                        width: '14px', 
+                                        height: '14px', 
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '9px',
+                                        marginRight: '6px',
+                                        backgroundColor: '#d1d5db',
+                                        color: 'white'
+                                      }}>
+                                        {step.stepNumber}
+                                      </div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <Text style={{ fontSize: '10px', color: '#374151' }}>
+                                          {step.stepName}
+                                        </Text>
+                                        <Text type="secondary" style={{ fontSize: '9px', display: 'block' }}>
+                                          {step.type === 'tool_call' ? '📦 工具调用' : 
+                                           step.type === 'reasoning' ? '🧠 推理分析' : 
+                                           step.type === 'synthesis' ? '🔗 结果综合' : step.type}
+                                        </Text>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                            {data && (
+                              <>
+                                <br />
+                                <Button 
+                                  type="text" 
+                                  size="small" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    fontSize: '11px', 
+                                    color: '#1890ff',
+                                    marginTop: '4px'
+                                  }}
+                                  onClick={() => setShowJsonData(!showJsonData)}
+                                >
+                                  {showJsonData ? '隐藏' : '显示'} JSON数据
+                                </Button>
+                                {showJsonData && (
+                                  <div style={{
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e9ecef',
+                                    borderRadius: '4px',
+                                    padding: '8px',
+                                    fontSize: '10px',
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all',
+                                    maxHeight: '120px',
+                                    overflowY: 'auto',
+                                    color: '#495057',
+                                    marginTop: '4px'
+                                  }}>
+                                    {JSON.stringify(data, null, 2)}
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
@@ -839,6 +1120,42 @@ const ChatInterface = ({
                                 </Text>
                               </>
                             )}
+                            {data && (
+                              <>
+                                <br />
+                                <Button 
+                                  type="text" 
+                                  size="small" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    fontSize: '11px', 
+                                    color: '#1890ff',
+                                    marginTop: '4px'
+                                  }}
+                                  onClick={() => setShowJsonData(!showJsonData)}
+                                >
+                                  {showJsonData ? '隐藏' : '显示'} JSON数据
+                                </Button>
+                                {showJsonData && (
+                                  <div style={{
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e9ecef',
+                                    borderRadius: '4px',
+                                    padding: '8px',
+                                    fontSize: '10px',
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all',
+                                    maxHeight: '120px',
+                                    overflowY: 'auto',
+                                    color: '#495057',
+                                    marginTop: '4px'
+                                  }}>
+                                    {JSON.stringify(data, null, 2)}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         );
                       case 'step_start':
@@ -857,6 +1174,42 @@ const ChatInterface = ({
                                planSolveProgress.stepType === 'reasoning' ? '🧠 进行逻辑推理和分析' : 
                                planSolveProgress.stepType === 'synthesis' ? '🔗 整合多个步骤的结果' : '处理数据'}
                             </Text>
+                            {data && (
+                              <>
+                                <br />
+                                <Button 
+                                  type="text" 
+                                  size="small" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    fontSize: '11px', 
+                                    color: '#1890ff',
+                                    marginTop: '4px'
+                                  }}
+                                  onClick={() => setShowJsonData(!showJsonData)}
+                                >
+                                  {showJsonData ? '隐藏' : '显示'} JSON数据
+                                </Button>
+                                {showJsonData && (
+                                  <div style={{
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e9ecef',
+                                    borderRadius: '4px',
+                                    padding: '8px',
+                                    fontSize: '10px',
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all',
+                                    maxHeight: '120px',
+                                    overflowY: 'auto',
+                                    color: '#495057',
+                                    marginTop: '4px'
+                                  }}>
+                                    {JSON.stringify(data, null, 2)}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         );
                       case 'step_complete':
@@ -875,6 +1228,42 @@ const ChatInterface = ({
                                planSolveProgress.stepType === 'reasoning' ? '🧠 推理分析完成，得出相关结论' : 
                                planSolveProgress.stepType === 'synthesis' ? '🔗 结果整合完成，准备下一步' : '处理完成'}
                             </Text>
+                            {data && (
+                              <>
+                                <br />
+                                <Button 
+                                  type="text" 
+                                  size="small" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    fontSize: '11px', 
+                                    color: '#1890ff',
+                                    marginTop: '4px'
+                                  }}
+                                  onClick={() => setShowJsonData(!showJsonData)}
+                                >
+                                  {showJsonData ? '隐藏' : '显示'} JSON数据
+                                </Button>
+                                {showJsonData && (
+                                  <div style={{
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e9ecef',
+                                    borderRadius: '4px',
+                                    padding: '8px',
+                                    fontSize: '10px',
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all',
+                                    maxHeight: '120px',
+                                    overflowY: 'auto',
+                                    color: '#495057',
+                                    marginTop: '4px'
+                                  }}>
+                                    {JSON.stringify(data, null, 2)}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         );
                       case 'step_error':
@@ -891,6 +1280,42 @@ const ChatInterface = ({
                             <Text type="danger" style={{ fontSize: '10px' }}>
                               错误: {planSolveProgress.message}
                             </Text>
+                            {data && (
+                              <>
+                                <br />
+                                <Button 
+                                  type="text" 
+                                  size="small" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    fontSize: '11px', 
+                                    color: '#1890ff',
+                                    marginTop: '4px'
+                                  }}
+                                  onClick={() => setShowJsonData(!showJsonData)}
+                                >
+                                  {showJsonData ? '隐藏' : '显示'} JSON数据
+                                </Button>
+                                {showJsonData && (
+                                  <div style={{
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e9ecef',
+                                    borderRadius: '4px',
+                                    padding: '8px',
+                                    fontSize: '10px',
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all',
+                                    maxHeight: '120px',
+                                    overflowY: 'auto',
+                                    color: '#495057',
+                                    marginTop: '4px'
+                                  }}>
+                                    {JSON.stringify(data, null, 2)}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         );
                       case 'result_evaluation':
@@ -907,6 +1332,42 @@ const ChatInterface = ({
                             <Text type="secondary" style={{ fontSize: '10px' }}>
                               检查结果的准确性、完整性和实用性
                             </Text>
+                            {data && (
+                              <>
+                                <br />
+                                <Button 
+                                  type="text" 
+                                  size="small" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    fontSize: '11px', 
+                                    color: '#1890ff',
+                                    marginTop: '4px'
+                                  }}
+                                  onClick={() => setShowJsonData(!showJsonData)}
+                                >
+                                  {showJsonData ? '隐藏' : '显示'} JSON数据
+                                </Button>
+                                {showJsonData && (
+                                  <div style={{
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e9ecef',
+                                    borderRadius: '4px',
+                                    padding: '8px',
+                                    fontSize: '10px',
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-all',
+                                    maxHeight: '120px',
+                                    overflowY: 'auto',
+                                    color: '#495057',
+                                    marginTop: '4px'
+                                  }}>
+                                    {JSON.stringify(data, null, 2)}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         );
                       default:
@@ -942,7 +1403,15 @@ const ChatInterface = ({
           </div>
         )}
 
-        {messages.map((message) => (
+        {messages
+          .filter((message) => {
+            // 在 plan_solve 模式下，过滤掉工具执行消息
+            if (agentStatus?.thinkingMode === 'plan_solve' && message.type === 'tool_execution') {
+              return false;
+            }
+            return true;
+          })
+          .map((message) => (
           <div key={message.id} className="message-item">
             {message.type === 'user' ? (
               <Space align="start" style={{ width: '100%', justifyContent: 'flex-end' }}>
@@ -995,31 +1464,7 @@ const ChatInterface = ({
           </div>
         )}
 
-        {/* Plan & Solve 状态指示器 */}
-        {planSolveStatus && (
-          <div className="message-item plan-solve-status">
-            <Space align="start" style={{ width: '100%' }}>
-              <Avatar 
-                icon={<RobotOutlined />} 
-                style={{ 
-                  backgroundColor: '#1890ff', 
-                  width: '24px', 
-                  height: '24px',
-                  fontSize: '12px'
-                }} 
-              />
-              <div style={{ flex: 1 }}>
-                {renderMessageContent({
-                  type: 'plan_solve_update',
-                  phase: planSolveStatus.phase,
-                  message: planSolveStatus.message,
-                  data: planSolveStatus.data,
-                  timestamp: planSolveStatus.timestamp
-                })}
-              </div>
-            </Space>
-          </div>
-        )}
+       
 
 
 
