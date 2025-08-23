@@ -19,7 +19,7 @@
     "install:all": "npm install && cd packages/frontend && npm install && cd ../backend && npm install",
     "start:all": "concurrently \"cd packages/backend && npm start\" \"cd packages/frontend && npm run preview\"",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
-    "reset": "npm run clean && npm run install:all",
+    "reset": "npm run clean && npm run install:all"
   },
   "keywords": [
     "llm",
