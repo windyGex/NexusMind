@@ -417,17 +417,25 @@ async function handleChatMessage(ws, data, clientId) {
         throw new Error('任务已被用户中止');
       }
 
-      // 发送工具调用开始
-      console.log(`🔧 发送 tool_start 消息: ${toolName}`, args);
+      // 获取原始工具名称（用于前端显示和匹配）
+      let displayToolName = toolName;
+      
+      // 如果是MCP工具，尝试获取显示名称
+      const toolInfo = agent.tools.getTool(toolName);
+      if (toolInfo && toolInfo.mcpMetadata && toolInfo.mcpMetadata.originalName) {
+        displayToolName = toolInfo.mcpMetadata.originalName;
+      }
+
+      // 发送工具调用开始（使用显示名称确保与plan_solve步骤中的名称一致）
+      console.log(`🔧 发送 tool_start 消息: ${displayToolName} (实际工具: ${toolName})`, args);
       ws.send(JSON.stringify({
         type: 'tool_start',
-        tool: toolName,
+        tool: displayToolName,
         args: args
       }));
       
       try {
         // 检查是否为MCP工具且支持流式响应
-        const toolInfo = agent.tools.getTool(toolName);
         const isMCPTool = toolInfo && toolInfo.mcpMetadata;
         const isStreamableTool = isMCPTool && (
           toolInfo.mcpMetadata.type === 'streamable-http' ||
@@ -456,7 +464,7 @@ async function handleChatMessage(ws, data, clientId) {
                 // 发送流数据到前端
                 ws.send(JSON.stringify({
                   type: 'tool_stream_data',
-                  tool: toolName,
+                  tool: displayToolName,
                   data: data,
                   sequence: streamDataCount
                 }));
@@ -467,7 +475,7 @@ async function handleChatMessage(ws, data, clientId) {
                 // 发送进度更新到前端
                 ws.send(JSON.stringify({
                   type: 'tool_progress',
-                  tool: toolName,
+                  tool: displayToolName,
                   progress: progress
                 }));
               },
@@ -477,7 +485,7 @@ async function handleChatMessage(ws, data, clientId) {
                 // 发送完成通知到前端
                 ws.send(JSON.stringify({
                   type: 'tool_stream_complete',
-                  tool: toolName,
+                  tool: displayToolName,
                   data: completeData
                 }));
               },
@@ -487,7 +495,7 @@ async function handleChatMessage(ws, data, clientId) {
                 // 发送错误到前端
                 ws.send(JSON.stringify({
                   type: 'tool_stream_error',
-                  tool: toolName,
+                  tool: displayToolName,
                   error: error
                 }));
               }
@@ -500,10 +508,10 @@ async function handleChatMessage(ws, data, clientId) {
           }
           
           // 发送最终结果
-          console.log(`✅ 发送 tool_result 消息: ${toolName} (流式)`, result);
+          console.log(`✅ 发送 tool_result 消息: ${displayToolName} (流式)`, result);
           ws.send(JSON.stringify({
             type: 'tool_result',
-            tool: toolName,
+            tool: displayToolName,
             result: result,
             streamable: true,
             streamDataCount: streamDataCount
@@ -519,22 +527,22 @@ async function handleChatMessage(ws, data, clientId) {
             throw new Error('任务已被用户中止');
           }
           
-          // 发送工具调用结果
-          console.log(`✅ 发送 tool_result 消息: ${toolName}`, result);
+          // 发送工具调用结果（使用显示名称确保匹配）
+          console.log(`✅ 发送 tool_result 消息: ${displayToolName}`, result);
           ws.send(JSON.stringify({
             type: 'tool_result',
-            tool: toolName,
+            tool: displayToolName,
             result: result
           }));
           
           return result;
         }
       } catch (error) {
-        // 发送工具调用错误
-        console.log(`❌ 发送 tool_error 消息: ${toolName}`, error.message);
+        // 发送工具调用错误（使用显示名称确保匹配）
+        console.log(`❌ 发送 tool_error 消息: ${displayToolName}`, error.message);
         ws.send(JSON.stringify({
           type: 'tool_error',
-          tool: toolName,
+          tool: displayToolName,
           error: error.message
         }));
         

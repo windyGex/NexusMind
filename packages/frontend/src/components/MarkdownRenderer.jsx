@@ -189,6 +189,17 @@ const MarkdownRenderer = ({
                 {children}
               </td>
             );
+          },
+          hr() {
+            return (
+              <hr style={{
+                border: 'none',
+                height: '1px',
+                backgroundColor: '#e2e8f0',
+                margin: '24px 0',
+                borderRadius: '1px'
+              }} />
+            );
           }
         }}
       >

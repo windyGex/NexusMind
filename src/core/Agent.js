@@ -244,16 +244,9 @@ export class Agent {
       logger.debug('任务分析完成:', taskAnalysis);
       
       // 发送任务分析完成的思考过程
-      const analysisText = `📋 **任务分析完成**\n\n` +
-        `🎯 **任务类型**: ${taskAnalysis.taskType}\n` +
-        `📊 **复杂度**: ${taskAnalysis.complexity}\n` +
-        `🔧 **需要工具**: ${taskAnalysis.requiresTools ? '是' : '否'}\n` +
-        `📝 **多步骤**: ${taskAnalysis.multiStep ? '是' : '否'}\n` +
-        `🎯 **核心需求**: ${taskAnalysis.coreRequirements?.join('、') || '无'}\n` +
-        `🛠️ **建议工具**: ${taskAnalysis.suggestedTools?.join('、') || '无'}\n` +
-        `📈 **预估步骤**: ${taskAnalysis.estimatedSteps || 0} 个步骤\n` +
-        `⚠️ **挑战**: ${taskAnalysis.challenges?.join('、') || '无'}\n` +
-        `✅ **成功标准**: ${taskAnalysis.successCriteria?.join('、') || '无'}`;
+      const analysisText = `${taskAnalysis.coreRequirements?.join('、')} ` +
+        `建议使用工具${taskAnalysis.suggestedTools?.join('、') || '无'} ` +
+        `预估${taskAnalysis.estimatedSteps || 0} 个步骤`
       
       if (this.onThinkingComplete) {
         this.onThinkingComplete(analysisText);
@@ -265,24 +258,6 @@ export class Agent {
       this.currentPlan = plan;
       this.sendPlanSolveUpdate('plan_creation', '计划制定完成', plan);
       logger.debug('计划制定完成:', plan);
-      
-      // 发送计划制定完成的思考过程
-      const planText = `📋 **执行计划制定完成**\n\n` +
-        `📊 **计划概览**: ${plan.description || '详细执行计划'}\n` +
-        `📈 **总步骤数**: ${plan.steps?.length || 0} 个步骤\n` +
-        `🎯 **执行策略**: ${plan.strategy || '按步骤顺序执行'}\n\n` +
-        `📝 **详细步骤**:\n` +
-        plan.steps?.map((step, index) => 
-          `${index + 1}. **${step.stepName}**\n` +
-          `   - 类型: ${step.type === 'tool_call' ? '🔧 工具调用' : step.type === 'reasoning' ? '🧠 推理分析' : step.type === 'synthesis' ? '🔗 结果综合' : step.type}\n` +
-          `   - 描述: ${step.description}\n` +
-          (step.tool ? `   - 工具: ${step.tool}\n` : '') +
-          (step.dependsOn?.length ? `   - 依赖: 步骤 ${step.dependsOn.join('、')}\n` : '')
-        ).join('\n') || '无具体步骤';
-      
-      if (this.onThinkingComplete) {
-        this.onThinkingComplete(planText);
-      }
 
       // 阶段3: 执行计划
       this.sendPlanSolveUpdate('plan_execution', '开始执行计划...', { 
@@ -297,17 +272,6 @@ export class Agent {
       this.sendPlanSolveUpdate('plan_execution', '计划执行完成', executionResult);
       logger.debug('计划执行完成:', executionResult);
       
-      // 发送计划执行完成的思考过程
-      const executionCompleteText = `✅ **计划执行完成**\n\n` +
-        `📊 **执行结果**: 所有计划步骤已按顺序完成\n` +
-        `📈 **成功步骤**: ${executionResult.successfulSteps || 0} / ${plan.steps?.length || 0}\n` +
-        `⚠️ **遇到问题**: ${executionResult.errors?.length || 0} 个\n` +
-        `🎯 **关键成果**: ${executionResult.keyResults?.join('、') || '任务执行完毕'}\n\n` +
-        `📝 现在进入结果评估阶段，确保输出质量...`;
-      
-      if (this.onThinkingComplete) {
-        this.onThinkingComplete(executionCompleteText);
-      }
 
       // 阶段4: 评估结果
       this.sendPlanSolveUpdate('result_evaluation', '正在评估结果...', { 
@@ -803,13 +767,17 @@ ${relevantTools.map(toolName => {
       // 使用大模型进行智能参数处理和变量替换
       const processedArgs = await this.processToolArgsWithLLM(step, previousResults);
 
-      logger.info(`执行工具: ${step.tool}, 参数:`, processedArgs);
+      // 获取实际的工具ID
       const actualToolId = this.mapToolName(step.tool);
+      logger.info(`执行工具: ${step.tool} -> ${actualToolId}, 参数:`, processedArgs);
+      
+      // 执行工具时使用实际的工具ID，但保持原始显示名称用于前端匹配
       const toolResult = await this.tools.execute(actualToolId, processedArgs);
       
       return {
         success: true,
-        tool: step.tool,
+        tool: step.tool, // 保持原始工具名称用于一致性
+        actualToolId: actualToolId, // 保存实际的工具ID
         args: processedArgs,
         result: toolResult,
         content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult)

@@ -358,207 +358,105 @@ const ChatInterface = ({
         );
 
       case 'plan_solve_update':
-        return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '95%',
-              backgroundColor: '#f0f9ff',
-              borderColor: '#bae6fd'
-            }}
-            bodyStyle={{ 
-              padding: '10px 16px',
-              lineHeight: '1.4',
-              minWidth: '400px'
-            }}
-          >
-            <Space direction="vertical" size="small" style={{ width: '100%', gap: '6px' }}>
-              <Space>
-                <ClockCircleOutlined style={{ color: '#1890ff' }} />
-                <Text strong style={{ fontSize: '13px' }}>
-                  Plan & Solve 执行状态
+        // 只显示有步骤清单的执行阶段
+        if (message.data && message.data.steps && message.phase === 'plan_execution') {
+          return (
+            <Card 
+              size="small" 
+              style={{ 
+                maxWidth: '95%',
+                backgroundColor: '#f0f9ff',
+                borderColor: '#bae6fd'
+              }}
+              bodyStyle={{ 
+                padding: '10px 16px',
+                lineHeight: '1.4',
+                minWidth: '400px'
+              }}
+            >
+              {/* 执行步骤清单 */}
+              <div>
+                <Text type="secondary" style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', display: 'block' }}>
+                  执行步骤清单:
                 </Text>
-                {message.phase === 'task_analysis' && <Tag color="processing">任务分析</Tag>}
-                {message.phase === 'plan_creation' && <Tag color="processing">计划制定</Tag>}
-                {message.phase === 'plan_execution' && <Tag color="processing">计划执行</Tag>}
-                {message.phase === 'result_evaluation' && <Tag color="processing">结果评估</Tag>}
-              </Space>
-              
-              <Text style={{ fontSize: '12px', color: '#4a5568' }}>
-                {message.message}
-              </Text>
-              
-              {message.data && message.phase === 'plan_execution' && message.data.currentStepInfo && (
-                <div style={{ marginTop: '8px' }}>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>
-                    步骤 {message.data.currentStepInfo.stepNumber}/{message.data.totalSteps}: {message.data.currentStepInfo.stepName}
-                  </Text>
-                  <Tag 
-                    color={
-                      message.data.currentStepInfo.status === 'executing' ? 'processing' :
-                      message.data.currentStepInfo.status === 'completed' ? 'success' :
-                      message.data.currentStepInfo.status === 'error' ? 'error' : 'default'
-                    }
-                    size="small" 
-                    style={{ marginLeft: '8px' }}
-                  >
-                    {
-                      message.data.currentStepInfo.status === 'executing' ? '执行中' :
-                      message.data.currentStepInfo.status === 'completed' ? '已完成' :
-                      message.data.currentStepInfo.status === 'error' ? '失败' : message.data.currentStepInfo.status
-                    }
-                  </Tag>
-                  {message.data.currentStepInfo.stepType && (
-                    <Tag size="small" style={{ marginLeft: '4px' }}>
-                      {message.data.currentStepInfo.stepType === 'tool_call' ? '工具调用' : 
-                       message.data.currentStepInfo.stepType === 'reasoning' ? '推理分析' : 
-                       message.data.currentStepInfo.stepType === 'synthesis' ? '结果综合' : message.data.currentStepInfo.stepType}
-                    </Tag>
-                  )}
-                  {message.data.currentStepInfo.error && (
-                    <div style={{ marginTop: '4px' }}>
-                      <Text type="danger" style={{ fontSize: '10px' }}>
-                        错误: {message.data.currentStepInfo.error}
-                      </Text>
-                    </div>
-                  )}
-                  
-                  {/* 执行步骤清单 - 复用之前悬浮面板的样式 */}
-                  {message.data.steps && (
-                    <div style={{ marginTop: '12px' }}>
-                      <Text type="secondary" style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', display: 'block' }}>
-                        执行步骤清单:
-                      </Text>
-                      <div style={{ 
-                        backgroundColor: '#f8f9fa',
-                        border: '1px solid #e9ecef',
-                        borderRadius: '4px',
-                        padding: '8px'
-                      }}>
-                        {message.data.steps.map((step, index) => {
-                          const isCurrentStep = message.data.currentStep === step.stepNumber;
-                          const isCompleted = message.data.completedSteps >= step.stepNumber;
-                          const isError = message.data.currentStepInfo?.status === 'error' && message.data.currentStep === step.stepNumber;
-                          
-                          return (
-                            <div 
-                              key={step.stepNumber} 
-                              style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                padding: '4px 0',
-                                borderBottom: index < message.data.steps.length - 1 ? '1px solid #e9ecef' : 'none'
-                              }}
-                            >
-                              <div style={{ 
-                                width: '16px', 
-                                height: '16px', 
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '10px',
-                                marginRight: '8px',
-                                backgroundColor: isError ? '#ef4444' : isCompleted ? '#10b981' : isCurrentStep ? '#3b82f6' : '#d1d5db',
-                                color: 'white'
-                              }}>
-                                {isError ? '❌' : isCompleted ? '✓' : isCurrentStep ? '▶' : step.stepNumber}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <Text style={{ 
-                                  fontSize: '11px', 
-                                  fontWeight: isCurrentStep ? 'bold' : 'normal',
-                                  color: isError ? '#ef4444' : isCurrentStep ? '#3b82f6' : '#374151'
-                                }}>
-                                  {step.stepName}
-                                </Text>
-                                <Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>
-                                  {step.type === 'tool_call' ? '📦 工具调用' : 
-                                   step.type === 'reasoning' ? '🧠 推理分析' : 
-                                   step.type === 'synthesis' ? '🔗 结果综合' : step.type}
-                                  {step.tool && ` - ${step.tool}`}
-                                </Text>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      
-                      {/* 进度条 */}
-                      <div style={{ 
-                        width: '100%', 
-                        backgroundColor: '#e2e8f0', 
-                        borderRadius: '4px',
-                        height: '6px',
-                        marginTop: '8px',
-                        overflow: 'hidden'
-                      }}>
-                        <div style={{
-                          width: `${((message.data.completedSteps || 0) / (message.data.totalSteps || 1)) * 100}%`,
-                          height: '100%',
-                          backgroundColor: message.data.currentStepInfo?.status === 'error' ? '#ef4444' : '#1890ff',
-                          transition: 'width 0.3s ease',
-                          borderRadius: '4px'
-                        }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {message.data && message.phase === 'plan_creation' && message.data.steps && (
-                <Collapse 
-                  ghost
-                  size="small"
-                  defaultActiveKey={[]}
-                  items={[
-                    {
-                      key: 'plan',
-                      label: (
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          执行计划 ({message.data.steps.length} 个步骤)
-                        </Text>
-                      ),
-                      children: (
-                        <div style={{ marginTop: '8px' }}>
-                          {message.data.steps.map((step, index) => (
-                            <div key={index} style={{ 
-                              marginBottom: '8px', 
-                              padding: '6px 8px',
-                              backgroundColor: '#f8fafc',
-                              borderRadius: '4px',
-                              border: '1px solid #e2e8f0'
-                            }}>
-                              <Text style={{ fontSize: '11px', fontWeight: 'bold' }}>
-                                步骤 {step.stepNumber}: {step.stepName}
-                              </Text>
-                              <br />
-                              <Text type="secondary" style={{ fontSize: '10px' }}>
-                                {step.description}
-                              </Text>
-                              {step.type === 'tool_call' && (
-                                <div style={{ marginTop: '4px' }}>
-                                  <Tag size="small" color="blue">
-                                    工具: {step.tool}
-                                  </Tag>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                <div style={{ 
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '4px',
+                  padding: '8px'
+                }}>
+                  {message.data.steps.map((step, index) => {
+                    const isCurrentStep = message.data.currentStep === step.stepNumber;
+                    const isCompleted = message.data.completedSteps >= step.stepNumber;
+                    const isError = message.data.currentStepInfo?.status === 'error' && message.data.currentStep === step.stepNumber;
+                    
+                    return (
+                      <div 
+                        key={step.stepNumber} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          padding: '4px 0',
+                          borderBottom: index < message.data.steps.length - 1 ? '1px solid #e9ecef' : 'none'
+                        }}
+                      >
+                        <div style={{ 
+                          width: '16px', 
+                          height: '16px', 
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                          marginRight: '8px',
+                          backgroundColor: isError ? '#ef4444' : isCompleted ? '#10b981' : isCurrentStep ? '#3b82f6' : '#d1d5db',
+                          color: 'white'
+                        }}>
+                          {isError ? '❌' : isCompleted ? '✓' : isCurrentStep ? '▶' : step.stepNumber}
                         </div>
-                      )
-                    }
-                  ]}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    marginTop: '8px'
-                  }}
-                />
-              )}
-            </Space>
-          </Card>
-        );
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={{ 
+                            fontSize: '11px', 
+                            fontWeight: isCurrentStep ? 'bold' : 'normal',
+                            color: isError ? '#ef4444' : isCurrentStep ? '#3b82f6' : '#374151'
+                          }}>
+                            {step.stepName}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>
+                            {step.type === 'tool_call' ? '📦 工具调用' : 
+                             step.type === 'reasoning' ? '🧠 推理分析' : 
+                             step.type === 'synthesis' ? '🔗 结果综合' : step.type}
+                            {step.tool && ` - ${step.tool}`}
+                          </Text>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* 进度条 */}
+                <div style={{ 
+                  width: '100%', 
+                  backgroundColor: '#e2e8f0', 
+                  borderRadius: '4px',
+                  height: '6px',
+                  marginTop: '8px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    width: `${((message.data.completedSteps || 0) / (message.data.totalSteps || 1)) * 100}%`,
+                    height: '100%',
+                    backgroundColor: message.data.currentStepInfo?.status === 'error' ? '#ef4444' : '#1890ff',
+                    transition: 'width 0.3s ease',
+                    borderRadius: '4px'
+                  }} />
+                </div>
+              </div>
+            </Card>
+          );
+        }
+        // 其他阶段不显示任何内容
+        return null;
 
       default:
         return <Text>{message.content}</Text>;
@@ -612,7 +510,7 @@ const ChatInterface = ({
               
               <div style={{ 
                 maxWidth: message.type === 'user' ? '80%' : '100%',
-                minWidth: '200px'
+                minWidth: message.type === 'user' ? 'auto' : '200px',
               }}>
                 {message.type === 'user' ? (
                   <div style={{
@@ -664,11 +562,11 @@ const ChatInterface = ({
                   <Card 
                     size="small" 
                     style={{ 
-                      backgroundColor: '#f6ffed',
+                      backgroundColor: '#f6f6f6',
                       padding: '8px 16px'
                     }}
                     bodyStyle={{ 
-                      padding: '16px 20px',
+                      padding: '10px',
                       lineHeight: '1.6'
                     }}
                   >

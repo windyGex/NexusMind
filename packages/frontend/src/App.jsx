@@ -119,38 +119,73 @@ function App() {
           setCurrentTool(prev => prev ? { ...prev, status: 'completed' } : null);
           setMessages(prev => {
             console.log('🔍 查找匹配的工具执行消息，当前消息列表:', prev.map(m => ({id: m.id, type: m.type, tool: m.tool, status: m.status})));
-            return prev.map(msg => {
-              // 找到对应的工具执行消息并更新
-              if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
-                console.log('🎯 找到匹配的工具执行消息，更新状态为completed');
-                return {
-                  ...msg,
-                  status: 'completed',
-                  result: data.result,
-                  completedAt: new Date()
-                };
+            
+            // 找到最近的运行中的工具执行消息
+            let foundIndex = -1;
+            for (let i = prev.length - 1; i >= 0; i--) {
+              const msg = prev[i];
+              if (msg.type === 'tool_execution' && msg.status === 'running') {
+                // 直接匹配或者柔性匹配（处理MCP工具名称映射问题）
+                if (msg.tool === data.tool || 
+                    (类型msg.tool === 'string' && msg.tool.includes(data.tool)) ||
+                    (typeof data.tool === 'string' && data.tool.includes(msg.tool))) {
+                  foundIndex = i;
+                  break;
+                }
               }
-              return msg;
-            });
+            }
+            
+            if (foundIndex >= 0) {
+              console.log('🎯 找到匹配的工具执行消息，更新状态为completed');
+              const updatedMessages = [...prev];
+              updatedMessages[foundIndex] = {
+                ...updatedMessages[foundIndex],
+                status: 'completed',
+                result: data.result,
+                completedAt: new Date()
+              };
+              return updatedMessages;
+            } else {
+              console.log('⚠️ 未找到匹配的工具执行消息，可能存在名称映射问题');
+              return prev;
+            }
           });
           break;
           
         case 'tool_error':
           console.log('❌ 收到 tool_error 消息:', data);
           setCurrentTool(prev => prev ? { ...prev, status: 'error' } : null);
-          setMessages(prev => prev.map(msg => {
-            // 找到对应的工具执行消息并更新
-            if (msg.type === 'tool_execution' && msg.tool === data.tool && msg.status === 'running') {
+          setMessages(prev => {
+            // 找到最近的运行中的工具执行消息
+            let foundIndex = -1;
+            for (let i = prev.length - 1; i >= 0; i--) {
+              const msg = prev[i];
+              if (msg.type === 'tool_execution' && msg.status === 'running') {
+                // 直接匹配或者柔性匹配
+                if (msg.tool === data.tool || 
+                    (typeof msg.tool === 'string' && msg.tool.includes(data.tool)) ||
+                    (typeof data.tool === 'string' && data.tool.includes(msg.tool))) {
+                  foundIndex = i;
+                  break;
+                }
+              }
+            }
+            
+            if (foundIndex >= 0) {
               console.log('🎯 找到匹配的工具执行消息，更新状态为error');
-              return {
-                ...msg,
+              const updatedMessages = [...prev];
+              updatedMessages[foundIndex] = {
+                ...updatedMessages[foundIndex],
                 status: 'error',
                 error: data.error,
                 completedAt: new Date()
               };
+              return updatedMessages;
+            } else {
+              console.log('⚠️ 未找到匹配的工具执行消息，可能存在名称映射问题');
+              return prev;
             }
-            return msg;
-          }));
+          });
           break;
           
         case 'stream_complete':
@@ -177,6 +212,46 @@ function App() {
             metadata: data.metadata,
             timestamp: new Date(data.timestamp)
           }]);
+          break;
+          
+        case 'plan_solve_update':
+          // 处理Plan & Solve状态更新消息
+          console.log('📋 收到 plan_solve_update 消息:', data);
+          
+          if (data.phase === 'plan_execution' && data.data && data.data.steps) {
+            // 对于plan_execution阶段，检查是否已经存在步骤清单消息
+            setMessages(prev => {
+              const existingPlanIndex = prev.findIndex(
+                msg => msg.type === 'plan_solve_update' && msg.phase === 'plan_execution'
+              );
+              
+              if (existingPlanIndex >= 0) {
+                // 如果已存在，更新该消息的数据
+                const updatedMessages = [...prev];
+                updatedMessages[existingPlanIndex] = {
+                  ...updatedMessages[existingPlanIndex],
+                  data: data.data,
+                  message: data.message,
+                  timestamp: new Date(data.timestamp || new Date())
+                };
+                return updatedMessages;
+              } else {
+                // 如果不存在，创建新的消息
+                return [...prev, {
+                  id: `plan-solve-execution`,
+                  type: 'plan_solve_update',
+                  phase: data.phase,
+                  message: data.message,
+                  data: data.data,
+                  timestamp: new Date(data.timestamp || new Date())
+                }];
+              }
+            });
+          } else {
+            // 对于其他阶段（task_analysis、plan_creation、result_evaluation），不显示任何内容
+            // 这些阶段的消息不会被添加到消息列表中
+            console.log(`忽略 ${data.phase} 阶段的消息`);
+          }
           break;
           
         case 'workflow_update':
