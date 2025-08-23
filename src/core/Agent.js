@@ -658,29 +658,21 @@ ${relevantTools.map(toolName => {
       try {
         logger.info(`🔄 执行步骤 ${step.stepNumber}: ${step.stepName}`);
         
-        // 发送步骤开始执行的状态更新
-        this.sendPlanSolveUpdate('step_start', `开始执行步骤 ${step.stepNumber}: ${step.stepName}`, {
-          stepNumber: step.stepNumber,
-          stepName: step.stepName,
-          stepType: step.type,
+        // 更新计划执行状态（将步骤信息放在上下文中）
+        this.sendPlanSolveUpdate('plan_execution', `正在执行步骤 ${step.stepNumber}: ${step.stepName}`, {
           totalSteps: plan.steps.length,
           currentStep: step.stepNumber,
           completedSteps: completedSteps,
-          steps: plan.steps
+          steps: plan.steps,
+          currentStepInfo: {
+            stepNumber: step.stepNumber,
+            stepName: step.stepName,
+            stepType: step.type,
+            status: 'executing'
+          }
         });
         
-        // 发送步骤开始的思考过程文本
-        const stepStartText = `🔄 **开始执行步骤 ${step.stepNumber}**\n\n` +
-          `📋 **步骤名称**: ${step.stepName}\n` +
-          `🔧 **执行类型**: ${step.type === 'tool_call' ? '🛠️ 工具调用' : step.type === 'reasoning' ? '🧠 推理分析' : step.type === 'synthesis' ? '🔗 结果综合' : step.type}\n` +
-          `📝 **步骤描述**: ${step.description || '执行任务步骤'}\n` +
-          (step.tool ? `🔨 **使用工具**: ${step.tool}\n` : '') +
-          `📊 **执行进度**: ${completedSteps}/${plan.steps.length} 步骤已完成\n\n` +
-          `⚡ 正在执行该步骤...`;
-        
-        if (this.onThinkingComplete) {
-          this.onThinkingComplete(stepStartText);
-        }
+
         
         // 检查依赖
         const missingDeps = step.dependencies?.filter(dep => !stepResults.has(dep)) || [];
@@ -712,29 +704,22 @@ ${relevantTools.map(toolName => {
 
         completedSteps++; // 增加已完成步骤数
 
-        // 发送步骤完成的状态更新
-        this.sendPlanSolveUpdate('step_complete', `步骤 ${step.stepNumber} 执行完成`, {
-          stepNumber: step.stepNumber,
-          stepName: step.stepName,
-          stepType: step.type,
-          result: stepResult,
+        // 更新计划执行状态（步骤完成）
+        this.sendPlanSolveUpdate('plan_execution', `步骤 ${step.stepNumber} 执行完成`, {
           totalSteps: plan.steps.length,
           currentStep: step.stepNumber,
           completedSteps: completedSteps,
-          steps: plan.steps
+          steps: plan.steps,
+          currentStepInfo: {
+            stepNumber: step.stepNumber,
+            stepName: step.stepName,
+            stepType: step.type,
+            status: 'completed',
+            result: stepResult
+          }
         });
         
-        // 发送步骤完成的思考过程文本
-        const stepCompleteText = `✅ **步骤 ${step.stepNumber} 执行完成**\n\n` +
-          `📋 **步骤名称**: ${step.stepName}\n` +
-          `🎯 **执行结果**: ${step.type === 'tool_call' ? '🛠️ 工具调用成功，获取到所需信息' : step.type === 'reasoning' ? '🧠 推理分析完成，得出相关结论' : step.type === 'synthesis' ? '🔗 结果整合完成，数据已综合' : '步骤执行完毕'}\n` +
-          `📊 **完成进度**: ${completedSteps}/${plan.steps.length} 步骤已完成\n` +
-          `💡 **关键输出**: ${typeof stepResult === 'object' ? (stepResult.summary || stepResult.content || '执行成功') : String(stepResult).substring(0, 100)}\n\n` +
-          (completedSteps < plan.steps.length ? `🚀 准备执行下一个步骤...` : `🎉 所有步骤执行完毕，准备生成最终结果！`);
-        
-        if (this.onThinkingComplete) {
-          this.onThinkingComplete(stepCompleteText);
-        }
+
 
         logger.info(`✅ 步骤 ${step.stepNumber} 执行完成`);
 
@@ -771,16 +756,19 @@ ${relevantTools.map(toolName => {
           error: error.message
         });
 
-        // 发送步骤失败的状态更新
-        this.sendPlanSolveUpdate('step_error', `步骤 ${step.stepNumber} 执行失败: ${error.message}`, {
-          stepNumber: step.stepNumber,
-          stepName: step.stepName,
-          stepType: step.type,
-          error: error.message,
+        // 更新计划执行状态（步骤错误）
+        this.sendPlanSolveUpdate('plan_execution', `步骤 ${step.stepNumber} 执行失败: ${error.message}`, {
           totalSteps: plan.steps.length,
           currentStep: step.stepNumber,
           completedSteps: completedSteps,
-          steps: plan.steps
+          steps: plan.steps,
+          currentStepInfo: {
+            stepNumber: step.stepNumber,
+            stepName: step.stepName,
+            stepType: step.type,
+            status: 'error',
+            error: error.message
+          }
         });
         
         // 发送步骤失败的思考过程文本

@@ -45,17 +45,15 @@ export const useWebSocket = (url) => {
           } : null);
           return; // 不设置 lastMessage
         } else if (data.type === 'stream_end') {
-          setStreamingMessage(prev => prev ? {
-            ...prev,
-            content: data.content,
-            isStreaming: false,
-            completed: true
-          } : null);
+          // 先获取当前streamingMessage的id
+          const currentStreamingMessage = streamingMessage;
+          // 清除streamingMessage状态
+          setStreamingMessage(null);
           // 流式结束后，设置 lastMessage 触发最终处理
           setLastMessage(JSON.stringify({
             type: 'stream_complete',
             content: data.content,
-            messageId: prev?.id
+            messageId: currentStreamingMessage?.id
           }));
           return;
         }
@@ -76,7 +74,7 @@ export const useWebSocket = (url) => {
           setPlanSolveStatus(data);
           
           // 更新进度状态（保留之前的进度信息）
-          if (data.data && (data.phase === 'plan_execution' || data.phase === 'step_start' || data.phase === 'step_complete' || data.phase === 'step_error')) {
+          if (data.data && data.phase === 'plan_execution') {
             setPlanSolveProgress(prev => ({
               ...prev,
               ...data.data,
