@@ -68,7 +68,7 @@ const ChatInterface = ({
               marginRight: 0
             }}
             bodyStyle={{ 
-              padding: '12px 16px',
+              padding: '8px',
               lineHeight: '1.5'
             }}
           >
@@ -88,7 +88,7 @@ const ChatInterface = ({
               padding: '8px 16px'
             }}
             bodyStyle={{ 
-              padding: '16px 20px',
+              padding: '8px',
               lineHeight: '1.6'
             }}
           >
@@ -772,7 +772,7 @@ const ChatInterface = ({
           }}>
             <RobotOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
             <div>
-              <Text strong style={{ fontSize: '16px' }}>欢迎使用 Auto Agent</Text>
+              <Text strong style={{ fontSize: '16px' }}>欢迎使用 Nexus Mind</Text>
               <br />
               <Text type="secondary">我可以帮助您完成各种任务，请告诉我您需要什么帮助。</Text>
             </div>

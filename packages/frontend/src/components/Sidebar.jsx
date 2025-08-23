@@ -83,17 +83,57 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
       <div style={{ 
         padding: '20px', 
         textAlign: 'center',
-        background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+        background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 50%, #722ed1 100%)',
         height: '100%',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
-        <RobotOutlined style={{ 
-          fontSize: '28px', 
-          color: '#ffffff',
-          filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
+        {/* 背景装饰 */}
+        <div style={{
+          position: 'absolute',
+          top: '-50%',
+          left: '-50%',
+          width: '200%',
+          height: '200%',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+          animation: 'float 6s ease-in-out infinite'
         }} />
+        
+        {/* Logo图标 */}
+        <div style={{
+          width: '40px',
+          height: '40px',
+          background: 'rgba(255, 255, 255, 0.2)',
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          position: 'relative',
+          zIndex: 1
+        }}>
+          <RobotOutlined style={{ 
+            fontSize: '20px', 
+            color: '#ffffff',
+            filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
+          }} />
+        </div>
+        
+        {/* CSS 动画 */}
+        <style>
+          {`
+            @keyframes float {
+              0%, 100% { transform: translate(0, 0) rotate(0deg); }
+              33% { transform: translate(10px, -10px) rotate(1deg); }
+              66% { transform: translate(-5px, 5px) rotate(-1deg); }
+            }
+          `}
+        </style>
       </div>
     );
   }
@@ -118,6 +158,90 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
 
   return (
     <div className="sidebar-content">
+      {/* NexusMind Logo */}
+      <div style={{
+        padding: '20px 16px',
+        background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 50%, #722ed1 100%)',
+        margin: '-20px -16px 20px -16px',
+        textAlign: 'center',
+        position: 'relative',
+      }}>
+        {/* 背景装饰 */}
+        <div style={{
+          position: 'absolute',
+          top: '-50%',
+          left: '-50%',
+          width: '200%',
+          height: '200%',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+          animation: 'float 6s ease-in-out infinite'
+        }} />
+        
+        {/* Logo内容 */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '8px'
+          }}>
+            {/* Logo图标 */}
+            <div style={{
+              width: '48px',
+              height: '48px',
+              background: 'rgba(255, 255, 255, 0.2)',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: '12px',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}>
+              <RobotOutlined style={{
+                fontSize: '24px',
+                color: '#ffffff',
+                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
+              }} />
+            </div>
+            
+            {/* Logo文字 */}
+            <div style={{ textAlign: 'left' }}>
+              <div style={{
+                fontSize: '20px',
+                fontWeight: 'bold',
+                color: '#ffffff',
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+                letterSpacing: '0.5px',
+                lineHeight: 1
+              }}>
+                NexusMind
+              </div>
+              <div style={{
+                fontSize: '11px',
+                color: 'rgba(255, 255, 255, 0.8)',
+                marginTop: '2px',
+                letterSpacing: '0.3px'
+              }}>
+                智能体思维连接平台
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* CSS 动画 */}
+        <style>
+          {`
+            @keyframes float {
+              0%, 100% { transform: translate(0, 0) rotate(0deg); }
+              33% { transform: translate(10px, -10px) rotate(1deg); }
+              66% { transform: translate(-5px, 5px) rotate(-1deg); }
+            }
+          `}
+        </style>
+      </div>
+
       {/* 导航菜单 */}
       <div className="sidebar-section">
         <Menu
@@ -141,13 +265,7 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
           {agentStatus && (
             <>
               <div className="sidebar-section">
-                <Title level={5}>Agent状态</Title>
                 <Space direction="vertical" style={{ width: '100%' }}>
-                  <div className="stat-item">
-                    <Text className="stat-label">名称</Text>
-                    <Text className="stat-value">{agentStatus.name}</Text>
-                  </div>
-                  
                   {/* WebSocket连接状态整合 */}
                   <div className="stat-item">
                     <Text className="stat-label">连接状态</Text>
@@ -177,7 +295,7 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
                               ) : (
                                 <ProjectOutlined style={{ color: '#52c41a' }} />
                               )}
-                              <div>
+                              <div style={{'lineHeight': 'normal'}}>
                                 <div style={{ fontWeight: 'bold' }}>{mode.name}</div>
                                 <div style={{ fontSize: '11px', color: '#8c8c8c' }}>
                                   {mode.description}
@@ -343,23 +461,6 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
               >
                 重置对话
               </Button>
-            </Space>
-          </div>
-
-          <Divider />
-
-          {/* 系统信息 */}
-          <div className="sidebar-section">
-            <Title level={5}>系统信息</Title>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div className="stat-item">
-                <Text className="stat-label">版本</Text>
-                <Text className="stat-value">1.0.0</Text>
-              </div>
-              <div className="stat-item">
-                <Text className="stat-label">状态</Text>
-                <Tag color="processing">运行中</Tag>
-              </div>
             </Space>
           </div>
         </>
