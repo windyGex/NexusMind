@@ -1,195 +1,434 @@
-# NexusMind - 智能体思维连接平台
+# NexusMind - Autonomous Intelligent Agent Platform
 
-> **NexusMind** - 下一代自主智能体系统，融合ReAct决策、短期记忆和MCP协议，打造无缝的AI交互体验
+> **NexusMind** - Next-generation autonomous intelligent agent system integrating ReAct decision-making, short-term memory, and MCP protocol for seamless AI interaction experiences.
 
-基于JavaScript的LLM自主智能体平台，支持ReAct决策、短期记忆和MCP协议，提供实时WebSocket通信和现代化Web界面。
+A JavaScript-based LLM autonomous agent platform featuring ReAct decision-making, short-term memory, MCP protocol support, real-time WebSocket communication, and modern web interface.
 
-## 快速开始
+## ✨ Features
 
-### 安装依赖
+### 🧠 Intelligent Decision Engine
+- **Dual Decision Modes**: ReAct (Reasoning + Acting) and Plan & Solve patterns
+- **Short-term Memory System**: Context management and conversation history tracking
+- **Multi-tool Integration**: Seamless switching between local tools and MCP protocol tools
+- **Visual Progress Tracking**: Real-time visualization of Plan & Solve execution steps
+
+### 🌐 Real-time Interaction Platform
+- **WebSocket Communication**: Millisecond-level response with streaming output support
+- **Intelligent Status Monitoring**: Real-time agent status, tool statistics, and connection status
+- **Visual Tool Execution**: Real-time display of tool invocation process and results
+- **Auto-reconnection**: Automatic recovery from network failures
+
+### 🎨 Modern Web Interface
+- **Ant Design 5**: Enterprise-grade UI components
+- **Responsive Design**: Perfect adaptation for desktop and mobile
+- **Real-time Status Indicators**: Clear display of connection and processing status
+- **Elegant Thinking Process**: Streamlined display without interrupting main conversation
+- **Plan & Solve Visualization**: Floating progress indicators and step-by-step execution tracking
+
+### 🔧 Advanced Architecture
+- **Frontend-Backend Separation**: React 18 + Node.js + Express
+- **Modular Design**: Core Agent + Tool System + Communication Layer
+- **Extensible Architecture**: Support for custom tools and MCP server integration
+- **Web Scraping Capabilities**: Built-in tools for content extraction and analysis
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js (v18+ recommended)
+- npm or yarn
+
+### Installation
 ```bash
-# 安装所有依赖（根目录、前端、后端）
+# Install all dependencies (root, frontend, backend)
 npm run install:all
 ```
 
-### 开发环境启动
+### Development Environment
 ```bash
-# 方法一：使用启动脚本（推荐）
-./start-dev.sh
-
-# 方法二：使用 npm 命令
+# Method 1: Using npm commands (recommended)
 npm run dev:all
 
-# 方法三：分别启动
-npm run frontend  # 启动前端开发服务器
-npm run backend   # 启动后端开发服务器
+# Method 2: Start separately
+npm run frontend  # Start frontend dev server
+npm run backend   # Start backend dev server
+
+# Method 3: Enhanced backend features
+npm run dev:all:enhanced
+
+# Method 4: Debug mode
+npm run dev:all:debug
 ```
 
-### 生产环境启动
+### Production Environment
 ```bash
-# 构建前端
+# Build frontend
 npm run build:frontend
 
-# 启动生产环境（前端预览 + 后端服务）
+# Start production (frontend preview + backend service)
 npm run start:all
 ```
 
-### 其他命令
-```bash
-# 测试
-npm run test
+## 🌐 Access URLs
 
-# 高德地图相关
-npm run amap
-npm run amap-demo
+- **NexusMind Interface**: http://localhost:5173
+- **API Service**: http://localhost:3002
+- **Health Check**: http://localhost:3002/api/health
 
-# 快速开始示例
-npm run quick-start
-npm run quick-multi-mcp
+## 🛠️ Technology Stack
 
-# 多MCP示例
-npm run multi-mcp
-```
+### Frontend
+- **React 18**: Modern React with concurrent features
+- **Vite**: Fast build tool and development server
+- **Ant Design 5**: Enterprise-class UI design language
+- **WebSocket**: Real-time bidirectional communication
+- **React Markdown**: Rich text rendering
 
-## 项目架构
+### Backend
+- **Node.js + Express**: Robust server-side environment
+- **WebSocket Server**: Real-time communication
+- **Helmet & CORS**: Security middleware
+- **Morgan**: HTTP request logging
+- **dotenv**: Environment variable management
 
-```
-nexusmind/
-├── packages/
-│   ├── frontend/     # React + Vite 前端
-│   └── backend/      # Node.js + Express 后端
-├── src/              # 核心智能体代码
-├── examples/         # 示例代码
-└── test/            # 测试文件
-```
+### Core Agent System
+- **ReAct Decision Engine**: Reasoning + Acting + Observation
+- **Plan & Solve Mode**: Structured task decomposition and execution
+- **Memory Management**: Short-term context and conversation history
+- **Tool Registry**: Dynamic tool selection and execution
+- **MCP Protocol**: Model Context Protocol integration
 
-## 开发说明
+### Tools & Integrations
+- **Web Scraping**: Playwright, Puppeteer, Cheerio
+- **Search & Analysis**: SerpAPI integration
+- **LLM Integration**: OpenAI GPT models
+- **Data Processing**: Natural language processing, statistics
+- **File Handling**: CSV, XLSX, JSON processing
 
-- NexusMind前端运行在 `http://localhost:5173`
-- 后端API运行在 `http://localhost:3002`
-- 使用 `concurrently` 包来同时运行多个服务
-
-## 🌐 访问地址
-
-- **NexusMind界面**: http://localhost:5173
-- **API服务**: http://localhost:3002
-- **健康检查**: http://localhost:3002/api/health
-
-## 🛠️ 技术栈
-
-### 前端
-- React 18 + Vite
-- Ant Design 5
-- WebSocket 实时通信
-- React Markdown 渲染
-
-### 后端
-- Node.js + Express
-- WebSocket 服务器
-- 集成现有 Agent 核心
-- CORS 和 Helmet 安全中间件
-
-## 🎯 核心特性
-
-### 🧠 智能决策引擎
-- **ReAct模式** - 推理(Reasoning) + 行动(Acting) + 观察(Observation)
-- **短期记忆系统** - 智能上下文管理和对话历史追踪
-- **多工具集成** - 本地工具 + MCP协议工具无缝切换
-
-### 🌐 实时交互平台
-- **WebSocket实时通信** - 毫秒级响应，支持流式输出
-- **智能状态监控** - 实时显示Agent状态、工具统计和连接状态
-- **可视化工具调用** - 实时展示工具调用过程和结果
-- **自动重连机制** - 网络异常自动恢复，确保服务连续性
-
-### 🎨 现代化界面
-- **Ant Design 5** - 企业级UI组件库，美观且易用
-- **响应式设计** - 完美适配桌面端和移动端
-- **实时状态指示** - 连接状态、处理状态一目了然
-- **优雅的思考过程** - 弱化显示，不干扰主要对话
-
-### 🔧 技术架构
-- **前后端分离** - React 18 + Node.js + Express
-- **模块化设计** - 核心Agent + 工具系统 + 通信层
-- **可扩展架构** - 支持自定义工具和MCP服务器集成
-
-## 📁 项目架构
+## 📁 Project Structure
 
 ```
 nexusmind/
 ├── packages/
-│   ├── backend/          # 后端服务
+│   ├── backend/              # Backend service
 │   │   ├── src/
-│   │   │   └── index.js  # 服务器入口
-│   │   └── package.json
-│   └── frontend/         # 前端应用
+│   │   │   ├── routes/       # API routes
+│   │   │   ├── services/     # Business logic
+│   │   │   ├── tools/        # Backend-specific tools
+│   │   │   ├── utils/        # Utilities
+│   │   │   └── index.js      # Server entry point
+│   │   └── scripts/          # Development and monitoring scripts
+│   └── frontend/             # Frontend application
 │       ├── src/
-│       │   ├── components/   # React组件
-│       │   ├── hooks/        # 自定义Hook
-│       │   └── App.jsx       # 主应用
-│       └── package.json
-├── src/
-│   ├── core/             # Agent核心逻辑
-│   ├── tools/            # 工具系统
-│   ├── memory/           # 记忆管理
-│   └── mcp/              # MCP协议支持
-└── start.sh              # 启动脚本
+│       │   ├── components/   # React components
+│       │   ├── hooks/        # Custom React hooks
+│       │   └── App.jsx       # Main application
+│       └── vite.config.js    # Vite configuration
+├── src/                      # Core agent system
+│   ├── core/                 # Agent core logic
+│   │   ├── Agent.js          # Main agent class
+│   │   ├── MemoryManager.js  # Memory management
+│   │   ├── ToolRegistry.js   # Tool management
+│   │   └── LLMClient.js      # LLM integration
+│   ├── tools/                # Tool implementations
+│   ├── mcp/                  # MCP protocol support
+│   └── utils/                # Utilities and prompts
+├── test/                     # Test files
+└── temp/                     # Temporary files
 ```
 
-## 🔧 配置说明
+## 🔧 Configuration
 
-### 环境变量
+### Environment Variables
 
-后端需要配置以下环境变量（可选）：
+Create a `.env` file in the backend directory:
 
 ```bash
-# 复制示例文件
-cp packages/backend/env.example packages/backend/.env
-
-# 编辑配置
+# OpenAI API Configuration
 OPENAI_API_KEY=your_openai_api_key_here
-PORT=3001
+
+# Server Configuration
+PORT=3002
 FRONTEND_URL=http://localhost:5173
+
+# Development Configuration
+NODE_ENV=development
+QUIET=false
 ```
 
-### API接口
+### MCP Server Configuration
 
-#### REST API
-- `GET /api/health` - 健康检查
-- `GET /api/agent/status` - 获取Agent状态
-- `POST /api/agent/reset` - 重置Agent
-- `GET /api/agent/tools` - 获取可用工具
+Configure MCP servers in `temp/mcp-config.json`:
 
-#### WebSocket消息
-- `chat` - 发送聊天消息
-- `ping` - 心跳检测
-- `connection` - 连接确认
-- `agent_start` - Agent开始处理
-- `thinking` - 思考过程
-- `tool_start` - 工具调用开始
-- `tool_result` - 工具调用结果
-- `agent_response` - Agent最终响应
+```json
+{
+  "servers": [
+    {
+      "id": "example-server",
+      "name": "Example MCP Server",
+      "serverUrl": "ws://localhost:8080",
+      "type": "websocket",
+      "apiKey": "optional-api-key"
+    }
+  ]
+}
+```
 
-## 🚀 部署
+## 📡 API Reference
 
-### 开发环境
+### REST API Endpoints
+
+- `GET /api/health` - Health check
+- `GET /api/agent/status` - Get agent status
+- `POST /api/agent/reset` - Reset agent state
+- `GET /api/agent/tools` - Get available tools
+- `GET /api/mcp/config` - Get MCP configuration
+- `POST /api/mcp/config` - Update MCP configuration
+
+### WebSocket Messages
+
+#### Client to Server
+```javascript
+// Send chat message
+{
+  "type": "chat",
+  "message": "Your question here",
+  "thinkingMode": "react" // or "plan_solve"
+}
+
+// Abort current task
+{
+  "type": "abort"
+}
+
+// Ping for connection check
+{
+  "type": "ping"
+}
+```
+
+#### Server to Client
+```javascript
+// Connection established
+{
+  "type": "connection",
+  "clientId": "abc123",
+  "message": "Connection successful"
+}
+
+// Agent started processing
+{
+  "type": "agent_start",
+  "message": "Processing your request..."
+}
+
+// Thinking process (ReAct mode)
+{
+  "type": "thinking",
+  "content": "Agent's reasoning process"
+}
+
+// Plan & Solve status update
+{
+  "type": "plan_solve_update",
+  "stage": "planning", // "analysis", "planning", "execution", "evaluation"
+  "progress": {
+    "currentStep": 1,
+    "totalSteps": 5,
+    "stepName": "Data analysis",
+    "stepType": "tool_call",
+    "status": "running" // "completed", "failed"
+  },
+  "plan": [...], // Available after planning stage
+  "reasoning": "Detailed reasoning process"
+}
+
+// Tool execution started
+{
+  "type": "tool_start",
+  "tool": "web_scraper",
+  "args": {...}
+}
+
+// Tool execution completed
+{
+  "type": "tool_result",
+  "tool": "web_scraper",
+  "result": {...}
+}
+
+// Streaming response
+{
+  "type": "stream_chunk",
+  "content": "Partial response",
+  "messageId": "msg123"
+}
+
+// Stream completed
+{
+  "type": "stream_complete",
+  "content": "Complete response",
+  "messageId": "msg123"
+}
+```
+
+## 🧪 Built-in Tools
+
+### Web Scraping Tools
+- **web_scraper**: Extract content from web pages
+- **batch_web_scraper**: Scrape multiple pages concurrently
+- **precise_content_extractor**: Extract specific content using CSS selectors
+- **web_content_analyzer**: Analyze web page content and structure
+
+### Search & Analysis Tools
+- **search_analysis**: Comprehensive search and analysis capabilities
+- **stock_investment_tools**: Stock market analysis and investment insights
+
+### Example Usage
+```javascript
+// Web scraping
+const result = await agent.tools.execute('web_scraper', {
+  url: 'https://example.com',
+  options: {
+    extractText: true,
+    extractLinks: true,
+    extractMeta: true
+  }
+});
+
+// Batch scraping
+const results = await agent.tools.execute('batch_web_scraper', {
+  urls: ['https://site1.com', 'https://site2.com'],
+  options: {
+    concurrency: 3,
+    extractText: true
+  }
+});
+```
+
+## 🎯 Decision Modes
+
+### ReAct Mode
+Iterative reasoning with observation-action cycles:
+1. **Observe**: Analyze current situation and available information
+2. **Think**: Reason about the next best action
+3. **Act**: Execute tools or provide responses
+4. **Repeat**: Continue until task completion
+
+### Plan & Solve Mode
+Structured task decomposition and execution:
+1. **Task Analysis**: Understand the problem and requirements
+2. **Plan Creation**: Develop a step-by-step execution plan
+3. **Plan Execution**: Execute each step with real-time progress tracking
+4. **Result Evaluation**: Assess results and provide comprehensive answers
+
+## 🚀 Deployment
+
+### Development
 ```bash
+# Start all services in development mode
 npm run dev:all
+
+# Monitor backend with enhanced logging
+npm run monitor
 ```
 
-### 生产环境
+### Production
 ```bash
-# 构建前端
-cd packages/frontend && npm run build
+# Build frontend for production
+npm run build:frontend
 
-# 启动后端
-cd packages/backend && npm start
+# Start production services
+npm run start:all
 ```
 
-## 🤝 贡献
+### Docker Deployment (Optional)
+```dockerfile
+# Dockerfile example
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 3002
+CMD ["npm", "start"]
+```
 
-欢迎提交Issue和Pull Request！
+## 🧪 Testing
 
-## �� 许可证
+```bash
+# Run tests
+npm test
 
-MIT License 
+# Test web scraping tools specifically
+node test/web-scraping-test.js
+
+# Test core agent functionality
+node test/test.js
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+1. **OpenAI API Key Not Set**
+   ```bash
+   # Set your OpenAI API key
+   export OPENAI_API_KEY=your_key_here
+   ```
+
+2. **Port Already in Use**
+   ```bash
+   # Change port in environment variables
+   PORT=3003 npm run backend
+   ```
+
+3. **WebSocket Connection Failed**
+   - Ensure backend is running on port 3002
+   - Check firewall settings
+   - Verify FRONTEND_URL in environment variables
+
+4. **Tool Execution Errors**
+   - Check tool permissions and dependencies
+   - Verify MCP server configurations
+   - Review logs for detailed error messages
+
+## 📚 Documentation
+
+For detailed documentation, please refer to:
+- [CHANGELOG.md](./CHANGELOG.md) - Version history and updates
+- [CURSOR_SETUP.md](./CURSOR_SETUP.md) - IDE configuration guide
+- Project wiki - Comprehensive technical documentation
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+### Development Guidelines
+- Follow JavaScript ES6+ standards
+- Use modular architecture patterns
+- Write comprehensive tests
+- Update documentation for new features
+- Follow the existing code style
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- OpenAI for GPT models
+- React and Vite communities
+- Ant Design team
+- All contributors and supporters
+
+---
+
+**Made with ❤️ by the NexusMind Team**
+
+[English](./README.md) | [中文](./README_zh.md)
