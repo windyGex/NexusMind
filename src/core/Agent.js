@@ -2,6 +2,7 @@ import { MemoryManager } from './MemoryManager.js';
 import { LLMClient } from './LLMClient.js';
 import { ToolRegistry } from './ToolRegistry.js';
 import { ToolSelector } from './ToolSelector.js';
+import { MultiAgentManager } from './MultiAgentManager.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -38,6 +39,41 @@ export class Agent {
     this.role = config.role || 'general';
     this.collaborationHistory = [];
     this.peerAgents = new Map();
+    
+    // 多智能体管理器
+    this.multiAgentManager = new MultiAgentManager(config.multiAgent);
+    this.enableMultiAgent = config.enableMultiAgent !== false; // 默认启用
+    
+    // 设置多智能体回调
+    this.setupMultiAgentCallbacks();
+  }
+
+  /**
+   * 设置多智能体回调
+   */
+  setupMultiAgentCallbacks() {
+    if (this.multiAgentManager) {
+      // 设置进度回调
+      this.multiAgentManager.onProgress = (progressData) => {
+        if (this.onMultiAgentProgress) {
+          this.onMultiAgentProgress(progressData);
+        }
+      };
+      
+      // 设置阶段完成回调
+      this.multiAgentManager.onStageComplete = (stageData) => {
+        if (this.onMultiAgentStageComplete) {
+          this.onMultiAgentStageComplete(stageData);
+        }
+      };
+      
+      // 设置错误回调
+      this.multiAgentManager.onError = (errorData) => {
+        if (this.onMultiAgentError) {
+          this.onMultiAgentError(errorData);
+        }
+      };
+    }
   }
 
   /**
@@ -70,6 +106,42 @@ export class Agent {
 
       // 更新MCP工具列表
       await this.updateMCPTools();
+      
+      // 检测是否需要多智能体协作
+      if (this.enableMultiAgent && this.multiAgentManager.shouldActivateMultiAgent(userInput)) {
+        logger.info('🚀 检测到复杂任务，启动深度LLM集成的多智能体协作模式');
+        
+        // 发送多智能体开始信号
+        if (this.onMultiAgentStart) {
+          this.onMultiAgentStart({
+            type: 'multi_agent_start',
+            message: '🤖 正在启动深度LLM集成的多智能体协作系统，将由以下四个专业智能体协作完成任务：\n\n🔍 **网络搜索员** - 使用LLM优化搜索策略，智能评估结果质量\n📚 **信息检索员** - 使用LLM进行内容分析和知识抽取\n📊 **数据分析员** - 使用LLM进行高级统计分析和洞察挖掘\n📝 **报告撰写员** - 使用LLM生成专业结构化分析报告\n\n每个智能体都深度集成了大模型进行核心推理，确保分析的专业性和准确性...',
+            timestamp: new Date()
+          });
+        }
+        
+        // 执行多智能体工作流
+        const response = await this.multiAgentManager.executeWorkflow(userInput, context);
+        
+        // 记录响应到记忆
+        this.memory.add('conversation', {
+          type: 'multi_agent_response',
+          content: response.content,
+          timestamp: new Date(),
+          task: this.currentTask,
+          workflow: response.metadata
+        });
+
+        // 更新对话历史
+        this.conversationHistory.push({
+          role: 'assistant',
+          content: response.content,
+          timestamp: new Date(),
+          type: 'multi_agent_report'
+        });
+
+        return response.content;
+      }
       
       // 根据思维模式选择处理方法
       let response;
@@ -1782,5 +1854,72 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
       mcp: categorizedTools.mcp,
       total: allTools.length
     };
+  }
+  
+  /**
+   * 设置多智能体回调
+   */
+  setupMultiAgentCallbacks() {
+    if (this.multiAgentManager) {
+      // 设置进度回调
+      this.multiAgentManager.onProgress = (progressData) => {
+        if (this.onMultiAgentProgress) {
+          this.onMultiAgentProgress(progressData);
+        }
+      };
+      
+      // 设置阶段完成回调
+      this.multiAgentManager.onStageComplete = (stageData) => {
+        if (this.onMultiAgentStageComplete) {
+          this.onMultiAgentStageComplete(stageData);
+        }
+      };
+      
+      // 设置错误回调
+      this.multiAgentManager.onError = (errorData) => {
+        if (this.onMultiAgentError) {
+          this.onMultiAgentError(errorData);
+        }
+      };
+    }
+  }
+  
+  /**
+   * 设置多智能体事件回调
+   */
+  setMultiAgentCallbacks(callbacks) {
+    this.onMultiAgentStart = callbacks.onStart;
+    this.onMultiAgentProgress = callbacks.onProgress;
+    this.onMultiAgentStageComplete = callbacks.onStageComplete;
+    this.onMultiAgentError = callbacks.onError;
+  }
+  
+  /**
+   * 启用/禁用多智能体模式
+   */
+  setMultiAgentMode(enabled) {
+    this.enableMultiAgent = enabled;
+    logger.info(`多智能体模式已${enabled ? '启用' : '禁用'}`);
+  }
+  
+  /**
+   * 获取多智能体工作流状态
+   */
+  getMultiAgentStatus() {
+    if (this.multiAgentManager) {
+      return this.multiAgentManager.getWorkflowStatus();
+    }
+    return null;
+  }
+  
+  /**
+   * 手动触发多智能体模式
+   */
+  async executeMultiAgentWorkflow(query, context = {}) {
+    if (!this.multiAgentManager) {
+      throw new Error('多智能体管理器未初始化');
+    }
+    
+    return await this.multiAgentManager.executeWorkflow(query, context);
   }
 } 

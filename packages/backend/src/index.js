@@ -70,7 +70,40 @@ try {
   agent = new Agent({
     name: 'NexusMind',
     maxIterations: 10,
-    collaborationEnabled: false
+    collaborationEnabled: false,
+    enableMultiAgent: true // 启用多智能体模式
+  });
+  
+  // 设置多智能体回调
+  agent.setMultiAgentCallbacks({
+    onStart: (data) => {
+      // 广播多智能体开始消息
+      broadcastToAllClients({
+        type: 'multi_agent_start',
+        ...data
+      });
+    },
+    onProgress: (data) => {
+      // 广播进度更新
+      broadcastToAllClients({
+        type: 'multi_agent_progress',
+        ...data
+      });
+    },
+    onStageComplete: (data) => {
+      // 广播阶段完成消息
+      broadcastToAllClients({
+        type: 'multi_agent_stage_complete',
+        ...data
+      });
+    },
+    onError: (data) => {
+      // 广播错误消息
+      broadcastToAllClients({
+        type: 'multi_agent_error',
+        ...data
+      });
+    }
   });
   
   // 设置MCP服务器管理器到Agent
@@ -171,6 +204,23 @@ async function reloadMCPServers() {
 // 存储连接的客户端和当前任务状态
 const clients = new Map();
 const clientTasks = new Map(); // 存储每个客户端的当前任务状态
+
+// 广播消息给所有客户端
+function broadcastToAllClients(message) {
+  const messageStr = JSON.stringify(message);
+  clients.forEach((ws, clientId) => {
+    if (ws.readyState === ws.OPEN) {
+      try {
+        ws.send(messageStr);
+      } catch (error) {
+        logger.error(`广播消息失败 ${clientId}:`, error);
+        // 移除失效的连接
+        clients.delete(clientId);
+        clientTasks.delete(clientId);
+      }
+    }
+  });
+}
 
 // WebSocket连接处理
 wss.on('connection', (ws, req) => {
