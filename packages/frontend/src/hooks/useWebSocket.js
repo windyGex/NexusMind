@@ -7,6 +7,7 @@ export const useWebSocket = (url) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [planSolveStatus, setPlanSolveStatus] = useState(null);
   const [planSolveProgress, setPlanSolveProgress] = useState(null);
+  const [streamingMessage, setStreamingMessage] = useState(null); // 流式消息状态
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttempts = useRef(0);
@@ -28,6 +29,37 @@ export const useWebSocket = (url) => {
 
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        
+        // 处理流式消息
+        if (data.type === 'stream_start') {
+          setStreamingMessage({ 
+            id: data.messageId || Date.now(), 
+            content: '', 
+            isStreaming: true 
+          });
+          return; // 不设置 lastMessage，避免触发重复处理
+        } else if (data.type === 'stream_chunk') {
+          setStreamingMessage(prev => prev ? {
+            ...prev,
+            content: data.fullContent || (prev.content + data.content)
+          } : null);
+          return; // 不设置 lastMessage
+        } else if (data.type === 'stream_end') {
+          setStreamingMessage(prev => prev ? {
+            ...prev,
+            content: data.content,
+            isStreaming: false,
+            completed: true
+          } : null);
+          // 流式结束后，设置 lastMessage 触发最终处理
+          setLastMessage(JSON.stringify({
+            type: 'stream_complete',
+            content: data.content,
+            messageId: prev?.id
+          }));
+          return;
+        }
+        
         setLastMessage(event.data);
         
         // 更新处理状态
@@ -177,6 +209,7 @@ export const useWebSocket = (url) => {
     isProcessing,
     planSolveStatus,
     planSolveProgress,
+    streamingMessage,
     sendMessage,
     sendAbort,
     connect,

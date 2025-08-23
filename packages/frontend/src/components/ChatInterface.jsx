@@ -18,7 +18,7 @@ const ChatInterface = ({
   currentTool, 
   planSolveStatus,
   planSolveProgress,
-  toolExecutionData,
+  streamingMessage,
   agentStatus,
   onSendMessage, 
   onAbort,
@@ -268,53 +268,30 @@ const ChatInterface = ({
 
       case 'thinking':
         return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '95%',
-              backgroundColor: '#f0f9ff',
-              borderColor: '#bae6fd'
-            }}
-            bodyStyle={{ 
-              padding: '10px 16px',
-              lineHeight: '1.4',
-              minWidth: '400px'
-            }}
-          >
-            <Collapse 
-              ghost
-              size="small"
-              items={[
-                {
-                  key: '1',
-                  label: (
-                    <Space>
-                      <ClockCircleOutlined style={{ color: '#1890ff' }} />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        思考过程
-                      </Text>
-                    </Space>
-                  ),
-                  children: (
-                    <div className="json-viewer">
-                      <pre style={{ 
-                        margin: 0, 
-                        fontSize: '12px',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word'
-                      }}>
-                        {message.content}
-                      </pre>
-                    </div>
-                  )
-                }
-              ]}
-              style={{
-                backgroundColor: 'transparent',
-                border: 'none'
-              }}
-            />
-          </Card>
+          <div style={{ 
+            maxWidth: '95%',
+            marginBottom: '8px'
+          }}>
+            <div style={{ 
+              padding: '8px 12px',
+              backgroundColor: '#f8fafc',
+              borderLeft: '3px solid #3b82f6',
+              borderRadius: '0 6px 6px 0',
+              fontSize: '13px',
+              color: '#374151',
+              lineHeight: '1.5',
+              fontStyle: 'italic'
+            }}>
+              <Text style={{ 
+                fontSize: '13px',
+                color: '#374151',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}>
+                {message.content}
+              </Text>
+            </div>
+          </div>
         );
 
       case 'tool_execution':
@@ -772,141 +749,44 @@ const ChatInterface = ({
                         const isCompleted = planSolveProgress.completedSteps >= step.stepNumber;
                         const isError = planSolveProgress.phase === 'step_error' && planSolveProgress.currentStep === step.stepNumber;
                         
-                        // 获取工具执行数据
-                        const toolData = step.type === 'tool_call' && step.tool ? toolExecutionData?.get(step.tool) : null;
-                        
                         return (
                           <div 
                             key={step.stepNumber} 
                             style={{ 
-                              padding: '8px 0',
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              padding: '4px 0',
                               borderBottom: index < planSolveProgress.data.steps.length - 1 ? '1px solid #e9ecef' : 'none'
                             }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                              <div style={{ 
-                                width: '16px', 
-                                height: '16px', 
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '10px',
-                                marginRight: '8px',
-                                marginTop: '2px',
-                                backgroundColor: isError ? '#ef4444' : isCompleted ? '#10b981' : isCurrentStep ? '#3b82f6' : '#d1d5db',
-                                color: 'white',
-                                flexShrink: 0
+                            <div style={{ 
+                              width: '16px', 
+                              height: '16px', 
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '10px',
+                              marginRight: '8px',
+                              backgroundColor: isError ? '#ef4444' : isCompleted ? '#10b981' : isCurrentStep ? '#3b82f6' : '#d1d5db',
+                              color: 'white'
+                            }}>
+                              {isError ? '❌' : isCompleted ? '✓' : isCurrentStep ? '▶' : step.stepNumber}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={{ 
+                                fontSize: '11px', 
+                                fontWeight: isCurrentStep ? 'bold' : 'normal',
+                                color: isError ? '#ef4444' : isCurrentStep ? '#3b82f6' : '#374151'
                               }}>
-                                {isError ? '❌' : isCompleted ? '✓' : isCurrentStep ? '▶' : step.stepNumber}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <Text style={{ 
-                                  fontSize: '11px', 
-                                  fontWeight: isCurrentStep ? 'bold' : 'normal',
-                                  color: isError ? '#ef4444' : isCurrentStep ? '#3b82f6' : '#374151',
-                                  display: 'block'
-                                }}>
-                                  {step.stepName}
-                                </Text>
-                                <Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>
-                                  {step.type === 'tool_call' ? '📦 工具调用' : 
-                                   step.type === 'reasoning' ? '🧠 推理分析' : 
-                                   step.type === 'synthesis' ? '🔗 结果综合' : step.type}
-                                  {step.tool && ` - ${step.tool}`}
-                                </Text>
-                                
-                                {/* 工具调用详细信息 */}
-                                {step.type === 'tool_call' && toolData && (
-                                  <div style={{ marginTop: '6px' }}>
-                                    {/* 工具参数 */}
-                                    {toolData.args && (
-                                      <Collapse 
-                                        ghost
-                                        size="small"
-                                        items={[
-                                          {
-                                            key: 'args',
-                                            label: (
-                                              <Text type="secondary" style={{ fontSize: '10px' }}>
-                                                🔧 调用参数
-                                              </Text>
-                                            ),
-                                            children: (
-                                              <div style={{
-                                                backgroundColor: '#f1f5f9',
-                                                border: '1px solid #e2e8f0',
-                                                borderRadius: '3px',
-                                                padding: '6px',
-                                                fontSize: '9px',
-                                                fontFamily: 'monospace',
-                                                whiteSpace: 'pre-wrap',
-                                                wordBreak: 'break-all',
-                                                maxHeight: '80px',
-                                                overflowY: 'auto'
-                                              }}>
-                                                {JSON.stringify(toolData.args, null, 2)}
-                                              </div>
-                                            )
-                                          }
-                                        ]}
-                                        style={{ marginTop: '4px' }}
-                                      />
-                                    )}
-                                    
-                                    {/* 执行结果 */}
-                                    {toolData.status === 'completed' && toolData.result && (
-                                      <Collapse 
-                                        ghost
-                                        size="small"
-                                        items={[
-                                          {
-                                            key: 'result',
-                                            label: (
-                                              <Text type="secondary" style={{ fontSize: '10px' }}>
-                                                ✅ 执行结果
-                                              </Text>
-                                            ),
-                                            children: (
-                                              <div style={{
-                                                backgroundColor: '#f0f9ff',
-                                                border: '1px solid #bae6fd',
-                                                borderRadius: '3px',
-                                                padding: '6px',
-                                                fontSize: '9px',
-                                                fontFamily: 'monospace',
-                                                whiteSpace: 'pre-wrap',
-                                                wordBreak: 'break-all',
-                                                maxHeight: '100px',
-                                                overflowY: 'auto'
-                                              }}>
-                                                {typeof toolData.result === 'string' ? toolData.result : JSON.stringify(toolData.result, null, 2)}
-                                              </div>
-                                            )
-                                          }
-                                        ]}
-                                        style={{ marginTop: '4px' }}
-                                      />
-                                    )}
-                                    
-                                    {/* 错误信息 */}
-                                    {toolData.status === 'error' && toolData.error && (
-                                      <div style={{ marginTop: '4px' }}>
-                                        <Text type="danger" style={{ fontSize: '9px', display: 'block' }}>
-                                          ❌ 错误: {toolData.error}
-                                        </Text>
-                                      </div>
-                                    )}
-                                    
-                                    {/* 执行时间 */}
-                                    {toolData.completedAt && (
-                                      <Text type="secondary" style={{ fontSize: '9px', display: 'block', marginTop: '2px' }}>
-                                        执行耗时: {Math.round((toolData.completedAt - toolData.timestamp) / 1000 * 100) / 100}秒
-                                      </Text>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                                {step.stepName}
+                              </Text>
+                              <Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>
+                                {step.type === 'tool_call' ? '📦 工具调用' : 
+                                 step.type === 'reasoning' ? '🧠 推理分析' : 
+                                 step.type === 'synthesis' ? '🔗 结果综合' : step.type}
+                                {step.tool && ` - ${step.tool}`}
+                              </Text>
                             </div>
                           </div>
                         );
@@ -1403,15 +1283,7 @@ const ChatInterface = ({
           </div>
         )}
 
-        {messages
-          .filter((message) => {
-            // 在 plan_solve 模式下，过滤掉工具执行消息
-            if (agentStatus?.thinkingMode === 'plan_solve' && message.type === 'tool_execution') {
-              return false;
-            }
-            return true;
-          })
-          .map((message) => (
+        {messages.map((message) => (
           <div key={message.id} className="message-item">
             {message.type === 'user' ? (
               <Space align="start" style={{ width: '100%', justifyContent: 'flex-end' }}>
@@ -1440,6 +1312,75 @@ const ChatInterface = ({
             )}
           </div>
         ))}
+
+        {/* 流式消息显示 */}
+        {streamingMessage && streamingMessage.isStreaming && (
+          <div className="message-item streaming">
+            <Space align="start" style={{ width: '100%' }}>
+              <Avatar 
+                icon={<RobotOutlined />} 
+                style={{ backgroundColor: '#52c41a' }} 
+              />
+              <div style={{ flex: 1 }}>
+                <Card 
+                  size="small" 
+                  style={{ 
+                    maxWidth: '90%', 
+                    backgroundColor: '#f6ffed',
+                    padding: '8px 16px',
+                    position: 'relative'
+                  }}
+                  bodyStyle={{ 
+                    padding: '16px 20px',
+                    lineHeight: '1.6'
+                  }}
+                >
+                  {/* 流式指示器 */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <Spin size="small" />
+                    <Text type="secondary" style={{ fontSize: '10px' }}>正在生成...</Text>
+                  </div>
+                  
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p({ children }) {
+                        return (
+                          <p style={{ 
+                            marginBottom: '12px', 
+                            fontSize: '14px',
+                            color: '#2c3e50'
+                          }}>
+                            {children}
+                          </p>
+                        );
+                      }
+                    }}
+                  >
+                    {streamingMessage.content}
+                  </ReactMarkdown>
+                  
+                  {/* 游标效果 */}
+                  <span style={{
+                    display: 'inline-block',
+                    width: '8px',
+                    height: '16px',
+                    backgroundColor: '#52c41a',
+                    animation: 'blink 1s infinite',
+                    marginLeft: '2px'
+                  }} />
+                </Card>
+              </div>
+            </Space>
+          </div>
+        )}
 
         {/* 思考指示器 */}
         {thinking && (

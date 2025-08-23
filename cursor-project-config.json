@@ -1,6 +1,6 @@
 {
-  "projectName": "Auto Agent",
-  "description": "基于JavaScript的LLM自主智能体项目，支持ReAct决策、短期记忆和MCP协议",
+  "projectName": "NexusMind",
+  "description": "NexusMind - 智能体思维连接平台，基于JavaScript的LLM自主智能体，支持ReAct决策、短期记忆和MCP协议",
   "technologyStack": {
     "frontend": ["React 18", "Vite", "Ant Design 5", "WebSocket"],
     "backend": ["Node.js", "Express", "WebSocket", "MCP Protocol"],

@@ -20,7 +20,7 @@ export class AgentConfig {
     };
 
     this.agent = {
-      name: process.env.AGENT_NAME || 'AutoAgent',
+      name: process.env.AGENT_NAME || 'NexusMind',
       thinkingMode: process.env.THINKING_MODE || 'react', // 支持 'react' 和 'plan_solve' 模式
       maxIterations: parseInt(process.env.MAX_ITERATIONS) || 10,
       collaborationEnabled: process.env.COLLABORATION_ENABLED === 'true',

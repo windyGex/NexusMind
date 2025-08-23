@@ -28,10 +28,42 @@
   animation: fadeIn 0.3s ease-in-out;
 }
 
+.message-item.streaming {
+  margin-bottom: 6px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.streaming-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #52c41a;
+  font-weight: 500;
+}
+
+.cursor-blink {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background-color: #52c41a;
+  animation: blink 1s infinite;
+  margin-left: 2px;
+}
+
 .message-item.thinking {
   margin-bottom: 6px;
   opacity: 0.6;
   transform: scale(0.98);
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
 }
 
 @keyframes fadeIn {
@@ -146,17 +178,17 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 16px; /* 减少内边距 */
   overflow-y: auto;
   background-color: #ffffff;
 }
 
 .sidebar-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px; /* 减少下边距 */
 }
 
 .sidebar-section h3 {
-  margin-bottom: 12px;
+  margin-bottom: 8px; /* 减少下边距 */
   font-size: 14px;
   font-weight: 600;
   color: #374151;
@@ -166,7 +198,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
+  padding: 6px 0; /* 减少上下内边距 */
   border-bottom: 1px solid #f3f4f6;
   transition: background-color 0.2s ease;
 }
@@ -174,8 +206,8 @@
 .stat-item:hover {
   background-color: #f9fafb;
   border-radius: 4px;
-  padding-left: 8px;
-  padding-right: 8px;
+  padding-left: 6px; /* 减少左右内边距 */
+  padding-right: 6px;
 }
 
 .stat-item:last-child {
@@ -197,17 +229,17 @@
 .tool-list {
   max-height: 200px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 6px; /* 减少内边距 */
   background-color: #f9fafb;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
 }
 
 .tool-item {
-  padding: 8px 10px;
+  padding: 6px 8px; /* 减少内边距 */
   border-radius: 6px;
   font-size: 11px;
-  margin-bottom: 6px;
+  margin-bottom: 4px; /* 减少下边距 */
   background: #ffffff;
   border: 1px solid #e5e7eb;
   transition: all 0.2s ease;
@@ -513,4 +545,46 @@
 .sidebar-content::-webkit-scrollbar-thumb:hover,
 .tool-list::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Sidebar中Ant Design组件样式优化 */
+.sidebar-content .ant-collapse {
+  margin-bottom: 12px; /* 减少间距 */
+}
+
+.sidebar-content .ant-collapse-header {
+  padding: 8px 12px !important; /* 减少内边距 */
+}
+
+.sidebar-content .ant-collapse-content-box {
+  padding: 8px 12px !important; /* 减少内边距 */
+}
+
+.sidebar-content .ant-divider {
+  margin: 12px 0 !important; /* 减少上下边距 */
+}
+
+.sidebar-content .ant-space {
+  gap: 6px !important; /* 减少间距 */
+}
+
+.sidebar-content .ant-select {
+  font-size: 12px; /* 减小字体 */
+}
+
+.sidebar-content .ant-tag {
+  margin: 2px; /* 减少标签间距 */
+  font-size: 11px; /* 减小字体 */
+  line-height: 18px; /* 调整行高 */
+  padding: 0 6px; /* 减少内边距 */
+}
+
+.sidebar-content .ant-btn {
+  font-size: 12px; /* 减小按钮字体 */
+  height: 28px; /* 减少按钮高度 */
+  padding: 0 12px; /* 减少按钮内边距 */
+}
+
+.sidebar-content .ant-typography {
+  margin-bottom: 0 !important; /* 移除Typography默认下边距 */
 } 

@@ -369,7 +369,7 @@ export class MCPClient {
           prompts: {}
         },
         clientInfo: {
-          name: 'AutoAgent MCP Client',
+          name: 'NexusMind MCP Client',
           version: '1.0.0'
         }
       }
@@ -477,7 +477,7 @@ export class MCPClient {
         'Content-Type': 'application/json',
         'Accept': expectStreamable ? 'text/event-stream, application/json' : 'application/json, text/event-stream',
         'Content-Length': Buffer.byteLength(postData),
-        'User-Agent': 'AutoAgent-MCP-Client/1.0.0'
+        'User-Agent': 'NexusMind-MCP-Client/1.0.0'
       };
       
       // 如果有会话ID，添加到请求头

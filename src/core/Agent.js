@@ -10,7 +10,7 @@ import logger from '../../utils/logger.js';
  */
 export class Agent {
   constructor(config = {}) {
-    this.name = config.name || 'AutoAgent';
+    this.name = config.name || 'NexusMind';
     this.memory = new MemoryManager(config.memory);
     this.llm = new LLMClient(config.llm);
     this.tools = new ToolRegistry();
@@ -137,13 +137,21 @@ export class Agent {
       const response = await this.llm.generate(prompt, {
         temperature: 0.3,
         max_tokens: 30000,
-        conversationHistory: this.conversationHistory
+        conversationHistory: this.conversationHistory,
+        needSendToFrontend: false, // ReAct模式不发送完整JSON，改为发送reasoning内容
+        thinkingMessage: `正在进行第 ${iteration} 轮推理...基于当前信息和之前的观察，分析下一步的行动策略...`
       });
 
       const thought = response.content;
 
       // 解析思考过程
       const parsed = await this.parseReActResponse(thought);
+      
+      // 如果成功解析了思考过程，单独发送reasoning内容
+      if (parsed && parsed.reasoning && this.onThinkingComplete) {
+        this.onThinkingComplete(parsed.reasoning);
+      }
+      
       if (parsed.finalAnswer) { 
         finalAnswer = parsed.finalAnswer;
         break;
@@ -216,6 +224,22 @@ export class Agent {
       const taskAnalysis = await this.analyzeTask(userInput, context);
       this.sendPlanSolveUpdate('task_analysis', '任务分析完成', taskAnalysis);
       logger.debug('任务分析完成:', taskAnalysis);
+      
+      // 发送任务分析完成的思考过程
+      const analysisText = `📋 **任务分析完成**\n\n` +
+        `🎯 **任务类型**: ${taskAnalysis.taskType}\n` +
+        `📊 **复杂度**: ${taskAnalysis.complexity}\n` +
+        `🔧 **需要工具**: ${taskAnalysis.requiresTools ? '是' : '否'}\n` +
+        `📝 **多步骤**: ${taskAnalysis.multiStep ? '是' : '否'}\n` +
+        `🎯 **核心需求**: ${taskAnalysis.coreRequirements?.join('、') || '无'}\n` +
+        `🛠️ **建议工具**: ${taskAnalysis.suggestedTools?.join('、') || '无'}\n` +
+        `📈 **预估步骤**: ${taskAnalysis.estimatedSteps || 0} 个步骤\n` +
+        `⚠️ **挑战**: ${taskAnalysis.challenges?.join('、') || '无'}\n` +
+        `✅ **成功标准**: ${taskAnalysis.successCriteria?.join('、') || '无'}`;
+      
+      if (this.onThinkingComplete) {
+        this.onThinkingComplete(analysisText);
+      }
 
       // 阶段2: 制定计划
       this.sendPlanSolveUpdate('plan_creation', '正在制定执行计划...', null);
@@ -223,12 +247,54 @@ export class Agent {
       this.currentPlan = plan;
       this.sendPlanSolveUpdate('plan_creation', '计划制定完成', plan);
       logger.debug('计划制定完成:', plan);
+      
+      // 发送计划制定完成的思考过程
+      const planText = `📋 **执行计划制定完成**\n\n` +
+        `📊 **计划概览**: ${plan.description || '详细执行计划'}\n` +
+        `📈 **总步骤数**: ${plan.steps?.length || 0} 个步骤\n` +
+        `🎯 **执行策略**: ${plan.strategy || '按步骤顺序执行'}\n\n` +
+        `📝 **详细步骤**:\n` +
+        plan.steps?.map((step, index) => 
+          `${index + 1}. **${step.name}**\n` +
+          `   - 类型: ${step.type === 'tool_call' ? '🔧 工具调用' : step.type === 'reasoning' ? '🧠 推理分析' : step.type === 'synthesis' ? '🔗 结果综合' : step.type}\n` +
+          `   - 描述: ${step.description}\n` +
+          (step.tool ? `   - 工具: ${step.tool}\n` : '') +
+          (step.dependsOn?.length ? `   - 依赖: 步骤 ${step.dependsOn.join('、')}\n` : '')
+        ).join('\n') || '无具体步骤';
+      
+      if (this.onThinkingComplete) {
+        this.onThinkingComplete(planText);
+      }
 
       // 阶段3: 执行计划
       this.sendPlanSolveUpdate('plan_execution', '开始执行计划...', { totalSteps: plan.steps.length });
+      
+      // 发送计划执行开始的思考过程
+      const executionStartText = `⚡ **开始执行计划**\n\n` +
+        `📊 **执行概览**: 即将按照制定的计划逐步执行任务\n` +
+        `📈 **总步骤数**: ${plan.steps?.length || 0} 个步骤\n` +
+        `🎯 **执行方式**: 按顺序执行，确保每个步骤都能得到正确的结果\n\n` +
+        `🚀 现在开始执行第一个步骤...`;
+      
+      if (this.onThinkingComplete) {
+        this.onThinkingComplete(executionStartText);
+      }
+      
       const executionResult = await this.executePlan(plan, userInput, context);
       this.sendPlanSolveUpdate('plan_execution', '计划执行完成', executionResult);
       logger.debug('计划执行完成:', executionResult);
+      
+      // 发送计划执行完成的思考过程
+      const executionCompleteText = `✅ **计划执行完成**\n\n` +
+        `📊 **执行结果**: 所有计划步骤已按顺序完成\n` +
+        `📈 **成功步骤**: ${executionResult.successfulSteps || 0} / ${plan.steps?.length || 0}\n` +
+        `⚠️ **遇到问题**: ${executionResult.errors?.length || 0} 个\n` +
+        `🎯 **关键成果**: ${executionResult.keyResults?.join('、') || '任务执行完毕'}\n\n` +
+        `📝 现在进入结果评估阶段，确保输出质量...`;
+      
+      if (this.onThinkingComplete) {
+        this.onThinkingComplete(executionCompleteText);
+      }
 
       // 阶段4: 评估结果
       this.sendPlanSolveUpdate('result_evaluation', '正在评估结果...', { 
@@ -244,6 +310,21 @@ export class Agent {
         completedSteps: plan.steps.length
       });
       logger.info('结果评估完成:', finalResult.finalAnswer);
+      
+      // 发送结果评估完成的思考过程
+      const evaluationText = `📊 **结果评估完成**\n\n` +
+        `✅ **完整性评分**: ${finalResult.completeness || 'N/A'}/10\n` +
+        `🎯 **准确性评分**: ${finalResult.accuracy || 'N/A'}/10\n` +
+        `💡 **实用性评分**: ${finalResult.usefulness || 'N/A'}/10\n` +
+        `📝 **清晰度评分**: ${finalResult.clarity || 'N/A'}/10\n` +
+        `📊 **总体评分**: ${finalResult.overallScore || 'N/A'}/10\n\n` +
+        `🎯 **评估总结**: ${finalResult.summary || '任务已按计划完成，结果符合预期'}\n` +
+        `💭 **改进建议**: ${finalResult.improvements?.join('、') || '无特别建议'}\n\n` +
+        `✨ **最终答案已准备就绪！**`;
+      
+      if (this.onThinkingComplete) {
+        this.onThinkingComplete(evaluationText);
+      }
 
       // 记录Plan & Solve思考过程到记忆
       this.memory.add('reasoning', {
@@ -391,30 +472,44 @@ ${memory.map(m => `- ${m.content}`).join('\n')}
   "successCriteria": ["成功标准1"]
 }`;
 
-    const response = await this.llm.generate(analysisPrompt, {
-      temperature: 0.1,
-      max_tokens: 30000,
-      conversationHistory: this.conversationHistory
-    });
-
-    // 尝试清理并解析JSON
-    let cleanJson = response.content.trim();
-    
-    // 移除可能的markdown代码块标记
-    cleanJson = cleanJson.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    
-    // 移除前后的非JSON内容
-    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleanJson = jsonMatch[0];
-    }
-
     try {
-      const analysis = JSON.parse(cleanJson);
-      logger.debug('任务分析成功:', analysis);
-      return analysis;
+      const response = await this.llm.generate(analysisPrompt, {
+        temperature: 0.1,
+        max_tokens: 30000,
+        conversationHistory: this.conversationHistory,
+        needSendToFrontend: true,
+        thinkingMessage: `正在分析任务: ${userInput}\n\n我需要理解任务的类型、复杂度，并评估需要哪些工具来完成这个任务...`
+      });
+
+      // 检查响应是否有效
+      if (!response || !response.content) {
+        logger.warn('任务分析LLM响应为空，使用默认分析');
+        throw new Error('LLM响应为空');
+      }
+
+      // 尝试清理并解析JSON
+      let cleanJson = response.content.trim();
+      
+      // 移除可能的markdown代码块标记
+      cleanJson = cleanJson.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      
+      // 移除前后的非 JSON内容
+      const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanJson = jsonMatch[0];
+      }
+
+      try {
+        const analysis = JSON.parse(cleanJson);
+        logger.debug('任务分析成功:', analysis);
+        return analysis;
+      } catch (parseError) {
+        logger.warn('任务分析JSON解析失败:', parseError.message);
+        logger.warn('原始响应内容:', response.content);
+        throw parseError;
+      }
     } catch (error) {
-      logger.warn('任务分析JSON解析失败，使用智能默认分析');
+      logger.warn('任务分析失败，使用智能默认分析:', error.message);
       
       // 创建更智能的默认分析
       const suggestedTools = this.selectToolsForTask(userInput, availableTools);
@@ -477,27 +572,41 @@ ${relevantTools.map(toolName => {
   "qualityChecks": ["质量检查项"]
 }`;
 
-    const response = await this.llm.generate(planPrompt, {
-      temperature: 0.2,
-      max_tokens: 30000,
-      conversationHistory: this.conversationHistory
-    });
-
-    // 清理并解析JSON
-    let cleanJson = response.content.trim();
-    cleanJson = cleanJson.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    
-    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleanJson = jsonMatch[0];
-    }
-
     try {
-      const plan = JSON.parse(cleanJson);
-      logger.debug('计划制定成功:', plan);
-      return plan;
+      const response = await this.llm.generate(planPrompt, {
+        temperature: 0.2,
+        max_tokens: 30000,
+        conversationHistory: this.conversationHistory,
+        needSendToFrontend: true,
+        thinkingMessage: `正在制定执行计划...\n\n基于任务分析，我需要设计一个详细的执行策略，包括具体的步骤、工具选择和参数设置...`
+      });
+
+      // 检查响应是否有效
+      if (!response || !response.content) {
+        logger.warn('计划制定LLM响应为空，使用默认计划');
+        throw new Error('LLM响应为空');
+      }
+
+      // 清理并解析JSON
+      let cleanJson = response.content.trim();
+      cleanJson = cleanJson.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      
+      const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanJson = jsonMatch[0];
+      }
+
+      try {
+        const plan = JSON.parse(cleanJson);
+        logger.debug('计划制定成功:', plan);
+        return plan;
+      } catch (parseError) {
+        logger.warn('计划制定JSON解析失败:', parseError.message);
+        logger.warn('原始响应内容:', response.content);
+        throw parseError;
+      }
     } catch (error) {
-      logger.warn('计划制定JSON解析失败，创建智能默认计划');
+      logger.warn('计划制定失败，创建智能默认计划:', error.message);
       
       // 创建基于任务分析的智能默认计划
       return {
@@ -533,6 +642,19 @@ ${relevantTools.map(toolName => {
           currentStep: step.stepNumber,
           completedSteps: completedSteps
         });
+        
+        // 发送步骤开始的思考过程文本
+        const stepStartText = `🔄 **开始执行步骤 ${step.stepNumber}**\n\n` +
+          `📋 **步骤名称**: ${step.stepName}\n` +
+          `🔧 **执行类型**: ${step.type === 'tool_call' ? '🛠️ 工具调用' : step.type === 'reasoning' ? '🧠 推理分析' : step.type === 'synthesis' ? '🔗 结果综合' : step.type}\n` +
+          `📝 **步骤描述**: ${step.description || '执行任务步骤'}\n` +
+          (step.tool ? `🔨 **使用工具**: ${step.tool}\n` : '') +
+          `📊 **执行进度**: ${completedSteps}/${plan.steps.length} 步骤已完成\n\n` +
+          `⚡ 正在执行该步骤...`;
+        
+        if (this.onThinkingComplete) {
+          this.onThinkingComplete(stepStartText);
+        }
         
         // 检查依赖
         const missingDeps = step.dependencies?.filter(dep => !stepResults.has(dep)) || [];
@@ -574,6 +696,18 @@ ${relevantTools.map(toolName => {
           currentStep: step.stepNumber,
           completedSteps: completedSteps
         });
+        
+        // 发送步骤完成的思考过程文本
+        const stepCompleteText = `✅ **步骤 ${step.stepNumber} 执行完成**\n\n` +
+          `📋 **步骤名称**: ${step.stepName}\n` +
+          `🎯 **执行结果**: ${step.type === 'tool_call' ? '🛠️ 工具调用成功，获取到所需信息' : step.type === 'reasoning' ? '🧠 推理分析完成，得出相关结论' : step.type === 'synthesis' ? '🔗 结果整合完成，数据已综合' : '步骤执行完毕'}\n` +
+          `📊 **完成进度**: ${completedSteps}/${plan.steps.length} 步骤已完成\n` +
+          `💡 **关键输出**: ${typeof stepResult === 'object' ? (stepResult.summary || stepResult.content || '执行成功') : String(stepResult).substring(0, 100)}\n\n` +
+          (completedSteps < plan.steps.length ? `🚀 准备执行下一个步骤...` : `🎉 所有步骤执行完毕，准备生成最终结果！`);
+        
+        if (this.onThinkingComplete) {
+          this.onThinkingComplete(stepCompleteText);
+        }
 
         logger.info(`✅ 步骤 ${step.stepNumber} 执行完成`);
 
@@ -610,6 +744,31 @@ ${relevantTools.map(toolName => {
           error: error.message
         });
 
+        // 发送步骤失败的状态更新
+        this.sendPlanSolveUpdate('step_error', `步骤 ${step.stepNumber} 执行失败: ${error.message}`, {
+          stepNumber: step.stepNumber,
+          stepName: step.stepName,
+          stepType: step.type,
+          error: error.message,
+          totalSteps: plan.steps.length,
+          currentStep: step.stepNumber,
+          completedSteps: completedSteps
+        });
+        
+        // 发送步骤失败的思考过程文本
+        const stepErrorText = `❌ **步骤 ${step.stepNumber} 执行失败**\n\n` +
+          `📋 **步骤名称**: ${step.stepName}\n` +
+          `⚠️ **失败原因**: ${error.message}\n` +
+          `🔧 **执行类型**: ${step.type === 'tool_call' ? '🛠️ 工具调用' : step.type === 'reasoning' ? '🧠 推理分析' : step.type === 'synthesis' ? '🔗 结果综合' : step.type}\n` +
+          `📊 **当前进度**: ${completedSteps}/${plan.steps.length} 步骤已完成\n` +
+          (step.fallbackOptions && step.fallbackOptions.length > 0 ? 
+            `🔄 **备选方案**: ${step.fallbackOptions[0]}\n\n💪 尝试使用备选方案继续执行...` : 
+            `\n⚠️ 没有备选方案，但将继续执行后续步骤...`);
+        
+        if (this.onThinkingComplete) {
+          this.onThinkingComplete(stepErrorText);
+        }
+        
         // 发送步骤失败的状态更新
         this.sendPlanSolveUpdate('step_error', `步骤 ${step.stepNumber} 执行失败: ${error.message}`, {
           stepNumber: step.stepNumber,
@@ -713,7 +872,7 @@ ${JSON.stringify(step.args, null, 2)}
         temperature: 0.1, // 使用较低的温度确保一致性
         max_tokens: 5000,
         conversationHistory: this.conversationHistory,
-        needSendToFrontend: false,
+        needSendToFrontend: false, // 参数处理不发送到前端，避免干扰主要思考流程
       });
 
       // 清理并解析JSON
@@ -778,7 +937,9 @@ ${JSON.stringify(step.args, null, 2)}
     const response = await this.llm.generate(reasoningPrompt, {
       temperature: 0.4,
       max_tokens: 30000,
-      conversationHistory: this.conversationHistory
+      conversationHistory: this.conversationHistory,
+      needSendToFrontend: true,
+      thinkingMessage: `正在进行推理分析...\n\n我需要基于之前步骤的结果进行深入的逻辑推理，得出相关结论...`
     });
 
     try {
@@ -827,7 +988,9 @@ ${Array.from(previousResults.entries()).map(([stepNum, result]) =>
     const response = await this.llm.generate(synthesisPrompt, {
       temperature: 0.3,
       max_tokens: 30000,
-      conversationHistory: this.conversationHistory
+      conversationHistory: this.conversationHistory,
+      needSendToFrontend: true,
+      thinkingMessage: `正在综合信息...\n\n我需要将所有步骤的结果整合起来，为用户提供一个完整、准确的最终答案...`
     });
 
     return {
@@ -874,7 +1037,9 @@ ${executionResult.results.map((result, index) => `
       const response = await this.llm.generate(summaryPrompt, {
         temperature: 0.3,
         max_tokens: 30000,
-        conversationHistory: this.conversationHistory
+        conversationHistory: this.conversationHistory,
+        needSendToFrontend: true,
+        thinkingMessage: `正在评估结果...\n\n我需要分析所有步骤的执行情况，确保为用户提供准确、完整的最终答案...`
       });
 
       const finalAnswer = response.content.trim();

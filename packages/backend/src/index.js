@@ -68,7 +68,7 @@ try {
   
   // 创建基础Agent实例
   agent = new Agent({
-    name: 'AutoAgent',
+    name: 'NexusMind',
     maxIterations: 10,
     collaborationEnabled: false
   });
@@ -328,27 +328,86 @@ async function handleChatMessage(ws, data, clientId) {
       if (abortController.signal.aborted) {
         throw new Error('任务已被用户中止');
       }
-        // 发送思考过程
-      ws.send(JSON.stringify({
-        type: 'thinking',
-        content: '正在分析您的问题...'
-      }));
-      // 调用原始的generate方法
-      const response = await originalGenerate.call(this, prompt, options);
       
-      // 检查是否被中止
-      if (abortController.signal.aborted) {
-        throw new Error('任务已被用户中止');
-      }
-      if(options.needSendToFrontend){
-        // 发送思考完成
+      // 发送思考过程开始
+      if(options.needSendToFrontend) {
+        const thinkingMessage = options.thinkingMessage || '正在思考...';
         ws.send(JSON.stringify({
-          type: 'thinking_complete',
-          content: response.content
+          type: 'thinking',
+          content: thinkingMessage
         }));
       }
       
-      return response;
+      // 检查是否使用流式输出
+      const useStreaming = options.streaming !== false; // 默认开启流式输出
+      
+      if (useStreaming && options.needSendToFrontend) {
+        // 使用流式输出
+        const stream = await originalGenerate.call(this, prompt, { ...options, stream: true });
+        let fullContent = '';
+        
+        // 发送流式开始消息
+        ws.send(JSON.stringify({
+          type: 'stream_start',
+          messageId: Date.now()
+        }));
+        
+        // 处理流式数据
+        for await (const chunk of stream) {
+          // 检查是否被中止
+          if (abortController.signal.aborted) {
+            throw new Error('任务已被用户中止');
+          }
+          
+          // 添加安全检查，确保流式数据格式正确
+          if (!chunk || !chunk.choices || !Array.isArray(chunk.choices) || chunk.choices.length === 0) {
+            console.warn('流式数据格式异常，跳过:', chunk);
+            continue;
+          }
+          
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            fullContent += content;
+            // 发送流式数据
+            ws.send(JSON.stringify({
+              type: 'stream_chunk',
+              content: content,
+              fullContent: fullContent
+            }));
+          }
+        }
+        
+        // 发送流式结束消息
+        ws.send(JSON.stringify({
+          type: 'stream_end',
+          content: fullContent
+        }));
+        
+        return {
+          content: fullContent,
+          usage: null,
+          model: 'streaming',
+          finishReason: 'stop'
+        };
+      } else {
+        // 使用普通输出
+        const response = await originalGenerate.call(this, prompt, options);
+        
+        // 检查是否被中止
+        if (abortController.signal.aborted) {
+          throw new Error('任务已被用户中止');
+        }
+        
+        if(options.needSendToFrontend){
+          // 发送思考完成
+          ws.send(JSON.stringify({
+            type: 'thinking_complete',
+            content: response.content
+          }));
+        }
+        
+        return response;
+      }
     };
 
     // 重写工具执行方法以支持流式输出和中止
@@ -488,6 +547,14 @@ async function handleChatMessage(ws, data, clientId) {
       ws.send(JSON.stringify({
         type: 'plan_solve_update',
         ...update
+      }));
+    };
+    
+    // 设置ReAct模式思考完成回调（只发送reasoning内容）
+    targetAgent.onThinkingComplete = (reasoningContent) => {
+      ws.send(JSON.stringify({
+        type: 'thinking_complete',
+        content: reasoningContent
       }));
     };
 

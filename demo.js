@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Auto Agent 系统演示脚本
+ * NexusMind 系统演示脚本
  * 测试前后端通信和Agent功能
  */
 
@@ -70,7 +70,7 @@ async function testToolsList() {
 }
 
 async function runDemo() {
-  console.log('🚀 开始 Auto Agent 系统演示...\n');
+  console.log('🚀 开始NexusMind系统演示...\n');
   
   // 测试各项功能
   const tests = [
