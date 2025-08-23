@@ -35,6 +35,13 @@ const ChatInterface = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // 监听流式消息的变化，实时滚动到底部
+  useEffect(() => {
+    if (streamingMessage && streamingMessage.content) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [streamingMessage]);
+
   const handleSend = () => {
     if (!inputValue.trim() || !isConnected || isProcessing) return;
     onSendMessage(inputValue.trim());
@@ -825,19 +832,233 @@ const ChatInterface = ({
               gap: '12px'
             }}>
               <Avatar icon={<RobotOutlined />} style={{ backgroundColor: '#52c41a' }} />
-              <div style={{ 
-                padding: '8px 16px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '18px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <Spin size="small" />
-                <Text style={{ fontSize: '14px', color: '#666' }}>
-                  {streamingMessage ? '正在回答...' : '正在思考...'}
-                </Text>
-              </div>
+              
+              {/* 如果有流式消息内容，显示实时内容，否则显示状态提示 */}
+              {streamingMessage && streamingMessage.content ? (
+                <div style={{ 
+                  maxWidth: '90%',
+                  minWidth: '200px'
+                }}>
+                  <Card 
+                    size="small" 
+                    style={{ 
+                      backgroundColor: '#f6ffed',
+                      padding: '8px 16px'
+                    }}
+                    bodyStyle={{ 
+                      padding: '16px 20px',
+                      lineHeight: '1.6'
+                    }}
+                  >
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        img({ node, src, alt, ...props }) {
+                          return (
+                            <img
+                              src={src}
+                              alt={alt}
+                              {...props}
+                              style={{
+                                maxWidth: '100%',
+                                maxHeight: '400px',
+                                height: 'auto',
+                                borderRadius: '8px',
+                                marginTop: '8px',
+                                marginBottom: '8px',
+                                display: 'block',
+                                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                              }}
+                            />
+                          );
+                        },
+                        code({ node, inline, className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={tomorrow}
+                              language={match[1]}
+                              PreTag="div"
+                              customStyle={{
+                                margin: '12px 0',
+                                borderRadius: '6px',
+                                fontSize: '13px'
+                              }}
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code 
+                              className={className} 
+                              style={{
+                                backgroundColor: '#f5f5f5',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '13px',
+                                border: '1px solid #e1e1e1'
+                              }}
+                              {...props}
+                            >
+                              {children}
+                            </code>
+                          );
+                        },
+                        p({ children }) {
+                          return (
+                            <p style={{ 
+                              marginBottom: '12px', 
+                              fontSize: '14px',
+                              color: '#2c3e50'
+                            }}>
+                              {children}
+                            </p>
+                          );
+                        },
+                        ul({ children }) {
+                          return (
+                            <ul style={{ 
+                              marginLeft: '20px', 
+                              marginBottom: '12px',
+                              fontSize: '14px'
+                            }}>
+                              {children}
+                            </ul>
+                          );
+                        },
+                        ol({ children }) {
+                          return (
+                            <ol style={{ 
+                              marginLeft: '20px', 
+                              marginBottom: '12px',
+                              fontSize: '14px'
+                            }}>
+                              {children}
+                            </ol>
+                          );
+                        },
+                        h1({ children }) {
+                          return (
+                            <h1 style={{ 
+                              fontSize: '20px', 
+                              marginBottom: '16px',
+                              color: '#1a202c',
+                              borderBottom: '2px solid #e2e8f0',
+                              paddingBottom: '8px'
+                            }}>
+                              {children}
+                            </h1>
+                          );
+                        },
+                        h2({ children }) {
+                          return (
+                            <h2 style={{ 
+                              fontSize: '18px', 
+                              marginBottom: '14px',
+                              color: '#2d3748'
+                            }}>
+                              {children}
+                            </h2>
+                          );
+                        },
+                        h3({ children }) {
+                          return (
+                            <h3 style={{ 
+                              fontSize: '16px', 
+                              marginBottom: '12px',
+                              color: '#2d3748'
+                            }}>
+                              {children}
+                            </h3>
+                          );
+                        },
+                        table({ children }) {
+                          return (
+                            <table style={{
+                              borderCollapse: 'collapse',
+                              width: '100%',
+                              marginBottom: '12px',
+                              border: '1px solid #e2e8f0'
+                            }}>
+                              {children}
+                            </table>
+                          );
+                        },
+                        th({ children }) {
+                          return (
+                            <th style={{
+                              border: '1px solid #e2e8f0',
+                              padding: '8px 12px',
+                              backgroundColor: '#f8f9fa',
+                              fontSize: '13px'
+                            }}>
+                              {children}
+                            </th>
+                          );
+                        },
+                        td({ children }) {
+                          return (
+                            <td style={{
+                              border: '1px solid #e2e8f0',
+                              padding: '8px 12px',
+                              fontSize: '13px'
+                            }}>
+                              {children}
+                            </td>
+                          );
+                        }
+                      }}
+                    >
+                      {streamingMessage.content}
+                    </ReactMarkdown>
+                    {/* 添加闪烁光标效果 */}
+                    <span 
+                      style={{
+                        display: 'inline-block',
+                        width: '8px',
+                        height: '14px',
+                        backgroundColor: '#52c41a',
+                        marginLeft: '2px',
+                        animation: 'blink 1s infinite',
+                        verticalAlign: 'text-bottom'
+                      }}
+                    />
+                    <style>
+                      {`
+                        @keyframes blink {
+                          0%, 50% { opacity: 1; }
+                          51%, 100% { opacity: 0; }
+                        }
+                      `}
+                    </style>
+                  </Card>
+                  
+                  {/* 显示"正在生成..."状态 */}
+                  <div style={{ 
+                    marginTop: '4px',
+                    textAlign: 'left'
+                  }}>
+                    <Text type="secondary" style={{ fontSize: '11px' }}>
+                      <Spin size="small" style={{ marginRight: '4px' }} />
+                      正在生成...
+                    </Text>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ 
+                  padding: '8px 16px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <Spin size="small" />
+                  <Text style={{ fontSize: '14px', color: '#666' }}>
+                    {streamingMessage ? '正在回答...' : '正在思考...'}
+                  </Text>
+                </div>
+              )}
             </div>
           </div>
         )}

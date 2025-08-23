@@ -167,8 +167,7 @@ const Sidebar = ({ collapsed, agentStatus, isConnected, onReset, mcpTools, local
                         value={thinkingModes.currentMode}
                         onChange={handleModeChange}
                         loading={changingMode}
-                        style={{ width: '100%' }}
-                        size="small"
+                        style={{ width: '100%' , height:'auto'}}
                       >
                         {thinkingModes.supportedModes?.map((mode) => (
                           <Select.Option key={mode.mode} value={mode.mode}>
