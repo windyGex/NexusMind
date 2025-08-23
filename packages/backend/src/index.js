@@ -342,8 +342,8 @@ async function handleChatMessage(ws, data, clientId) {
       const useStreaming = options.streaming !== false; // 默认开启流式输出
       
       if (useStreaming && options.needSendToFrontend) {
-        // 使用流式输出
-        const stream = await originalGenerate.call(this, prompt, { ...options, stream: true });
+        // 使用流式输出，调用generateStream方法
+        const stream = await this.generateStream(prompt, options);
         let fullContent = '';
         
         // 发送流式开始消息

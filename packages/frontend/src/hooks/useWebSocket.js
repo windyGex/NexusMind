@@ -114,6 +114,15 @@ export const useWebSocket = (url) => {
                 newState.stepType = prev.stepType;
               }
               
+              // 更新顶层字段
+              if (data.data) {
+                if (data.data.totalSteps !== undefined) newState.totalSteps = data.data.totalSteps;
+                if (data.data.completedSteps !== undefined) newState.completedSteps = data.data.completedSteps;
+                if (data.data.currentStep !== undefined) newState.currentStep = data.data.currentStep;
+                if (data.data.stepName !== undefined) newState.stepName = data.data.stepName;
+                if (data.data.stepType !== undefined) newState.stepType = data.data.stepType;
+              }
+              
               return newState;
             });
           }
