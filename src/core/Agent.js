@@ -167,6 +167,7 @@ export class Agent {
           max_tokens: 30000,
           conversationHistory: this.conversationHistory,
           needSendToFrontend: true, // 最终答案使用流式输出
+          streaming: true, // 明确启用流式输出
           thinkingMessage: `正在生成最终答案...`
         });
         
@@ -1044,6 +1045,7 @@ ${executionResult.results.map((result, index) => `
         max_tokens: 30000,
         conversationHistory: this.conversationHistory,
         needSendToFrontend: true,
+        streaming: true, // 明确启用流式输出
         thinkingMessage: `正在评估结果...\n\n我需要分析所有步骤的执行情况，确保为用户提供准确、完整的最终答案...`
       });
 
@@ -1304,6 +1306,12 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
    * 为任务选择合适的工具
    */
   selectToolsForTask(userInput, availableTools) {
+    // 添加安全检查
+    if (!userInput || typeof userInput !== 'string') {
+      logger.warn('selectToolsForTask: userInput 无效:', userInput);
+      return [];
+    }
+    
     const input = userInput.toLowerCase();
     const selected = [];
     
@@ -1332,6 +1340,12 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
    * 检测任务类型
    */
   detectTaskType(userInput) {
+    // 添加安全检查
+    if (!userInput || typeof userInput !== 'string') {
+      logger.warn('detectTaskType: userInput 无效:', userInput);
+      return 'query';
+    }
+    
     const input = userInput.toLowerCase();
     
     if (input.includes('天气')) return 'weather';
