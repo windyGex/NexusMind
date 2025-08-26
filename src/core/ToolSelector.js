@@ -308,6 +308,177 @@ ${toolsList}
   }
 
   /**
+   * 根据任务类型选择合适的工具
+   */
+  selectToolsForTask(task, availableTools) {
+    const selectedTools = [];
+    const taskLower = task.toLowerCase();
+    
+    // 定义关键词映射到工具的规则
+    const keywordToolMap = {
+      // 网页抓取相关
+      '抓取': ['web_scraper', 'batch_scraper'],
+      '网页': ['web_scraper', 'batch_scraper'],
+      '爬虫': ['web_scraper', 'batch_scraper'],
+      'scrape': ['web_scraper', 'batch_scraper'],
+      'crawl': ['web_scraper', 'batch_scraper'],
+      
+      // 搜索相关
+      '搜索': ['web_search'],
+      '查找': ['web_search'],
+      'search': ['web_search'],
+      'find': ['web_search'],
+      
+      // 内容分析相关
+      '分析': ['content_analyzer'],
+      '总结': ['content_analyzer'],
+      '摘要': ['content_analyzer'],
+      'analyze': ['content_analyzer'],
+      'summary': ['content_analyzer'],
+      
+      // 数学计算相关
+      '计算': ['calculator'],
+      '数学': ['calculator'],
+      'math': ['calculator'],
+      'calculate': ['calculator'],
+      
+      // 时间日期相关
+      '时间': ['time_date'],
+      '日期': ['time_date'],
+      'time': ['time_date'],
+      'date': ['time_date']
+    };
+    
+    // 检查任务中是否包含特定关键词
+    for (const [keyword, tools] of Object.entries(keywordToolMap)) {
+      if (taskLower.includes(keyword)) {
+        tools.forEach(toolName => {
+          const tool = availableTools.find(t => t.name === toolName);
+          if (tool && !selectedTools.some(t => t.name === toolName)) {
+            selectedTools.push(tool);
+          }
+        });
+      }
+    }
+    
+    // 如果没有匹配到特定工具，返回一些通用工具
+    if (selectedTools.length === 0) {
+      const generalTools = ['web_search', 'web_scraper', 'content_analyzer'];
+      generalTools.forEach(toolName => {
+        const tool = availableTools.find(t => t.name === toolName);
+        if (tool && !selectedTools.some(t => t.name === toolName)) {
+          selectedTools.push(tool);
+        }
+      });
+    }
+    
+    return selectedTools;
+  }
+
+  /**
+   * 根据上下文选择工具
+   */
+  selectToolsByContext(context, availableTools) {
+    const selectedTools = [];
+    
+    // 根据上下文类型选择工具
+    if (context.type === 'web_research') {
+      const researchTools = ['web_search', 'web_scraper', 'batch_scraper', 'content_analyzer'];
+      researchTools.forEach(toolName => {
+        const tool = availableTools.find(t => t.name === toolName);
+        if (tool && !selectedTools.some(t => t.name === toolName)) {
+          selectedTools.push(tool);
+        }
+      });
+    } else if (context.type === 'content_analysis') {
+      const analysisTools = ['content_analyzer', 'web_scraper'];
+      analysisTools.forEach(toolName => {
+        const tool = availableTools.find(t => t.name === toolName);
+        if (tool && !selectedTools.some(t => t.name === toolName)) {
+          selectedTools.push(tool);
+        }
+      });
+    } else if (context.type === 'data_processing') {
+      const processingTools = ['web_scraper', 'batch_scraper', 'content_analyzer'];
+      processingTools.forEach(toolName => {
+        const tool = availableTools.find(t => t.name === toolName);
+        if (tool && !selectedTools.some(t => t.name === toolName)) {
+          selectedTools.push(tool);
+        }
+      });
+    }
+    
+    // 如果没有匹配到特定工具，返回一些通用工具
+    if (selectedTools.length === 0) {
+      const generalTools = ['web_search', 'web_scraper', 'content_analyzer'];
+      generalTools.forEach(toolName => {
+        const tool = availableTools.find(t => t.name === toolName);
+        if (tool && !selectedTools.some(t => t.name === toolName)) {
+          selectedTools.push(tool);
+        }
+      });
+    }
+    
+    return selectedTools;
+  }
+
+  /**
+   * 选择最适合执行特定操作的工具
+   */
+  selectToolForAction(action, availableTools) {
+    const actionLower = action.toLowerCase();
+    
+    // 操作到工具的映射
+    const actionToolMap = {
+      '抓取网页': 'web_scraper',
+      '批量抓取': 'batch_scraper',
+      '搜索信息': 'web_search',
+      '分析内容': 'content_analyzer',
+      '计算': 'calculator',
+      '获取时间': 'time_date'
+    };
+    
+    // 查找直接匹配
+    for (const [actionKey, toolName] of Object.entries(actionToolMap)) {
+      if (actionLower.includes(actionKey)) {
+        return availableTools.find(tool => tool.name === toolName) || null;
+      }
+    }
+    
+    // 默认返回空
+    return null;
+  }
+
+  /**
+   * 过滤掉不合适的工具
+   */
+  filterInappropriateTools(tools, taskType) {
+    // 移除一些不合适的工具组合
+    if (taskType === 'simple_query') {
+      // 对于简单查询，移除复杂的分析工具
+      return tools.filter(tool => 
+        !tool.name.includes('analyzer') && 
+        !tool.name.includes('scraper') &&
+        tool.name !== 'batch_scraper'
+      );
+    }
+    
+    if (taskType === 'complex_analysis') {
+      // 对于复杂分析，确保包含分析工具
+      const hasAnalyzer = tools.some(tool => tool.name.includes('analyzer'));
+      if (!hasAnalyzer) {
+        const analyzer = tools.find(tool => tool.name === 'content_analyzer');
+        if (analyzer) {
+          return [...tools, analyzer];
+        }
+      }
+    }
+    
+    // 默认不过滤
+    return tools;
+  }
+
+  /**
    * 记录工具使用结果
    */
   recordToolUsage(toolId, success, executionTime = 0) {

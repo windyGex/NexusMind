@@ -375,7 +375,7 @@ const ChatInterface = ({
               }}
             >
               {/* 执行步骤清单 */}
-              <div>
+              <>
                 <Text type="secondary" style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', display: 'block' }}>
                   执行步骤清单:
                 </Text>
@@ -451,7 +451,7 @@ const ChatInterface = ({
                     borderRadius: '4px'
                   }} />
                 </div>
-              </div>
+              </>
             </Card>
           );
         }

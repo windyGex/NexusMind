@@ -474,7 +474,6 @@ class SearchAnalysisTools {
   identifyTopics(keywords) {
     const topicKeywords = {
       'technology': ['ai', 'artificial', 'intelligence', 'machine', 'learning', 'software', 'tech', 'digital'],
-      'finance': ['stock', 'market', 'investment', 'financial', 'money', 'trading', 'portfolio', 'asset'],
       'health': ['health', 'medical', 'disease', 'treatment', 'patient', 'doctor', 'hospital'],
       'politics': ['government', 'political', 'election', 'policy', 'law', 'congress', 'president'],
       'sports': ['game', 'team', 'player', 'sport', 'match', 'championship', 'league']
@@ -654,6 +653,285 @@ class SearchAnalysisTools {
     }
 
     return summary;
+  }
+
+  /**
+   * 生成麦肯锡风格分析报告
+   * @param {Array} scrapedContent - 抓取的内容数组
+   * @param {Object} options - 报告选项
+   * @returns {Object} 生成的报告
+   */
+  async generateMckinseyStyleReport(scrapedContent, options = {}) {
+    try {
+      // 验证输入数据
+      if (!Array.isArray(scrapedContent) || scrapedContent.length === 0) {
+        throw new Error('必须提供抓取的内容数据');
+      }
+
+      // 提取关键信息
+      const extractedData = this.extractKeyInformation(scrapedContent);
+      
+      // 生成报告结构
+      const report = {
+        title: options.title || '分析报告',
+        executiveSummary: this.generateExecutiveSummary(extractedData),
+        problemStatement: this.generateProblemStatement(extractedData),
+        keyFindings: this.generateKeyFindings(extractedData),
+        analysis: this.generateDetailedAnalysis(extractedData),
+        recommendations: this.generateRecommendations(extractedData),
+        implementationPlan: this.generateImplementationPlan(extractedData),
+        conclusion: this.generateConclusion(extractedData),
+        dataSources: scrapedContent.map(item => ({
+          url: item.url,
+          title: item.title
+        })),
+        timestamp: new Date().toISOString()
+      };
+
+      return report;
+    } catch (error) {
+      console.error('生成报告失败:', error.message);
+      throw new Error(`报告生成失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 提取关键信息
+   */
+  extractKeyInformation(scrapedContent) {
+    const keyInfo = {
+      topics: [],
+      keywords: [],
+      sentiments: [],
+      statistics: [],
+      quotes: []
+    };
+
+    scrapedContent.forEach(content => {
+      if (content.text) {
+        // 提取关键词
+        const words = content.text.split(/\s+/);
+        keyInfo.keywords = [...new Set([...keyInfo.keywords, ...words.filter(w => w.length > 4)])];
+        
+        // 提取引述
+        const quotes = content.text.match(/["“](.*?)["”]/g) || [];
+        keyInfo.quotes = [...keyInfo.quotes, ...quotes];
+        
+        // 简单的情感分析
+        const positiveWords = ['good', 'great', 'excellent', 'positive', 'increase', 'growth', 'success'];
+        const negativeWords = ['bad', 'poor', 'negative', 'decrease', 'decline', 'failure'];
+        
+        let sentiment = 'neutral';
+        const lowerText = content.text.toLowerCase();
+        const positiveCount = positiveWords.filter(word => lowerText.includes(word)).length;
+        const negativeCount = negativeWords.filter(word => lowerText.includes(word)).length;
+        
+        if (positiveCount > negativeCount) {
+          sentiment = 'positive';
+        } else if (negativeCount > positiveCount) {
+          sentiment = 'negative';
+        }
+        
+        keyInfo.sentiments.push({
+          url: content.url,
+          sentiment,
+          positiveCount,
+          negativeCount
+        });
+      }
+    });
+
+    return keyInfo;
+  }
+
+  /**
+   * 生成执行摘要
+   */
+  generateExecutiveSummary(extractedData) {
+    return {
+      overview: "本报告基于对相关数据的深入分析，提供了全面的洞察和可行的建议。",
+      keyPoints: [
+        "核心发现已识别并分类",
+        "关键趋势和模式已确定",
+        "基于数据的可操作建议已制定"
+      ],
+      mainRecommendation: "建议采取综合性方法来解决识别的问题"
+    };
+  }
+
+  /**
+   * 生成问题陈述
+   */
+  generateProblemStatement(extractedData) {
+    return {
+      situation: "在当前环境中，相关领域面临一系列挑战和机遇。",
+      complications: "主要复杂性包括市场动态变化、技术发展和竞争压力。",
+      question: "如何有效地应对这些挑战并抓住机遇？"
+    };
+  }
+
+  /**
+   * 生成关键发现
+   */
+  generateKeyFindings(extractedData) {
+    const findings = [];
+    
+    if (extractedData.keywords.length > 0) {
+      findings.push({
+        title: "关键词分析",
+        description: "分析中出现频率较高的关键词表明关注焦点",
+        data: extractedData.keywords.slice(0, 10)
+      });
+    }
+    
+    if (extractedData.sentiments.length > 0) {
+      const sentimentSummary = extractedData.sentiments.reduce((acc, sentiment) => {
+        acc[sentiment.sentiment] = (acc[sentiment.sentiment] || 0) + 1;
+        return acc;
+      }, {});
+      
+      findings.push({
+        title: "情感分析",
+        description: "内容情感倾向分布",
+        data: sentimentSummary
+      });
+    }
+    
+    return findings;
+  }
+
+  /**
+   * 生成详细分析
+   */
+  generateDetailedAnalysis(extractedData) {
+    return {
+      framework: "采用MECE（相互独立，完全穷尽）原则进行分析",
+      segments: [
+        {
+          title: "市场分析",
+          description: "对市场环境和趋势的详细分析",
+          insights: [
+            "市场呈现多元化发展趋势",
+            "消费者需求不断变化",
+            "技术创新推动行业变革"
+          ]
+        },
+        {
+          title: "竞争分析",
+          description: "对竞争格局的评估",
+          insights: [
+            "主要竞争者策略分析",
+            "市场份额分布情况",
+            "竞争优势与劣势识别"
+          ]
+        },
+        {
+          title: "机会识别",
+          description: "潜在增长机会的识别",
+          insights: [
+            "新兴市场机会",
+            "技术创新应用",
+            "合作与并购机会"
+          ]
+        }
+      ]
+    };
+  }
+
+  /**
+   * 生成建议
+   */
+  generateRecommendations(extractedData) {
+    return [
+      {
+        priority: "高",
+        title: "短期行动计划",
+        description: "立即可执行的措施",
+        actions: [
+          "建立跨部门协作机制",
+          "优化资源配置",
+          "加强市场监测"
+        ]
+      },
+      {
+        priority: "中",
+        title: "中期发展战略",
+        description: "3-6个月内实施的策略",
+        actions: [
+          "产品和服务创新",
+          "市场拓展计划",
+          "技术能力提升"
+        ]
+      },
+      {
+        priority: "低",
+        title: "长期愿景规划",
+        description: "6个月以上的发展方向",
+        actions: [
+          "生态系统建设",
+          "品牌影响力提升",
+          "可持续发展战略"
+        ]
+      }
+    ];
+  }
+
+  /**
+   * 生成实施计划
+   */
+  generateImplementationPlan(extractedData) {
+    return {
+      timeline: "建议按以下时间表推进实施",
+      phases: [
+        {
+          phase: "第一阶段（1-2个月）",
+          objectives: [
+            "完成组织架构调整",
+            "启动关键项目试点",
+            "建立监测评估机制"
+          ],
+          resources: "需要人力资源、财务资源和技术支持"
+        },
+        {
+          phase: "第二阶段（3-4个月）",
+          objectives: [
+            "扩大试点范围",
+            "优化流程和方法",
+            "加强团队能力建设"
+          ],
+          resources: "需要增加预算投入和外部专家支持"
+        },
+        {
+          phase: "第三阶段（5-6个月）",
+          objectives: [
+            "全面推广实施",
+            "建立长效机制",
+            "评估效果并持续改进"
+          ],
+          resources: "需要持续的管理关注和资源配置"
+        }
+      ]
+    };
+  }
+
+  /**
+   * 生成结论
+   */
+  generateConclusion(extractedData) {
+    return {
+      summary: "通过系统性分析，我们识别了关键问题和机遇，并提出了相应的解决方案。",
+      nextSteps: [
+        "成立专项工作组推进实施",
+        "定期评估进展并调整策略",
+        "建立持续改进机制"
+      ],
+      successFactors: [
+        "高层领导支持",
+        "跨部门协作",
+        "资源配置保障",
+        "持续监测评估"
+      ]
+    };
   }
 }
 

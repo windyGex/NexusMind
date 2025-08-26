@@ -79,9 +79,6 @@ try {
   // 注册网页抓取工具到主Agent（用于联网搜索）
   await registerWebScrapingTools(agent);
   
-  // 注册股票投资工具
-  await registerStockInvestmentTools(agent);
-  
   // 加载MCP服务器配置
   await loadMCPServers();
   
@@ -99,20 +96,24 @@ async function registerWebScrapingTools(agent) {
   try {
     logger.info('注册网页抓取工具...');
     
-    for (const tool of webScrapingTools) {
-      agent.tools.registerTool(tool.name, {
+    // 使用新的工具注册管理器获取所有工具
+    const allTools = getAllBackendTools();
+    
+    // 注册所有后端工具
+    for (const [name, tool] of Object.entries(allTools)) {
+      agent.tools.registerTool(name, {
         name: tool.name,
         description: tool.description,
-        category: 'web-scraping',
+        category: tool.category,
         parameters: tool.parameters,
         execute: tool.execute
       });
-      logger.debug(`已注册网页抓取工具: ${tool.name}`);
+      logger.debug(`已注册工具: ${tool.name} (${tool.category})`);
     }
     
-    logger.success(`成功注册了 ${webScrapingTools.length} 个网页抓取工具`);
+    logger.success(`成功注册了 ${Object.keys(allTools).length} 个工具`);
   } catch (error) {
-    logger.error('注册网页抓取工具失败:', error);
+    logger.error('注册工具失败:', error);
   }
 }
 
@@ -644,8 +645,7 @@ async function handleChatMessage(ws, data, clientId) {
 }
 
 // 导入工具
-import { webScrapingTools } from './tools/webScrapingTools.js';
-import { stockInvestmentTools, registerStockInvestmentTools } from './tools/stockInvestmentTools.js';
+import { getAllBackendTools } from './tools/index.js';
 
 // 导入路由
 import mcpConfigRouter from './routes/mcpConfig.js';
@@ -783,7 +783,7 @@ app.get('/api/agent/thinking-modes', (req, res) => {
     });
   } catch (error) {
     logger.error('获取思维模式失败:', error);
-    res.status(500).json({ error: '获取思维模式失败', message: error.message });
+    res.status(500).json({ error: '获取思维模式失败' });
   }
 });
 
