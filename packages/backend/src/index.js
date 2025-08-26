@@ -84,11 +84,20 @@ try {
       });
     },
     onProgress: (data) => {
-      // 广播进度更新
-      broadcastToAllClients({
-        type: 'multi_agent_progress',
-        ...data
-      });
+      // 处理不同类型的进度消息
+      if (data.type === 'agent_progress') {
+        // 智能体执行进度消息
+        broadcastToAllClients({
+          type: 'agent_progress',
+          ...data
+        });
+      } else {
+        // 普通进度消息
+        broadcastToAllClients({
+          type: 'multi_agent_progress',
+          ...data
+        });
+      }
     },
     onStageComplete: (data) => {
       // 广播阶段完成消息

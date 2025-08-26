@@ -20,8 +20,12 @@ export class ReportAgent {
       ...config
     };
     
-    // 初始化LLM客户端
-    this.llm = new LLMClient(config.llm);
+    // 初始化LLM客户端，优先使用传入的LLM实例
+    if (config.llmInstance) {
+      this.llm = config.llmInstance;
+    } else {
+      this.llm = new LLMClient(config.llm);
+    }
     
     this.renderer = new ReportRenderer({
       outputFormat: this.config.outputFormat,
@@ -33,7 +37,7 @@ export class ReportAgent {
   }
 
   /**
-   * 执行报告生成任务
+   * 执行报告生成任务 - 优化为单次LLM调用
    */
   async execute(task) {
     logger.info('📝 报告撰写员开始执行任务...');
@@ -41,48 +45,281 @@ export class ReportAgent {
     try {
       const { analysisResults, topic, metadata, originalQuery } = task;
       
-      // 1. 使用LLM分析报告需求和设计报告架构
-      const reportArchitecture = await this.designReportArchitectureWithLLM(originalQuery, topic, analysisResults);
-      logger.debug(`LLM设计报告架构: ${reportArchitecture.sections?.length || 0} 个章节`);
+      // 单次LLM调用完成所有报告相关工作
+      const comprehensiveReport = await this.generateComprehensiveReport(
+        originalQuery, topic, analysisResults, metadata
+      );
       
-      // 2. 使用LLM生成报告大纲
-      const reportOutline = await this.generateReportOutlineWithLLM(reportArchitecture, analysisResults, topic);
-      logger.debug(`LLM生成报告大纲完成`);
+      logger.debug(`单次LLM完成综合报告生成`);
       
-      // 3. 使用LLM撰写各个章节
-      const reportSections = await this.generateSectionsWithLLM(reportOutline, analysisResults, topic, metadata);
-      logger.debug(`LLM生成 ${reportSections.length} 个章节`);
-      
-      // 4. 使用LLM优化和完善整体报告
-      const optimizedReport = await this.optimizeReportWithLLM(reportSections, reportArchitecture, topic);
-      
-      // 5. 使用LLM生成执行摘要
-      const executiveSummary = await this.generateExecutiveSummaryWithLLM(optimizedReport, analysisResults, topic);
-      
-      // 6. 组装最终报告
-      const finalReport = await this.assembleFinalReportWithLLM(
-        optimizedReport, 
-        executiveSummary, 
-        reportArchitecture, 
+      // 组装最终报告
+      const finalReport = await this.assembleFinalReport(
+        comprehensiveReport,
+        topic,
         metadata
       );
       
-      // 7. 使用LLM进行质量评估和改进建议
-      const qualityAssessment = await this.assessReportQualityWithLLM(finalReport, originalQuery);
-      
-      logger.success(`✅ 报告生成完成，质量评分: ${qualityAssessment.overall_score?.toFixed(2) || 'N/A'}`);
+      logger.success(`✅ 报告生成完成，质量评分: ${comprehensiveReport.qualityAssessment.overall_score?.toFixed(2) || 'N/A'}`);
       
       return {
         ...finalReport,
-        qualityAssessment,
-        architecture: reportArchitecture,
-        outline: reportOutline
+        qualityAssessment: comprehensiveReport.qualityAssessment,
+        architecture: comprehensiveReport.reportArchitecture,
+        outline: comprehensiveReport.reportOutline,
+        metadata: {
+          ...finalReport.metadata,
+          llmCalls: 1 // 优化后只用了1次LLM调用
+        }
       };
       
     } catch (error) {
       logger.error('❌ 报告生成失败:', error);
       throw new Error(`报告生成任务执行失败: ${error.message}`);
     }
+  }
+
+  /**
+   * 单次LLM调用生成综合报告
+   */
+  async generateComprehensiveReport(query, topic, analysisResults, metadata) {
+    const prompt = `作为专业的报告撰写专家和商业分析师，请基于以下信息生成完整的专业分析报告：
+
+**报告参数**：
+- 用户查询: ${query}
+- 分析主题: ${topic}
+- 洞察数量: ${analysisResults.insights?.length || 0}
+- 预测数量: ${analysisResults.predictions?.length || 0}
+- 数据类型: ${Object.keys(analysisResults.analysis || {}).join(', ') || '通用分析'}
+
+**分析结果概览**：
+主要洞察: ${analysisResults.insights?.slice(0, 5).map(i => i.title || i.insight || '默认洞察').join(', ') || '无具体洞察'}
+分析质量: ${analysisResults.quality?.overall_confidence || 0.8}
+预测信息: ${analysisResults.predictions?.slice(0, 3).map(p => p.prediction_title || p.title || '默认预测').join(', ') || '无具体预测'}
+
+**任务要求**：
+1. 设计报告架构和结构
+2. 生成详细报告大纲
+3. 撰写所有章节内容
+4. 生成执行摘要
+5. 评估报告质量
+
+请输出JSON格式的综合报告，确保所有字段都使用实际内容而非占位符：
+{
+  "reportArchitecture": {
+    "report_type": "comprehensive",
+    "target_audience": "executives",
+    "writing_style": "professional",
+    "key_focus_areas": ["行业分析", "市场趋势", "竞争格局"],
+    "sections": [
+      {
+        "id": "executive_summary",
+        "title": "执行摘要",
+        "purpose": "提供核心发现和建议",
+        "order": 1
+      },
+      {
+        "id": "background",
+        "title": "背景介绍",
+        "purpose": "提供主题背景信息",
+        "order": 2
+      },
+      {
+        "id": "analysis",
+        "title": "深度分析",
+        "purpose": "展示数据分析结果",
+        "order": 3
+      },
+      {
+        "id": "conclusion",
+        "title": "结论建议",
+        "purpose": "总结发现并提出建议",
+        "order": 4
+      }
+    ]
+  },
+  "reportOutline": {
+    "report_title": "${topic}深度分析报告",
+    "subtitle": "基于数据驱动的专业分析",
+    "section_outlines": [
+      {
+        "section_id": "executive_summary",
+        "title": "执行摘要",
+        "key_points": ["核心发现", "主要建议", "关键指标"],
+        "word_count_target": 400
+      },
+      {
+        "section_id": "background",
+        "title": "背景介绍",
+        "key_points": ["行业现状", "市场环境", "关键问题"],
+        "word_count_target": 500
+      },
+      {
+        "section_id": "analysis",
+        "title": "深度分析",
+        "key_points": ["数据洞察", "趋势分析", "影响因素"],
+        "word_count_target": 800
+      },
+      {
+        "section_id": "conclusion",
+        "title": "结论建议",
+        "key_points": ["主要结论", "实用建议", "风险提示"],
+        "word_count_target": 600
+      }
+    ]
+  },
+  "reportSections": [
+    {
+      "id": "executive_summary",
+      "title": "执行摘要",
+      "content": "## 执行摘要\n\n基于本次深度分析，我们对${topic}进行了全面的研究和评估。分析显示...",
+      "metadata": {
+        "wordCount": 400,
+        "keyInsights": ["核心发现"],
+        "qualityScore": 0.85
+      }
+    },
+    {
+      "id": "background",
+      "title": "背景介绍",
+      "content": "## 背景介绍\n\n${topic}在当前市场环境下面临着诸多挑战和机遇...",
+      "metadata": {
+        "wordCount": 500,
+        "keyInsights": ["市场背景"],
+        "qualityScore": 0.80
+      }
+    },
+    {
+      "id": "analysis",
+      "title": "深度分析",
+      "content": "## 深度分析\n\n通过对收集到的数据进行综合分析，我们发现了以下关键趋势...",
+      "metadata": {
+        "wordCount": 800,
+        "keyInsights": ["数据洞察"],
+        "qualityScore": 0.90
+      }
+    },
+    {
+      "id": "conclusion",
+      "title": "结论建议",
+      "content": "## 结论建议\n\n综合以上分析，我们对${topic}形成了以下主要结论...",
+      "metadata": {
+        "wordCount": 600,
+        "keyInsights": ["结论建议"],
+        "qualityScore": 0.85
+      }
+    }
+  ],
+  "executiveSummary": {
+    "executive_summary": "本报告对${topic}进行了全面深入的分析研究，通过数据驱动的方法揭示了关键趋势和机遇。",
+    "key_recommendations": ["建议加强技术创新", "优化市场策略", "关注风险管理"],
+    "critical_insights": ["市场增长潜力巨大", "竞争格局日趋激烈", "技本创新是关键"],
+    "business_impact": "预计对企业发展和市场地位将产生积极影响",
+    "action_items": ["制定实施计划", "分阶段执行", "定期评估调整"],
+    "risk_considerations": ["市场波动风险", "竞争加剧风险", "技术变革风险"]
+  },
+  "qualityAssessment": {
+    "overall_score": 0.85,
+    "dimension_scores": {
+      "content_completeness": 0.90,
+      "logical_structure": 0.85,
+      "analysis_depth": 0.80,
+      "data_support": 0.85,
+      "readability": 0.90,
+      "professionalism": 0.85
+    },
+    "strengths": ["数据支撑充分", "逻辑结构清晰", "建议具体可行"],
+    "weaknesses": ["部分领域分析可更深入"],
+    "improvement_suggestions": ["增加更多案例分析", "引入更多数据源"],
+    "quality_grade": "A"
+  }
+}
+
+请确保所有内容都是实际内容，不要使用占位符如"xx字段"、"具体内容"等。`;
+
+    try {
+      const response = await this.llm.generate(prompt, {
+        temperature: 0.3,
+        max_tokens: 12000
+      });
+      
+      const result = this.parseJSONResponse(response.content);
+      
+      if (result) {
+        return {
+          reportArchitecture: result.reportArchitecture || this.getDefaultArchitecture(),
+          reportOutline: result.reportOutline || this.getDefaultOutline(topic),
+          reportSections: result.reportSections || [],
+          executiveSummary: result.executiveSummary || this.getDefaultExecutiveSummary(topic),
+          qualityAssessment: result.qualityAssessment || this.getDefaultQualityAssessment()
+        };
+      }
+    } catch (error) {
+      logger.warn('LLM综合报告生成失败，使用默认报告:', error);
+    }
+    
+    // 降级到默认报告
+    return {
+      reportArchitecture: this.getDefaultArchitecture(),
+      reportOutline: this.getDefaultOutline(topic),
+      reportSections: this.generateDefaultSections(topic, analysisResults),
+      executiveSummary: this.getDefaultExecutiveSummary(topic),
+      qualityAssessment: this.getDefaultQualityAssessment()
+    };
+  }
+
+  /**
+   * 组装最终报告
+   */
+  async assembleFinalReport(comprehensiveReport, topic, metadata) {
+    const finalReport = {
+      title: comprehensiveReport.reportOutline.report_title || `${topic}分析报告`,
+      subtitle: comprehensiveReport.reportOutline.subtitle || '基于AI多智能体协作的深度分析',
+      executiveSummary: comprehensiveReport.executiveSummary,
+      sections: comprehensiveReport.reportSections,
+      metadata: {
+        generatedAt: new Date(),
+        totalWordCount: comprehensiveReport.reportSections.reduce((sum, s) => sum + (s.metadata?.wordCount || 0), 0),
+        sectionCount: comprehensiveReport.reportSections.length,
+        architecture: comprehensiveReport.reportArchitecture,
+        version: '1.0',
+        ...metadata
+      },
+      tableOfContents: this.generateTableOfContents(comprehensiveReport.reportSections),
+      format: this.config.outputFormat
+    };
+    
+    // 渲染为指定格式
+    finalReport.content = this.renderer.render(finalReport, this.config.outputFormat);
+    
+    return finalReport;
+  }
+
+  /**
+   * 生成默认章节内容
+   */
+  generateDefaultSections(topic, analysisResults) {
+    const defaultSections = [
+      {
+        id: 'executive_summary',
+        title: '执行摘要',
+        content: `## 执行摘要\n\n本报告对${topic}进行了全面深入的分析。通过AI多智能体协作，我们获得了${analysisResults.insights?.length || 0}个关键洞察和${analysisResults.predictions?.length || 0}个预测结果。\n\n### 主要发现\n\n${analysisResults.insights?.slice(0, 3).map((insight, idx) => `${idx + 1}. **${insight.title}**: ${insight.description}`).join('\n') || '暂无特定发现'}`,
+        metadata: { wordCount: 300, qualityScore: 0.8 }
+      },
+      {
+        id: 'analysis_findings',
+        title: '分析结果',
+        content: `## 分析结果\n\n我们对${topic}进行了多维度的深入分析，包括探索性分析、主题分析和需求导向分析。\n\n### 核心洞察\n\n${analysisResults.insights?.map((insight, idx) => `#### ${idx + 1}. ${insight.title}\n\n${insight.description}\n\n**商业影响**: ${insight.business_impact || '待评估'}\n\n**置信度**: ${(insight.confidence * 100).toFixed(0)}%`).join('\n\n') || '暂无具体洞察'}`,
+        metadata: { wordCount: 600, qualityScore: 0.85 }
+      },
+      {
+        id: 'recommendations',
+        title: '建议与结论',
+        content: `## 建议与结论\n\n基于我们的分析结果，我们提出以下建议：\n\n### 主要建议\n\n1. **持续监控**: 建议对${topic}相关指标进行持续监控\n2. **深入研究**: 针对关键发现进行更深入的研究\n3. **风险管理**: 制定相应的风险管理措施\n\n### 结论\n\n通过本次分析，我们对${topic}获得了全面的了解。分析结果显示出清晰的发展趋势和关键机会。`,
+        metadata: { wordCount: 400, qualityScore: 0.8 }
+      }
+    ];
+    
+    return defaultSections;
   }
 
   /**

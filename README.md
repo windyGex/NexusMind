@@ -99,6 +99,7 @@ npm run start:all
 
 ### Tools & Integrations
 - **Web Scraping**: Playwright, Puppeteer, Cheerio
+- **Real-time Search**: Google Serper API integration for live web search
 - **Search & Analysis**: SerpAPI integration
 - **LLM Integration**: OpenAI GPT models
 - **Data Processing**: Natural language processing, statistics
@@ -140,20 +141,39 @@ nexusmind/
 
 ### Environment Variables
 
-Create a `.env` file in the backend directory:
+Create a `.env` file in the root directory (see `.env.example` for reference):
 
 ```bash
-# OpenAI API Configuration
+# OpenAI API Configuration (Required)
 OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_BASE=https://api.openai.com/v1
+
+# Serper API Configuration (Required for real-time search)
+# Get your API key from: https://serper.dev/api-key
+SERPER_API_KEY=your_serper_api_key_here
 
 # Server Configuration
-PORT=3002
+PORT=3001
 FRONTEND_URL=http://localhost:5173
 
 # Development Configuration
 NODE_ENV=development
-QUIET=false
+LOG_LEVEL=info
 ```
+
+### Search Configuration
+
+The SearchAgent now supports real-time web search using Google Serper API:
+
+- **Real Search**: When `SERPER_API_KEY` is configured, the agent performs actual web searches
+- **Fallback Mode**: When API key is missing, the agent uses fallback search results
+- **Search Features**:
+  - Organic search results from Google
+  - News search integration
+  - Chinese language optimization (gl=cn, hl=zh-cn)
+  - Intelligent content type detection
+  - Domain extraction and categorization
+  - Up to 8 high-quality results per query
 
 ### MCP Server Configuration
 
@@ -280,6 +300,7 @@ Configure MCP servers in `temp/mcp-config.json`:
 - **web_content_analyzer**: Analyze web page content and structure
 
 ### Search & Analysis Tools
+- **web_search**: Real-time Google search via Serper API
 - **search_analysis**: Comprehensive search and analysis capabilities
 - **stock_investment_tools**: Stock market analysis and investment insights
 

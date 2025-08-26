@@ -8,6 +8,8 @@ export const useWebSocket = (url) => {
   const [planSolveStatus, setPlanSolveStatus] = useState(null);
   const [planSolveProgress, setPlanSolveProgress] = useState(null);
   const [streamingMessage, setStreamingMessage] = useState(null); // 流式消息状态
+  const [multiAgentProgress, setMultiAgentProgress] = useState(null); // MultiAgent进度状态
+  const [agentExecutionDetails, setAgentExecutionDetails] = useState([]); // 智能体执行详情
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttempts = useRef(0);
@@ -65,10 +67,77 @@ export const useWebSocket = (url) => {
           setIsProcessing(true);
           setPlanSolveStatus(null); // 重置plan_solve状态
           setPlanSolveProgress(null); // 新对话开始时重置进度状态
+          setMultiAgentProgress(null); // 重置MultiAgent状态
+          setAgentExecutionDetails([]); // 重置智能体执行详情
+        } else if (data.type === 'multi_agent_start') {
+          // MultiAgent模式启动，初始化进度状态
+          setMultiAgentProgress({
+            workflowId: data.workflowId,
+            query: data.query,
+            currentStage: 'task_breakdown',
+            completedStages: [],
+            totalStages: 5, // task_breakdown, search, retrieval, analysis, report
+            startTime: data.timestamp,
+            status: 'running'
+          });
+        } else if (data.type === 'multi_agent_progress') {
+          // 更新MultiAgent进度
+          setMultiAgentProgress(prev => {
+            // 直接使用数据更新进度，不需要复杂的状态管理
+            return {
+              ...prev,
+              currentProgress: data,
+              lastUpdate: new Date()
+            };
+          });
+        } else if (data.type === 'agent_progress') {
+          // 处理智能体执行进度消息
+          setAgentExecutionDetails(prev => {
+            const newDetail = {
+              id: Date.now() + Math.random(),
+              stage: data.data.stage,
+              status: data.data.status,
+              agentName: data.data.agentName,
+              task: data.data.task,
+              details: data.data.details,
+              results: data.data.results,
+              summary: data.data.summary,
+              error: data.data.error,
+              timestamp: data.data.timestamp
+            };
+            
+            // 如果是同一阶段的更新，替换最新的记录
+            const existingIndex = prev.findIndex(item => 
+              item.stage === data.data.stage && 
+              item.agentName === data.data.agentName
+            );
+            
+            if (existingIndex >= 0) {
+              const updated = [...prev];
+              updated[existingIndex] = newDetail;
+              return updated;
+            } else {
+              return [...prev, newDetail];
+            }
+          });
+        } else if (data.type === 'multi_agent_stage_complete') {
+          // 阶段完成，更新相应状态
+          setMultiAgentProgress(prev => {
+            if (!prev) return null;
+            
+            const stageName = data.stageName;
+            if (!prev.completedStages.includes(stageName)) {
+              return {
+                ...prev,
+                completedStages: [...prev.completedStages, stageName]
+              };
+            }
+            return prev;
+          });
         } else if (data.type === 'agent_response' || data.type === 'error' || data.type === 'aborted') {
           setIsProcessing(false);
           setPlanSolveStatus(null); // 重置plan_solve状态
-          // 任务完成后保持进度状态显示，不重置
+          // 任务完成后保持进度状态显示，不重置MultiAgent状态
         } else if (data.type === 'plan_solve_update') {
           // 处理plan_solve状态更新
           setPlanSolveStatus(data);
@@ -217,6 +286,8 @@ export const useWebSocket = (url) => {
     planSolveStatus,
     planSolveProgress,
     streamingMessage,
+    multiAgentProgress,
+    agentExecutionDetails,
     sendMessage,
     sendAbort,
     connect,

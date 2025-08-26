@@ -1,5 +1,52 @@
 # 变更日志
 
+## [2025-01-27] - SearchAgent 真实搜索集成
+
+### ✨ 新增功能
+
+#### SearchAgent 真实搜索集成
+- **功能**: 将 `SearchAgent` 中的 `simulateSearch` 方法替换为使用真实的 Serper API 搜索
+- **改进**:
+  - 集成 Google Serper API，支持真实的网络搜索
+  - 支持有机搜索结果和新闻搜索结果
+  - 自动域名提取和内容类型推断
+  - 智能降级机制：API 失败时自动使用备用搜索结果
+  - 支持中文搜索优化（gl=cn, hl=zh-cn）
+  - 每个查询获得8个高质量搜索结果
+- **配置**: 需要设置环境变量 `SERPER_API_KEY`
+- **文件**: `/src/core/agents/SearchAgentLLM.js`
+- **新增方法**:
+  - `performRealSearch()` - 真实搜索API调用
+  - `extractDomain()` - URL域名提取
+  - `inferContentType()` - 内容类型推断
+  - `getFallbackSearchResults()` - 降级搜索策略
+
+#### 环境配置优化
+- **新增**: 创建 `.env.example` 示例配置文件
+- **说明**: 详细的环境变量配置指南
+- **支持**: SERPER_API_KEY、OPENAI_API_KEY 等关键配置
+
+### 🔧 技术改进
+
+#### 搜索结果数据结构优化
+- **新增字段**:
+  - `position` - 搜索结果排名
+  - `searchEngine` - 搜索引擎来源
+  - `apiSource` - API来源标识
+- **增强功能**:
+  - 更准确的发布日期处理
+  - 智能内容类型分类
+  - 更好的错误处理和日志记录
+
+### 📋 注意事项
+
+1. 确保环境变量 `SERPER_API_KEY` 已正确设置（获取地址：https://serper.dev/api-key）
+2. 真实搜索API有使用配额限制，请合理使用
+3. 未配置API密钥时，系统将自动使用降级搜索策略
+4. 搜索结果质量和数量取决于 Serper API 的可用性
+
+---
+
 ## [2025-01-27] - Plan & Solve 模式执行步骤可视化
 
 ### 🚀 新功能

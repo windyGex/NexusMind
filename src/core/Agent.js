@@ -40,8 +40,12 @@ export class Agent {
     this.collaborationHistory = [];
     this.peerAgents = new Map();
     
-    // 多智能体管理器
-    this.multiAgentManager = new MultiAgentManager(config.multiAgent);
+    // 多智能体管理器 - 传递LLM实例
+    const multiAgentConfig = {
+      ...config.multiAgent,
+      llm: this.llm // 传递LLM实例给子智能体
+    };
+    this.multiAgentManager = new MultiAgentManager(multiAgentConfig);
     this.enableMultiAgent = config.enableMultiAgent !== false; // 默认启用
     
     // 设置多智能体回调
@@ -107,15 +111,27 @@ export class Agent {
       // 更新MCP工具列表
       await this.updateMCPTools();
       
-      // 检测是否需要多智能体协作
-      if (this.enableMultiAgent && this.multiAgentManager.shouldActivateMultiAgent(userInput)) {
+      // 检测是否需要多智能体协作（使用LLM进行智能判断）
+      if (this.enableMultiAgent && await this.multiAgentManager.shouldActivateMultiAgent(userInput, this.llm)) {
+        // 获取LLM分析结果
+        const analysis = this.multiAgentManager.getLastAnalysis();
+        
         logger.info('🚀 检测到复杂任务，启动深度LLM集成的多智能体协作模式');
+        logger.info('📊 任务复杂度分析:', {
+          complexity: analysis?.taskComplexity || 'unknown',
+          confidence: analysis?.confidence || 'unknown',
+          reasoning: analysis?.reasoning || 'fallback判断'
+        });
+        
+        // 根据分析结果定制启动消息
+        const startMessage = this.generateMultiAgentStartMessage(userInput, analysis);
         
         // 发送多智能体开始信号
         if (this.onMultiAgentStart) {
           this.onMultiAgentStart({
             type: 'multi_agent_start',
-            message: '🤖 正在启动深度LLM集成的多智能体协作系统，将由以下四个专业智能体协作完成任务：\n\n🔍 **网络搜索员** - 使用LLM优化搜索策略，智能评估结果质量\n📚 **信息检索员** - 使用LLM进行内容分析和知识抽取\n📊 **数据分析员** - 使用LLM进行高级统计分析和洞察挖掘\n📝 **报告撰写员** - 使用LLM生成专业结构化分析报告\n\n每个智能体都深度集成了大模型进行核心推理，确保分析的专业性和准确性...',
+            message: startMessage,
+            analysis: analysis,
             timestamp: new Date()
           });
         }
@@ -1892,6 +1908,9 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
     this.onMultiAgentProgress = callbacks.onProgress;
     this.onMultiAgentStageComplete = callbacks.onStageComplete;
     this.onMultiAgentError = callbacks.onError;
+    
+    // 重新设置MultiAgentManager的回调，确保绑定正确
+    this.setupMultiAgentCallbacks();
   }
   
   /**
@@ -1900,6 +1919,62 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   setMultiAgentMode(enabled) {
     this.enableMultiAgent = enabled;
     logger.info(`多智能体模式已${enabled ? '启用' : '禁用'}`);
+  }
+  
+  /**
+   * 根据分析结果生成定制化的MultiAgent启动消息
+   */
+  generateMultiAgentStartMessage(userInput, analysis) {
+    const baseMessage = '🤖 正在启动智能多智能体协作系统，将由以下四个专业智能体协作完成任务：\n\n🔍 **网络搜索员** - 使用LLM优化搜索策略，智能评估结果质量\n📚 **信息检索员** - 使用LLM进行内容分析和知识抽取\n📊 **数据分析员** - 使用LLM进行高级统计分析和洞察挖掘\n📝 **报告撰写员** - 使用LLM生成专业结构化分析报告';
+    
+    if (!analysis) {
+      return baseMessage + '\n\n每个智能体都深度集成了大模型进行核心推理，确保分析的专业性和准确性...';
+    }
+    
+    // 根据任务复杂度和预估阶段定制消息
+    let customMessage = baseMessage;
+    
+    // 添加任务复杂度信息
+    const complexityInfo = {
+      'simple': '📌 任务复杂度：简单 - 将进行快速精准分析',
+      'moderate': '📈 任务复杂度：中等 - 将进行全面深入分析',
+      'complex': '🔬 任务复杂度：复杂 - 将进行多维度综合分析'
+    };
+    
+    if (analysis.taskComplexity && complexityInfo[analysis.taskComplexity]) {
+      customMessage += `\n\n${complexityInfo[analysis.taskComplexity]}`;
+    }
+    
+    // 添加预估阶段信息
+    if (analysis.estimatedStages && analysis.estimatedStages.length > 0) {
+      customMessage += `\n\n📋 预估执行阶段：`;
+      analysis.estimatedStages.slice(0, 3).forEach((stage, index) => {
+        customMessage += `\n${index + 1}. ${stage}`;
+      });
+      if (analysis.estimatedStages.length > 3) {
+        customMessage += `\n…等其他阶段`;
+      }
+    }
+    
+    // 添加关键需求信息
+    if (analysis.keyRequirements && analysis.keyRequirements.length > 0) {
+      customMessage += `\n\n🎯 关键需求：`;
+      analysis.keyRequirements.slice(0, 2).forEach((req, index) => {
+        customMessage += `\n• ${req}`;
+      });
+    }
+    
+    // 添加置信度信息
+    if (analysis.confidence) {
+      const confidenceLevel = analysis.confidence >= 0.9 ? '非常高' :
+                             analysis.confidence >= 0.8 ? '高' :
+                             analysis.confidence >= 0.7 ? '中等' : '低';
+      customMessage += `\n\n🎯 任务匹配度：${confidenceLevel}（${(analysis.confidence * 100).toFixed(0)}%）`;
+    }
+    
+    customMessage += '\n\n🚀 每个智能体都深度集成了大模型进行核心推理，确保分析的专业性和准确性...';
+    
+    return customMessage;
   }
   
   /**

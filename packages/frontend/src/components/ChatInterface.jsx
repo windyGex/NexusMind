@@ -20,6 +20,7 @@ const ChatInterface = ({
   planSolveStatus,
   planSolveProgress,
   streamingMessage,
+  agentExecutionDetails,
   agentStatus,
   onSendMessage, 
   onAbort,
@@ -356,6 +357,337 @@ const ChatInterface = ({
             </Space>
           </Card>
         );
+        
+      case 'multi_agent_start':
+        return (
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '95%', 
+              backgroundColor: '#e6f3ff', 
+              borderColor: '#1890ff',
+              borderWidth: '2px'
+            }}
+            bodyStyle={{ 
+              padding: '16px',
+              lineHeight: '1.6'
+            }}
+          >
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <RobotOutlined style={{ color: '#1890ff', fontSize: '16px' }} />
+                <Text strong style={{ color: '#1890ff' }}>
+                  多智能体协作模式启动
+                </Text>
+              </div>
+              <div style={{ 
+                whiteSpace: 'pre-line',
+                fontSize: '13px',
+                color: '#334155'
+              }}>
+                {message.content}
+              </div>
+            </Space>
+          </Card>
+        );
+        
+      case 'multi_agent_stage':
+        return (
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#f0f9ff', 
+              borderColor: '#0ea5e9'
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
+            <Space>
+              <CheckCircleOutlined style={{ color: '#0ea5e9' }} />
+              <Text style={{ fontSize: '13px', color: '#0369a1' }}>
+                {message.content}
+              </Text>
+            </Space>
+          </Card>
+        );
+        
+      case 'multi_agent_progress':
+        const { data: progressData } = message;
+        if (!progressData) return null;
+        
+        const stageNames = {
+          'workflow_start': '🚀 工作流启动',
+          'task_breakdown': '📋 任务分解',
+          'search': '🔍 网络搜索', 
+          'search_complete': '🔍 网络搜索',
+          'retrieval': '📚 信息检索',
+          'retrieval_complete': '📚 信息检索',
+          'analysis': '📊 数据分析',
+          'analysis_complete': '📊 数据分析',
+          'report': '📝 报告生成',
+          'report_complete': '📝 报告生成'
+        };
+        
+        const getStageStatus = (stageName, progressData) => {
+          if (!progressData || !progressData.type) return 'pending';
+          
+          // 标准化阶段名称
+          const normalizeStage = (stage) => stage.replace('_complete', '');
+          const currentStage = normalizeStage(progressData.type);
+          const targetStage = normalizeStage(stageName);
+          
+          // 定义阶段顺序
+          const stageOrder = ['workflow_start', 'task_breakdown', 'search', 'retrieval', 'analysis', 'report'];
+          const currentIndex = stageOrder.indexOf(currentStage);
+          const targetIndex = stageOrder.indexOf(targetStage);
+          
+          if (currentIndex === -1) return 'pending'; // 未知阶段
+          
+          if (targetIndex < currentIndex || progressData.type.endsWith('_complete')) {
+            return 'completed';
+          } else if (targetIndex === currentIndex) {
+            return progressData.type.endsWith('_complete') ? 'completed' : 'running';
+          } else {
+            return 'pending';
+          }
+        };
+        
+        const getProgressPercentage = (progressData) => {
+          if (!progressData || !progressData.type) return 0;
+          
+          const progressMap = {
+            'workflow_start': 5,
+            'task_breakdown': 15,
+            'search_complete': 35,
+            'retrieval_complete': 55,
+            'analysis_complete': 75,
+            'report_complete': 100
+          };
+          
+          return progressMap[progressData.type] || 0;
+        };
+        
+        const getCurrentStageDescription = (progressData) => {
+          if (!progressData || !progressData.type) return '正在初始化...';
+          
+          const descriptions = {
+            'workflow_start': '正在启动多智能体协作模式...',
+            'task_breakdown': '任务分解完成，准备开始网络搜索...',
+            'search_complete': `网络搜索完成，找到 ${progressData.data?.resultsCount || 0} 条结果`,
+            'retrieval_complete': `信息检索完成，获取 ${progressData.data?.dataCount || 0} 条数据`,
+            'analysis_complete': `数据分析完成，生成 ${progressData.data?.analysisCount || 0} 项洞察`,
+            'report_complete': `报告生成完成（${progressData.data?.reportLength || progressData.data?.reportSections || 0} 个章节）`
+          };
+          
+          return descriptions[progressData.type] || `正在处理 ${progressData.type} 阶段...`;
+        };
+        
+        return (
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '95%', 
+              backgroundColor: '#f8fafc', 
+              borderColor: '#3b82f6',
+              borderWidth: '2px'
+            }}
+            bodyStyle={{ 
+              padding: '16px',
+              lineHeight: '1.6'
+            }}
+          >
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <RobotOutlined style={{ color: '#3b82f6', fontSize: '16px' }} />
+                <Text strong style={{ color: '#3b82f6' }}>
+                  多智能体协作进度
+                </Text>
+              </div>
+              
+              {/* 当前阶段描述 */}
+              <div style={{ 
+                padding: '8px 12px',
+                backgroundColor: '#eff6ff',
+                borderRadius: '6px',
+                border: '1px solid #bfdbfe'
+              }}>
+                <Text style={{ fontSize: '13px', color: '#1e40af' }}>
+                  当前阶段: {getCurrentStageDescription(progressData)}
+                </Text>
+              </div>
+              
+              {/* 阶段列表 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {Object.entries(stageNames)
+                  .filter(([stage]) => !stage.includes('_complete') && stage !== 'workflow_start')
+                  .map(([stage, name], index) => {
+                  const status = getStageStatus(stage, progressData);
+                  const isCompleted = status === 'completed';
+                  const isRunning = status === 'running';
+                  
+                  return (
+                    <div key={stage} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '12px',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      backgroundColor: isRunning ? '#eff6ff' : 
+                                     isCompleted ? '#f0fdf4' : '#f8fafc',
+                      border: isRunning ? '1px solid #3b82f6' :
+                             isCompleted ? '1px solid #22c55e' : '1px solid #e2e8f0'
+                    }}>
+                      {/* 状态指示器 */}
+                      <div style={{ 
+                        width: '20px', 
+                        height: '20px', 
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: isCompleted ? '#22c55e' :
+                                        isRunning ? '#3b82f6' : '#94a3b8',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {isCompleted ? '✓' : 
+                         isRunning ? <Spin size="small" style={{ color: 'white' }} /> :
+                         index + 1}
+                      </div>
+                      
+                      {/* 阶段名称 */}
+                      <div style={{ flex: 1 }}>
+                        <Text style={{ 
+                          fontSize: '14px',
+                          fontWeight: isRunning ? 'bold' : 'normal',
+                          color: isCompleted ? '#166534' :
+                                 isRunning ? '#1d4ed8' : '#64748b'
+                        }}>
+                          {name}
+                        </Text>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* 总体进度条 */}
+              <div style={{ 
+                width: '100%', 
+                backgroundColor: '#e2e8f0', 
+                borderRadius: '4px',
+                height: '8px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${getProgressPercentage(progressData)}%`,
+                  height: '100%',
+                  backgroundColor: '#3b82f6',
+                  borderRadius: '4px',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+              
+              <Text type="secondary" style={{ fontSize: '12px', textAlign: 'center' }}>
+                进度: {getProgressPercentage(progressData)}%
+              </Text>
+              
+              {/* 智能体执行详情 */}
+              {agentExecutionDetails && agentExecutionDetails.length > 0 && (
+                <div style={{ marginTop: '16px' }}>
+                  <Text strong style={{ fontSize: '13px', color: '#374151', marginBottom: '8px', display: 'block' }}>
+                    🤖 智能体执行详情
+                  </Text>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {agentExecutionDetails
+                      .slice(-5) // 显示最新的5条记录，不按阶段过滤
+                      .map((detail, index) => {
+                        const getStatusColor = (status) => {
+                          switch (status) {
+                            case 'start': return '#1890ff';
+                            case 'analyzing': return '#722ed1';
+                            case 'generating': return '#13c2c2';
+                            case 'completed': return '#52c41a';
+                            case 'failed': return '#ff4d4f';
+                            default: return '#8c8c8c';
+                          }
+                        };
+                        
+                        const getStatusIcon = (status) => {
+                          switch (status) {
+                            case 'start': return '🚀';
+                            case 'analyzing': return '🔍';
+                            case 'generating': return '⚙️';
+                            case 'completed': return '✅';
+                            case 'failed': return '❌';
+                            default: return '🔄';
+                          }
+                        };
+                        
+                        return (
+                          <div key={detail.id} style={{
+                            padding: '6px 10px',
+                            backgroundColor: '#f9fafb',
+                            borderLeft: `3px solid ${getStatusColor(detail.status)}`,
+                            borderRadius: '0 6px 6px 0',
+                            fontSize: '12px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                              <span>{getStatusIcon(detail.status)}</span>
+                              <Text strong style={{ fontSize: '12px', color: getStatusColor(detail.status) }}>
+                                {detail.agentName}
+                              </Text>
+                              <Text type="secondary" style={{ fontSize: '11px' }}>
+                                {new Date(detail.timestamp).toLocaleTimeString()}
+                              </Text>
+                            </div>
+                            
+                            <Text style={{ fontSize: '12px', color: '#374151', display: 'block' }}>
+                              {detail.task}
+                            </Text>
+                            
+                            {detail.details && (
+                              <Text type="secondary" style={{ fontSize: '11px', fontStyle: 'italic', display: 'block', marginTop: '2px' }}>
+                                {detail.details}
+                              </Text>
+                            )}
+                            
+                            {detail.results && (
+                              <div style={{ marginTop: '4px' }}>
+                                <Text style={{ fontSize: '11px', color: '#059669' }}>
+                                  ✓ {typeof detail.summary === 'string' ? detail.summary : 
+                                     typeof detail.summary === 'object' && detail.summary ? 
+                                     (detail.summary.execution_overview || JSON.stringify(detail.summary)) : 
+                                     '执行完成'}
+                                </Text>
+                                {detail.results.llmCalls && (
+                                  <Text type="secondary" style={{ fontSize: '10px', marginLeft: '8px' }}>
+                                    LLM调用: {detail.results.llmCalls}次
+                                  </Text>
+                                )}
+                              </div>
+                            )}
+                            
+                            {detail.error && (
+                              <Text type="danger" style={{ fontSize: '11px', display: 'block', marginTop: '2px' }}>
+                                ✗ {detail.error}
+                              </Text>
+                            )}
+                          </div>
+                        );
+                      })
+                    }
+                  </div>
+                </div>
+              )}
+            </Space>
+          </Card>
+        );
 
       case 'plan_solve_update':
         // 只显示有步骤清单的执行阶段
@@ -457,6 +789,113 @@ const ChatInterface = ({
         }
         // 其他阶段不显示任何内容
         return null;
+
+      case 'agent_progress':
+        // 显示单个智能体执行进度详情
+        if (!message.data || !message.data.data) return null;
+        
+        const agentProgressData = message.data.data;
+        
+        const getAgentStatusColor = (status) => {
+          switch (status) {
+            case 'start': return '#1890ff';
+            case 'analyzing': return '#722ed1';
+            case 'generating': return '#13c2c2';
+            case 'completed': return '#52c41a';
+            case 'failed': return '#ff4d4f';
+            default: return '#8c8c8c';
+          }
+        };
+        
+        const getAgentStatusIcon = (status) => {
+          switch (status) {
+            case 'start': return '🚀';
+            case 'analyzing': return '🔍';
+            case 'generating': return '⚙️';
+            case 'completed': return '✅';
+            case 'failed': return '❌';
+            default: return '🔄';
+          }
+        };
+        
+        return (
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#f9fafb',
+              borderColor: getAgentStatusColor(agentProgressData.status),
+              borderWidth: '2px'
+            }}
+            bodyStyle={{ 
+              padding: '12px 16px',
+              lineHeight: '1.5'
+            }}
+          >
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>{getAgentStatusIcon(agentProgressData.status)}</span>
+                <Text strong style={{ color: getAgentStatusColor(agentProgressData.status) }}>
+                  {agentProgressData.agentName || '智能体'}
+                </Text>
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  {new Date(agentProgressData.timestamp).toLocaleTimeString()}
+                </Text>
+              </div>
+              
+              <div style={{ 
+                padding: '8px 12px',
+                backgroundColor: '#f0f9ff',
+                borderRadius: '6px',
+                border: '1px solid #bfdbfe'
+              }}>
+                <Text style={{ fontSize: '13px', color: '#1e40af' }}>
+                  {agentProgressData.task || '正在执行任务...'}
+                </Text>
+                
+                {agentProgressData.details && (
+                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '4px', fontStyle: 'italic' }}>
+                    {agentProgressData.details}
+                  </Text>
+                )}
+              </div>
+              
+              {agentProgressData.results && (
+                <div style={{ 
+                  padding: '6px 10px',
+                  backgroundColor: '#f0fdf4',
+                  borderRadius: '4px',
+                  border: '1px solid #bbf7d0'
+                }}>
+                  <Text style={{ fontSize: '12px', color: '#059669' }}>
+                    ✓ {typeof agentProgressData.summary === 'string' ? agentProgressData.summary : 
+                       typeof agentProgressData.summary === 'object' && agentProgressData.summary ? 
+                       (agentProgressData.summary.execution_overview || JSON.stringify(agentProgressData.summary)) : 
+                       '执行完成'}
+                  </Text>
+                  {agentProgressData.results.llmCalls && (
+                    <Text type="secondary" style={{ fontSize: '11px', marginLeft: '8px' }}>
+                      LLM调用: {agentProgressData.results.llmCalls}次
+                    </Text>
+                  )}
+                </div>
+              )}
+              
+              {agentProgressData.error && (
+                <div style={{ 
+                  padding: '6px 10px',
+                  backgroundColor: '#fef2f2',
+                  borderRadius: '4px',
+                  border: '1px solid #fecaca'
+                }}>
+                  <Text type="danger" style={{ fontSize: '12px' }}>
+                    ✗ {agentProgressData.error}
+                  </Text>
+                </div>
+              )}
+            </Space>
+          </Card>
+        );
 
       default:
         return <Text>{message.content}</Text>;

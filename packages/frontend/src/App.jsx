@@ -30,6 +30,8 @@ function App() {
     planSolveStatus,
     planSolveProgress,
     streamingMessage,
+    multiAgentProgress,
+    agentExecutionDetails,
     connect, 
     disconnect,
     resetPlanSolveProgress // 用于重置 Plan & Solve 执行进度状态
@@ -259,6 +261,95 @@ function App() {
           console.log('忽略工作流更新消息（已移除功能）:', data);
           break;
           
+        case 'agent_progress':
+          console.log('🤖 收到 agent_progress 消息:', data);
+          // 创建或更新 agent_progress 消息条目
+          setMessages(prev => {
+            // 查找是否已存在 agent_progress 消息
+            const existingIndex = prev.findIndex(msg => msg.id === 'agent-progress-details');
+            
+            if (existingIndex >= 0) {
+              // 更新已存在的消息
+              const updatedMessages = [...prev];
+              updatedMessages[existingIndex] = {
+                ...updatedMessages[existingIndex],
+                data: data,
+                timestamp: new Date()
+              };
+              return updatedMessages;
+            } else {
+              // 创建新的 agent_progress 消息
+              return [...prev, {
+                id: 'agent-progress-details',
+                type: 'agent_progress',
+                content: '智能体执行进度',
+                data: data,
+                timestamp: new Date()
+              }];
+            }
+          });
+          break;
+          
+        case 'multi_agent_start':
+          console.log('🚀 收到 multi_agent_start 消息:', data);
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            type: 'multi_agent_start',
+            content: data.message,
+            timestamp: new Date(data.timestamp)
+          }]);
+          break;
+          
+        case 'multi_agent_progress':
+          console.log('📊 收到 multi_agent_progress 消息:', data);
+          // 在消息列表中添加或更新MultiAgent进度卡片
+          setMessages(prev => {
+            // 查找是否已存在MultiAgent进度消息
+            const existingIndex = prev.findIndex(msg => msg.id === 'multi-agent-progress');
+            
+            if (existingIndex >= 0) {
+              // 更新已存在的进度消息
+              const updatedMessages = [...prev];
+              updatedMessages[existingIndex] = {
+                ...updatedMessages[existingIndex],
+                data: data,
+                timestamp: new Date()
+              };
+              return updatedMessages;
+            } else {
+              // 创建新的进度消息
+              return [...prev, {
+                id: 'multi-agent-progress',
+                type: 'multi_agent_progress',
+                content: '多智能体协作进度',
+                data: data,
+                timestamp: new Date()
+              }];
+            }
+          });
+          break;
+          
+        case 'multi_agent_stage_complete':
+          console.log('✅ 收到 multi_agent_stage_complete 消息:', data);
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            type: 'multi_agent_stage',
+            content: `阶段完成: ${data.stage || '未知阶段'}`,
+            timestamp: new Date(),
+            data: data
+          }]);
+          break;
+          
+        case 'multi_agent_error':
+          console.log('❌ 收到 multi_agent_error 消息:', data);
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            type: 'error',
+            content: `多智能体协作出错: ${data.error || data.message}`,
+            timestamp: new Date()
+          }]);
+          break;
+          
         case 'error':
           setIsProcessing(false);
           setCurrentTool(null);
@@ -382,6 +473,8 @@ function App() {
                   planSolveStatus={planSolveStatus}
                   planSolveProgress={planSolveProgress}
                   streamingMessage={streamingMessage}
+                  multiAgentProgress={multiAgentProgress}
+                  agentExecutionDetails={agentExecutionDetails}
                   agentStatus={agentStatus}
                   onSendMessage={handleSendMessage}
                   onAbort={handleAbort}

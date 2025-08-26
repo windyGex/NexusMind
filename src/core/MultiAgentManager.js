@@ -19,12 +19,12 @@ export class MultiAgentManager {
       ...config
     };
     
-    // 初始化子智能体 - 深度LLM集成版本
+    // 初始化子智能体 - 传递LLM实例
     this.agents = {
-      searcher: new SearchAgent({ ...config.searchAgent, llm: config.llm }),
-      retriever: new RetrievalAgent({ ...config.retrievalAgent, llm: config.llm }),
-      analyzer: new AnalysisAgent({ ...config.analysisAgent, llm: config.llm }),
-      reporter: new ReportAgent({ ...config.reportAgent, llm: config.llm })
+      searcher: new SearchAgent({ ...config.searchAgent, llmInstance: config.llm }),
+      retriever: new RetrievalAgent({ ...config.retrievalAgent, llmInstance: config.llm }),
+      analyzer: new AnalysisAgent({ ...config.analysisAgent, llmInstance: config.llm }),
+      reporter: new ReportAgent({ ...config.reportAgent, llmInstance: config.llm })
     };
     
     // 工作流状态
@@ -47,21 +47,119 @@ export class MultiAgentManager {
   }
 
   /**
-   * 检测用户查询是否需要多智能体协作
+   * 使用LLM智能检测用户查询是否需要多智能体协作
    */
-  shouldActivateMultiAgent(query) {
-    const reportTriggers = [
-      /分析报告|研究报告|调研报告|详细分析/i,
-      /深入分析|全面分析|综合分析/i,
-      /市场分析|竞品分析|行业分析/i,
-      /数据分析|统计分析|趋势分析/i,
-      /评估报告|调查报告|总结报告/i,
-      /完整报告|详细报告|专业报告/i,
-      /多维度|多角度|全方位/i,
-      /研究.*并.*分析|分析.*并.*总结/i
+  async shouldActivateMultiAgent(query, llm) {
+    if (!llm) {
+      // 如果没有LLM实例，回退到简化的规则判断
+      return this.fallbackRuleBasedDetection(query);
+    }
+
+    try {
+      const analysisPrompt = `你是一个智能任务分析专家。请分析以下用户查询，判断是否需要启动多智能体协作模式。
+
+多智能体协作模式适用于以下情况：
+1. **复杂分析任务**：需要多步骤、多维度深入分析的任务
+2. **研究报告生成**：需要搜索、整理、分析、撰写完整报告的任务
+3. **综合性调研**：涉及多个数据源和分析角度的任务
+4. **专业领域分析**：财务分析、市场研究、行业调研、投资分析等
+5. **对比分析**：需要收集多方信息进行对比的任务
+6. **趋势预测**：需要历史数据分析和趋势判断的任务
+
+**不适用情况**：
+- 简单问答
+- 基础信息查询
+- 日常对话
+- 单一工具就能解决的任务
+
+用户查询: "${query}"
+
+请返回JSON格式的分析结果：
+{
+  "shouldActivate": true/false,
+  "confidence": 0.0-1.0,
+  "reasoning": "详细说明判断理由",
+  "taskComplexity": "simple/moderate/complex",
+  "estimatedStages": ["可能涉及的阶段列表"],
+  "keyRequirements": ["关键需求分析"]
+}
+
+只返回JSON，不要其他内容。`;
+
+      const response = await llm.generate(analysisPrompt, {
+        temperature: 0.3,
+        max_tokens: 1000,
+        needSendToFrontend: false,
+        streaming: false
+      });
+
+      try {
+        const analysis = JSON.parse(response.content);
+        
+        // 记录分析结果用于调试
+        console.log('🤖 MultiAgent激活分析:', {
+          query: query.substring(0, 50) + '...',
+          shouldActivate: analysis.shouldActivate,
+          confidence: analysis.confidence,
+          complexity: analysis.taskComplexity,
+          reasoning: analysis.reasoning
+        });
+        
+        // 设置置信度阈值，避免误判
+        const confidenceThreshold = 0.7;
+        const finalDecision = analysis.shouldActivate && analysis.confidence >= confidenceThreshold;
+        
+        // 存储分析结果供后续使用
+        this.lastAnalysis = {
+          ...analysis,
+          finalDecision,
+          timestamp: new Date()
+        };
+        
+        return finalDecision;
+        
+      } catch (parseError) {
+        console.warn('MultiAgent分析结果JSON解析失败，使用默认判断:', parseError);
+        // JSON解析失败时，检查响应中是否包含关键词
+        const content = response.content.toLowerCase();
+        return content.includes('"shouldactivate": true') || content.includes('shouldactivate":true');
+      }
+      
+    } catch (error) {
+      console.error('MultiAgent LLM分析失败，回退到规则判断:', error);
+      return this.fallbackRuleBasedDetection(query);
+    }
+  }
+  
+  /**
+   * 回退的基于规则的检测方法（当LLM不可用时使用）
+   */
+  fallbackRuleBasedDetection(query) {
+    const complexTaskIndicators = [
+      /分析报告|研究报告|调研报告|详细分析|深入分析|全面分析|综合分析/i,
+      /市场分析|竞品分析|行业分析|数据分析|统计分析|趋势分析/i,
+      /财报分析|财务分析|年报分析|季报分析|投资分析|股票分析|公司分析|企业分析/i,
+      /评估报告|调查报告|总结报告|完整报告|详细报告|专业报告/i,
+      /多维度|多角度|全方位|对比.*分析|研究.*并.*分析|分析.*并.*总结/i,
+      /预测|趋势|前景|展望.*分析|未来.*分析/i
     ];
     
-    return reportTriggers.some(pattern => pattern.test(query));
+    const isComplex = complexTaskIndicators.some(pattern => pattern.test(query));
+    
+    console.log('📋 回退规则判断:', {
+      query: query.substring(0, 50) + '...',
+      shouldActivate: isComplex,
+      method: 'rule-based'
+    });
+    
+    return isComplex;
+  }
+  
+  /**
+   * 获取最近的分析结果
+   */
+  getLastAnalysis() {
+    return this.lastAnalysis;
   }
 
   /**
@@ -162,7 +260,22 @@ export class MultiAgentManager {
     this.addStage('search', 'running');
     
     try {
-      const searchResults = await this.agents.searcher.execute({
+      // 通知搜索智能体开始执行
+      this.notifyAgentProgress('search', 'start', {
+        agentName: '网络搜索员',
+        task: '分析搜索需求并制定搜索策略',
+        queries: taskBreakdown.searchQueries,
+        expectedResults: `预计搜索 ${taskBreakdown.searchQueries.length} 个查询`
+      });
+      
+      // 通知搜索智能体正在分析需求
+      this.notifyAgentProgress('search', 'analyzing', {
+        agentName: '网络搜索员',
+        task: '正在分析搜索需求...',
+        details: `主题: ${taskBreakdown.mainTopic}, 范围: ${taskBreakdown.scope}`
+      });
+      
+      const searchResponse = await this.agents.searcher.execute({
         queries: taskBreakdown.searchQueries,
         topic: taskBreakdown.mainTopic,
         timeframe: taskBreakdown.timeframe,
@@ -170,12 +283,35 @@ export class MultiAgentManager {
         dataTypes: taskBreakdown.requiredDataTypes
       });
       
-      this.sharedMemory.searchResults = searchResults;
+      // 获取实际的搜索结果数组
+      const searchResults = searchResponse.results || [];
+      
+      // 通知搜索智能体执行完成
+      this.notifyAgentProgress('search', 'completed', {
+        agentName: '网络搜索员',
+        task: '搜索任务执行完成',
+        results: {
+          totalQueries: taskBreakdown.searchQueries.length,
+          foundResults: searchResults.length,
+          llmCalls: searchResponse.metadata?.llmCalls || 1,
+          searchStrategy: searchResponse.strategy,
+          qualityResults: searchResults.filter(r => r.llm_evaluation?.overall >= 0.7).length
+        },
+        summary: searchResponse.summary
+      });
+      
+      this.sharedMemory.searchResults = searchResponse; // 存储完整响应
       this.completeStage('search', { resultsCount: searchResults.length });
       
-      return searchResults;
+      return searchResults; // 返回结果数组供下一阶段使用
       
     } catch (error) {
+      // 通知搜索智能体执行失败
+      this.notifyAgentProgress('search', 'failed', {
+        agentName: '网络搜索员',
+        task: '搜索任务执行失败',
+        error: error.message
+      });
       this.failStage('search', error.message);
       throw error;
     }
@@ -190,19 +326,57 @@ export class MultiAgentManager {
     this.addStage('retrieval', 'running');
     
     try {
-      const retrievedData = await this.agents.retriever.execute({
+      // 通知检索智能体开始执行
+      this.notifyAgentProgress('retrieval', 'start', {
+        agentName: '信息检索员',
+        task: '分析搜索结果并制定检索策略',
+        inputData: `${searchResults.length} 条搜索结果`,
+        expectedOutput: '结构化信息数据'
+      });
+      
+      // 通知检索智能体正在分析内容
+      this.notifyAgentProgress('retrieval', 'analyzing', {
+        agentName: '信息检索员',
+        task: '正在分析和提取关键信息...',
+        details: '正在对搜索结果进行内容分析和信息提取'
+      });
+      
+      const retrievalResponse = await this.agents.retriever.execute({
         searchResults,
         requiredDataTypes: this.sharedMemory.metadata.taskBreakdown.requiredDataTypes,
         topic: this.sharedMemory.metadata.taskBreakdown.mainTopic,
         subTopics: this.sharedMemory.metadata.taskBreakdown.subTopics
       });
       
-      this.sharedMemory.retrievedData = retrievedData;
+      // 获取实际的结构化数据数组
+      const retrievedData = retrievalResponse.data || [];
+      
+      // 通知检索智能体执行完成
+      this.notifyAgentProgress('retrieval', 'completed', {
+        agentName: '信息检索员',
+        task: '信息检索任务执行完成',
+        results: {
+          inputResults: searchResults.length,
+          extractedData: retrievedData.length,
+          llmCalls: retrievalResponse.metadata?.llmCalls || 1,
+          dataTypes: retrievalResponse.metadata?.extractedTypes || [],
+          knowledgeGraph: retrievalResponse.knowledgeGraph ? '已构建' : '未构建'
+        },
+        summary: `成功从 ${searchResults.length} 条搜索结果中提取了 ${retrievedData.length} 条结构化数据`
+      });
+      
+      this.sharedMemory.retrievedData = retrievalResponse; // 存储完整响应
       this.completeStage('retrieval', { dataCount: retrievedData.length });
       
-      return retrievedData;
+      return retrievedData; // 返回数据数组供下一阶段使用
       
     } catch (error) {
+      // 通知检索智能体执行失败
+      this.notifyAgentProgress('retrieval', 'failed', {
+        agentName: '信息检索员',
+        task: '信息检索任务执行失败',
+        error: error.message
+      });
       this.failStage('retrieval', error.message);
       throw error;
     }
@@ -217,7 +391,22 @@ export class MultiAgentManager {
     this.addStage('analysis', 'running');
     
     try {
-      const analysisResults = await this.agents.analyzer.execute({
+      // 通知分析智能体开始执行
+      this.notifyAgentProgress('analysis', 'start', {
+        agentName: '数据分析员',
+        task: '分析结构化数据并生成洞察',
+        inputData: `${retrievedData.length} 条结构化数据`,
+        analysisTypes: taskBreakdown.analysisRequirements
+      });
+      
+      // 通知分析智能体正在分析
+      this.notifyAgentProgress('analysis', 'analyzing', {
+        agentName: '数据分析员',
+        task: '正在进行深度数据分析...',
+        details: `分析类型: ${taskBreakdown.analysisRequirements.join(', ')}`
+      });
+      
+      const analysisResponse = await this.agents.analyzer.execute({
         data: retrievedData,
         requirements: taskBreakdown.analysisRequirements,
         topic: taskBreakdown.mainTopic,
@@ -225,12 +414,37 @@ export class MultiAgentManager {
         reportStructure: taskBreakdown.reportStructure
       });
       
-      this.sharedMemory.analysisResults = analysisResults;
-      this.completeStage('analysis', { analysisCount: analysisResults.length });
+      this.sharedMemory.analysisResults = analysisResponse; // 存储完整分析结果
       
-      return analysisResults;
+      // 计算分析结果数量（基于洞察和预测数量）
+      const analysisCount = (analysisResponse.insights?.length || 0) + (analysisResponse.predictions?.length || 0);
+      
+      // 通知分析智能体执行完成
+      this.notifyAgentProgress('analysis', 'completed', {
+        agentName: '数据分析员',
+        task: '数据分析任务执行完成',
+        results: {
+          inputData: retrievedData.length,
+          generatedInsights: analysisResponse.insights?.length || 0,
+          predictions: analysisResponse.predictions?.length || 0,
+          llmCalls: analysisResponse.metadata?.llmCalls || 1,
+          qualityScore: analysisResponse.quality?.overall_confidence || 0.8,
+          analysisTypes: Object.keys(analysisResponse.analysis || {})
+        },
+        summary: `成功生成 ${analysisResponse.insights?.length || 0} 个洞察和 ${analysisResponse.predictions?.length || 0} 个预测`
+      });
+      
+      this.completeStage('analysis', { analysisCount });
+      
+      return analysisResponse; // 返回完整分析结果供下一阶段使用
       
     } catch (error) {
+      // 通知分析智能体执行失败
+      this.notifyAgentProgress('analysis', 'failed', {
+        agentName: '数据分析员',
+        task: '数据分析任务执行失败',
+        error: error.message
+      });
       this.failStage('analysis', error.message);
       throw error;
     }
@@ -245,6 +459,25 @@ export class MultiAgentManager {
     this.addStage('report', 'running');
     
     try {
+      // 通知报告智能体开始执行
+      this.notifyAgentProgress('report', 'start', {
+        agentName: '报告撰写员',
+        task: '将分析结果转化为专业报告',
+        inputData: {
+          insights: analysisResults.insights?.length || 0,
+          predictions: analysisResults.predictions?.length || 0,
+          analysisTypes: Object.keys(analysisResults.analysis || {})
+        },
+        reportStructure: taskBreakdown.reportStructure
+      });
+      
+      // 通知报告智能体正在生成
+      this.notifyAgentProgress('report', 'generating', {
+        agentName: '报告撰写员',
+        task: '正在生成专业分析报告...',
+        details: `预计生成 ${taskBreakdown.reportStructure.sections?.length || 4} 个章节`
+      });
+      
       const report = await this.agents.reporter.execute({
         analysisResults,
         structure: taskBreakdown.reportStructure,
@@ -253,11 +486,35 @@ export class MultiAgentManager {
         originalQuery: this.currentWorkflow.query
       });
       
-      this.completeStage('report', { reportSections: report.sections.length });
+      // 计算报告章节数量
+      const reportSections = report.sections?.length || 0;
+      
+      // 通知报告智能体执行完成
+      this.notifyAgentProgress('report', 'completed', {
+        agentName: '报告撰写员',
+        task: '报告生成任务执行完成',
+        results: {
+          reportTitle: report.title,
+          totalSections: reportSections,
+          totalWordCount: report.metadata?.totalWordCount || 0,
+          llmCalls: report.metadata?.llmCalls || 1,
+          qualityScore: report.qualityAssessment?.overall_score || 0.85,
+          executiveSummary: report.executiveSummary ? '已生成' : '未生成'
+        },
+        summary: `成功生成了包含 ${reportSections} 个章节的专业分析报告`
+      });
+      
+      this.completeStage('report', { reportSections });
       
       return report;
       
     } catch (error) {
+      // 通知报告智能体执行失败
+      this.notifyAgentProgress('report', 'failed', {
+        agentName: '报告撰写员',
+        task: '报告生成任务执行失败',
+        error: error.message
+      });
       this.failStage('report', error.message);
       throw error;
     }
@@ -508,6 +765,29 @@ export class MultiAgentManager {
   notifyProgress(type, data) {
     if (this.onProgress) {
       this.onProgress({ type, data, timestamp: new Date() });
+    }
+  }
+  
+  /**
+   * 通知智能体执行进度
+   */
+  notifyAgentProgress(stage, status, details) {
+    if (this.onProgress) {
+      this.onProgress({ 
+        type: 'agent_progress', 
+        data: {
+          stage,
+          status, // start, analyzing, completed, failed
+          agentName: details.agentName,
+          task: details.task,
+          details: details.details,
+          results: details.results,
+          summary: details.summary,
+          error: details.error,
+          timestamp: new Date()
+        },
+        timestamp: new Date() 
+      });
     }
   }
 
