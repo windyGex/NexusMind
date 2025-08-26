@@ -5,9 +5,107 @@ import { AnalysisAgent } from './agents/AnalysisAgentLLM.js';
 import { ReportAgent } from './agents/ReportAgentLLM.js';
 
 /**
- * 多智能体管理器
- * 负责协调网络搜索员、信息检索员、数据分析员、报告撰写员四个子智能体
- * 自动生成高质量的结构化分析报告
+ * 智能体能力定义
+ */
+const AGENT_CAPABILITIES = {
+  searcher: {
+    name: '网络搜索员',
+    description: '负责网络搜索、信息收集和查询优化',
+    capabilities: [
+      'web_search',
+      'query_optimization', 
+      'search_strategy',
+      'result_evaluation',
+      'multi_source_collection'
+    ],
+    taskTypes: [
+      'information_gathering',
+      'market_research',
+      'news_collection',
+      'data_collection',
+      'trend_monitoring'
+    ],
+    inputTypes: ['text_query', 'topic', 'keywords'],
+    outputTypes: ['search_results', 'urls', 'content_snippets'],
+    complexity: 'medium',
+    reliability: 0.9
+  },
+  
+  retriever: {
+    name: '信息检索员',
+    description: '负责信息提取、结构化和知识图谱构建',
+    capabilities: [
+      'content_extraction',
+      'information_structuring',
+      'knowledge_graph',
+      'data_categorization',
+      'relationship_mapping'
+    ],
+    taskTypes: [
+      'information_extraction',
+      'data_processing',
+      'content_analysis',
+      'knowledge_organization',
+      'fact_verification'
+    ],
+    inputTypes: ['search_results', 'web_content', 'documents'],
+    outputTypes: ['structured_data', 'knowledge_graph', 'extracted_facts'],
+    complexity: 'high',
+    reliability: 0.85
+  },
+  
+  analyzer: {
+    name: '数据分析员',
+    description: '负责深度分析、洞察挖掘和预测建模',
+    capabilities: [
+      'statistical_analysis',
+      'trend_analysis',
+      'pattern_recognition',
+      'predictive_modeling',
+      'insight_generation'
+    ],
+    taskTypes: [
+      'data_analysis',
+      'trend_analysis',
+      'market_analysis',
+      'financial_analysis',
+      'predictive_analysis',
+      'swot_analysis'
+    ],
+    inputTypes: ['structured_data', 'time_series', 'categorical_data'],
+    outputTypes: ['insights', 'predictions', 'analysis_reports', 'trends'],
+    complexity: 'high',
+    reliability: 0.88
+  },
+  
+  reporter: {
+    name: '报告撰写员',
+    description: '负责报告生成、内容创作和质量优化',
+    capabilities: [
+      'report_writing',
+      'content_creation',
+      'structure_design',
+      'quality_assessment',
+      'format_optimization'
+    ],
+    taskTypes: [
+      'report_generation',
+      'content_creation',
+      'documentation',
+      'presentation_preparation',
+      'executive_summary'
+    ],
+    inputTypes: ['analysis_results', 'insights', 'data_summaries'],
+    outputTypes: ['reports', 'documents', 'presentations', 'summaries'],
+    complexity: 'medium',
+    reliability: 0.92
+  }
+};
+
+/**
+ * 多智能体管理器 - 智能选择版
+ * 负责智能分析任务需求，自主选择最合适的智能体组合
+ * 实现动态工作流编排和智能体协作优化
  */
 export class MultiAgentManager {
   constructor(config = {}) {
@@ -16,6 +114,9 @@ export class MultiAgentManager {
       timeout: 300000, // 5分钟超时
       retryAttempts: 2,
       qualityThreshold: 0.8,
+      enableIntelligentSelection: true,
+      enableParallelExecution: true,
+      enableDynamicWorkflow: true,
       ...config
     };
     
@@ -26,6 +127,9 @@ export class MultiAgentManager {
       analyzer: new AnalysisAgent({ ...config.analysisAgent, llmInstance: config.llm }),
       reporter: new ReportAgent({ ...config.reportAgent, llmInstance: config.llm })
     };
+    
+    // 智能体能力定义
+    this.agentCapabilities = AGENT_CAPABILITIES;
     
     // 工作流状态
     this.currentWorkflow = null;
@@ -47,125 +151,394 @@ export class MultiAgentManager {
   }
 
   /**
-   * 使用LLM智能检测用户查询是否需要多智能体协作
+   * 智能任务分析和智能体选择
    */
-  async shouldActivateMultiAgent(query, llm) {
-    if (!llm) {
-      // 如果没有LLM实例，回退到简化的规则判断
-      return this.fallbackRuleBasedDetection(query);
+  async analyzeTaskAndSelectAgents(query, context = {}) {
+    logger.info('🧠 开始智能任务分析和智能体选择...');
+    
+    try {
+      // 使用LLM进行任务分析
+      const taskAnalysis = await this.performTaskAnalysis(query, context);
+      
+      // 基于分析结果选择智能体
+      const selectedAgents = await this.selectOptimalAgents(taskAnalysis);
+      
+      // 生成执行计划
+      const executionPlan = this.generateExecutionPlan(taskAnalysis, selectedAgents);
+      
+      logger.info('✅ 智能体选择完成:', {
+        taskType: taskAnalysis.taskType,
+        complexity: taskAnalysis.complexity,
+        selectedAgents: selectedAgents.map(a => a.agentId),
+        executionSteps: executionPlan.steps.length
+      });
+      
+      return {
+        taskAnalysis,
+        selectedAgents,
+        executionPlan
+      };
+      
+    } catch (error) {
+      logger.error('❌ 任务分析失败:', error);
+      // 回退到默认智能体组合
+      return this.getFallbackAgentSelection(query);
+    }
+  }
+
+  /**
+   * 使用LLM进行任务分析
+   */
+  async performTaskAnalysis(query, context) {
+    if (!this.agents.searcher.llm) {
+      return this.fallbackTaskAnalysis(query);
     }
 
-    try {
-      const analysisPrompt = `你是一个智能任务分析专家。请分析以下用户查询，判断是否需要启动多智能体协作模式。
+    const prompt = `作为智能任务分析专家，请分析以下用户查询，确定任务类型、复杂度和所需能力：
 
-多智能体协作模式适用于以下情况：
-1. **复杂分析任务**：需要多步骤、多维度深入分析的任务
-2. **研究报告生成**：需要搜索、整理、分析、撰写完整报告的任务
-3. **综合性调研**：涉及多个数据源和分析角度的任务
-4. **专业领域分析**：财务分析、市场研究、行业调研、投资分析等
-5. **对比分析**：需要收集多方信息进行对比的任务
-6. **趋势预测**：需要历史数据分析和趋势判断的任务
+**用户查询**: "${query}"
+**上下文信息**: ${JSON.stringify(context)}
 
-**不适用情况**：
-- 简单问答
-- 基础信息查询
-- 日常对话
-- 单一工具就能解决的任务
-
-用户查询: "${query}"
+**分析维度**：
+1. 任务类型识别
+2. 复杂度评估
+3. 所需能力分析
+4. 数据需求分析
+5. 输出要求分析
 
 请返回JSON格式的分析结果：
 {
-  "shouldActivate": true/false,
-  "confidence": 0.0-1.0,
-  "reasoning": "详细说明判断理由",
-  "taskComplexity": "simple/moderate/complex",
-  "estimatedStages": ["可能涉及的阶段列表"],
-  "keyRequirements": ["关键需求分析"]
+  "taskType": "information_gathering|data_analysis|report_generation|comprehensive_research",
+  "complexity": "simple|moderate|complex|expert",
+  "primaryObjective": "主要目标描述",
+  "requiredCapabilities": ["所需能力列表"],
+  "dataRequirements": {
+    "inputTypes": ["需要的输入类型"],
+    "outputTypes": ["期望的输出类型"],
+    "dataVolume": "small|medium|large"
+  },
+  "subTasks": [
+    {
+      "task": "子任务描述",
+      "priority": "high|medium|low",
+      "estimatedEffort": "effort_estimate"
+    }
+  ],
+  "constraints": ["约束条件"],
+  "successCriteria": ["成功标准"]
 }
 
 只返回JSON，不要其他内容。`;
 
-      const response = await llm.generate(analysisPrompt, {
+    try {
+      const response = await this.agents.searcher.llm.generate(prompt, {
         temperature: 0.3,
-        max_tokens: 1000,
+        max_tokens: 1500,
         needSendToFrontend: false,
         streaming: false
       });
 
-      try {
-        const analysis = JSON.parse(response.content);
-        
-        // 记录分析结果用于调试
-        console.log('🤖 MultiAgent激活分析:', {
-          query: query.substring(0, 50) + '...',
-          shouldActivate: analysis.shouldActivate,
-          confidence: analysis.confidence,
-          complexity: analysis.taskComplexity,
-          reasoning: analysis.reasoning
-        });
-        
-        // 设置置信度阈值，避免误判
-        const confidenceThreshold = 0.7;
-        const finalDecision = analysis.shouldActivate && analysis.confidence >= confidenceThreshold;
-        
-        // 存储分析结果供后续使用
-        this.lastAnalysis = {
-          ...analysis,
-          finalDecision,
-          timestamp: new Date()
-        };
-        
-        return finalDecision;
-        
-      } catch (parseError) {
-        console.warn('MultiAgent分析结果JSON解析失败，使用默认判断:', parseError);
-        // JSON解析失败时，检查响应中是否包含关键词
-        const content = response.content.toLowerCase();
-        return content.includes('"shouldactivate": true') || content.includes('shouldactivate":true');
-      }
+      const analysis = JSON.parse(response.content);
+      
+      // 验证和补充分析结果
+      return this.validateAndEnhanceTaskAnalysis(analysis, query);
       
     } catch (error) {
-      console.error('MultiAgent LLM分析失败，回退到规则判断:', error);
-      return this.fallbackRuleBasedDetection(query);
+      logger.warn('LLM任务分析失败，使用回退方法:', error);
+      return this.fallbackTaskAnalysis(query);
     }
-  }
-  
-  /**
-   * 回退的基于规则的检测方法（当LLM不可用时使用）
-   */
-  fallbackRuleBasedDetection(query) {
-    const complexTaskIndicators = [
-      /分析报告|研究报告|调研报告|详细分析|深入分析|全面分析|综合分析/i,
-      /市场分析|竞品分析|行业分析|数据分析|统计分析|趋势分析/i,
-      /财报分析|财务分析|年报分析|季报分析|投资分析|股票分析|公司分析|企业分析/i,
-      /评估报告|调查报告|总结报告|完整报告|详细报告|专业报告/i,
-      /多维度|多角度|全方位|对比.*分析|研究.*并.*分析|分析.*并.*总结/i,
-      /预测|趋势|前景|展望.*分析|未来.*分析/i
-    ];
-    
-    const isComplex = complexTaskIndicators.some(pattern => pattern.test(query));
-    
-    console.log('📋 回退规则判断:', {
-      query: query.substring(0, 50) + '...',
-      shouldActivate: isComplex,
-      method: 'rule-based'
-    });
-    
-    return isComplex;
-  }
-  
-  /**
-   * 获取最近的分析结果
-   */
-  getLastAnalysis() {
-    return this.lastAnalysis;
   }
 
   /**
-   * 执行多智能体协作工作流
+   * 基于任务分析选择最优智能体组合
    */
-  async executeWorkflow(query, context = {}) {
+  async selectOptimalAgents(taskAnalysis) {
+    const selectedAgents = [];
+    const requiredCapabilities = taskAnalysis.requiredCapabilities || [];
+    
+    // 为每个智能体计算匹配度
+    const agentScores = {};
+    
+    for (const [agentId, agent] of Object.entries(this.agents)) {
+      const capabilities = this.agentCapabilities[agentId];
+      const score = this.calculateAgentMatchScore(capabilities, taskAnalysis);
+      agentScores[agentId] = {
+        agentId,
+        agent,
+        capabilities,
+        score,
+        matchReason: this.getMatchReason(capabilities, taskAnalysis)
+      };
+    }
+    
+    // 根据任务类型和复杂度选择智能体
+    const selectedAgentIds = this.determineRequiredAgents(taskAnalysis, agentScores);
+    
+    // 构建选中的智能体列表
+    for (const agentId of selectedAgentIds) {
+      const agentInfo = agentScores[agentId];
+      selectedAgents.push({
+        agentId,
+        agent: agentInfo.agent,
+        capabilities: agentInfo.capabilities,
+        score: agentInfo.score,
+        matchReason: agentInfo.matchReason,
+        executionOrder: this.getExecutionOrder(agentId, taskAnalysis)
+      });
+    }
+    
+    // 按执行顺序排序
+    selectedAgents.sort((a, b) => a.executionOrder - b.executionOrder);
+    
+    return selectedAgents;
+  }
+
+  /**
+   * 计算智能体匹配度
+   */
+  calculateAgentMatchScore(capabilities, taskAnalysis) {
+    let score = 0;
+    const requiredCapabilities = taskAnalysis.requiredCapabilities || [];
+    
+    // 能力匹配度
+    const capabilityMatches = capabilities.capabilities.filter(cap => 
+      requiredCapabilities.includes(cap)
+    ).length;
+    score += (capabilityMatches / requiredCapabilities.length) * 0.4;
+    
+    // 任务类型匹配度
+    const taskTypeMatches = capabilities.taskTypes.filter(taskType => 
+      taskAnalysis.taskType === taskType || 
+      taskAnalysis.subTasks?.some(subTask => subTask.task.includes(taskType))
+    ).length;
+    score += (taskTypeMatches / capabilities.taskTypes.length) * 0.3;
+    
+    // 输入输出类型匹配度
+    const inputOutputMatch = this.calculateInputOutputMatch(capabilities, taskAnalysis);
+    score += inputOutputMatch * 0.2;
+    
+    // 复杂度匹配度
+    const complexityMatch = this.calculateComplexityMatch(capabilities, taskAnalysis);
+    score += complexityMatch * 0.1;
+    
+    return Math.min(score, 1.0);
+  }
+
+  /**
+   * 计算输入输出匹配度
+   */
+  calculateInputOutputMatch(capabilities, taskAnalysis) {
+    const dataReqs = taskAnalysis.dataRequirements || {};
+    const inputMatch = capabilities.inputTypes.some(inputType => 
+      dataReqs.inputTypes?.includes(inputType)
+    ) ? 1 : 0;
+    
+    const outputMatch = capabilities.outputTypes.some(outputType => 
+      dataReqs.outputTypes?.includes(outputType)
+    ) ? 1 : 0;
+    
+    return (inputMatch + outputMatch) / 2;
+  }
+
+  /**
+   * 计算复杂度匹配度
+   */
+  calculateComplexityMatch(capabilities, taskAnalysis) {
+    const complexityMap = { simple: 1, moderate: 2, complex: 3, expert: 4 };
+    const taskComplexity = complexityMap[taskAnalysis.complexity] || 2;
+    const agentComplexity = complexityMap[capabilities.complexity] || 2;
+    
+    return 1 - Math.abs(taskComplexity - agentComplexity) / 4;
+  }
+
+  /**
+   * 确定需要的智能体
+   */
+  determineRequiredAgents(taskAnalysis, agentScores) {
+    const taskType = taskAnalysis.taskType;
+    const complexity = taskAnalysis.complexity;
+    
+    // 基于任务类型的智能体选择策略
+    const selectionStrategies = {
+      information_gathering: {
+        required: ['searcher'],
+        optional: ['retriever'],
+        condition: complexity !== 'simple'
+      },
+      data_analysis: {
+        required: ['analyzer'],
+        optional: ['retriever'],
+        condition: true
+      },
+      report_generation: {
+        required: ['reporter'],
+        optional: ['analyzer'],
+        condition: complexity !== 'simple'
+      },
+      comprehensive_research: {
+        required: ['searcher', 'retriever', 'analyzer', 'reporter'],
+        optional: [],
+        condition: true
+      }
+    };
+    
+    const strategy = selectionStrategies[taskType] || selectionStrategies.comprehensive_research;
+    const selectedAgents = [...strategy.required];
+    
+    // 添加可选智能体（如果条件满足且匹配度高）
+    if (strategy.condition && strategy.optional.length > 0) {
+      for (const agentId of strategy.optional) {
+        if (agentScores[agentId] && agentScores[agentId].score > 0.6) {
+          selectedAgents.push(agentId);
+        }
+      }
+    }
+    
+    // 对于复杂任务，确保有足够的智能体覆盖
+    if (complexity === 'complex' || complexity === 'expert') {
+      if (!selectedAgents.includes('analyzer') && agentScores.analyzer?.score > 0.5) {
+        selectedAgents.push('analyzer');
+      }
+      if (!selectedAgents.includes('reporter') && agentScores.reporter?.score > 0.5) {
+        selectedAgents.push('reporter');
+      }
+    }
+    
+    return [...new Set(selectedAgents)]; // 去重
+  }
+
+  /**
+   * 获取智能体执行顺序
+   */
+  getExecutionOrder(agentId, taskAnalysis) {
+    const orderMap = {
+      searcher: 1,
+      retriever: 2,
+      analyzer: 3,
+      reporter: 4
+    };
+    
+    // 根据任务类型调整执行顺序
+    if (taskAnalysis.taskType === 'data_analysis') {
+      return agentId === 'analyzer' ? 1 : orderMap[agentId] || 5;
+    }
+    
+    if (taskAnalysis.taskType === 'report_generation') {
+      return agentId === 'reporter' ? 1 : orderMap[agentId] || 5;
+    }
+    
+    return orderMap[agentId] || 5;
+  }
+
+  /**
+   * 生成执行计划
+   */
+  generateExecutionPlan(taskAnalysis, selectedAgents) {
+    const steps = [];
+    let currentData = null;
+    
+    for (const agentInfo of selectedAgents) {
+      const step = {
+        agentId: agentInfo.agentId,
+        agentName: agentInfo.capabilities.name,
+        task: this.generateAgentTask(agentInfo, taskAnalysis, currentData),
+        dependencies: this.getStepDependencies(agentInfo.agentId, selectedAgents),
+        expectedOutput: agentInfo.capabilities.outputTypes[0],
+        estimatedTime: this.estimateStepTime(agentInfo, taskAnalysis),
+        canExecuteInParallel: this.canExecuteInParallel(agentInfo.agentId, selectedAgents)
+      };
+      
+      steps.push(step);
+      currentData = step.expectedOutput;
+    }
+    
+    return {
+      steps,
+      totalEstimatedTime: steps.reduce((sum, step) => sum + step.estimatedTime, 0),
+      canParallelize: steps.some(step => step.canExecuteInParallel),
+      criticalPath: this.identifyCriticalPath(steps)
+    };
+  }
+
+  /**
+   * 生成智能体任务描述
+   */
+  generateAgentTask(agentInfo, taskAnalysis, previousData) {
+    const taskTemplates = {
+      searcher: `为"${taskAnalysis.primaryObjective}"执行网络搜索，收集相关信息`,
+      retriever: `从${previousData ? '搜索结果' : '可用数据'}中提取和结构化关键信息`,
+      analyzer: `分析${previousData ? '结构化数据' : '可用信息'}，生成洞察和预测`,
+      reporter: `基于${previousData ? '分析结果' : '可用信息'}生成专业报告`
+    };
+    
+    return taskTemplates[agentInfo.agentId] || `执行${agentInfo.capabilities.name}相关任务`;
+  }
+
+  /**
+   * 获取步骤依赖关系
+   */
+  getStepDependencies(agentId, selectedAgents) {
+    const dependencies = [];
+    const orderMap = { searcher: 1, retriever: 2, analyzer: 3, reporter: 4 };
+    const currentOrder = orderMap[agentId];
+    
+    for (const agent of selectedAgents) {
+      const agentOrder = orderMap[agent.agentId];
+      if (agentOrder < currentOrder) {
+        dependencies.push(agent.agentId);
+      }
+    }
+    
+    return dependencies;
+  }
+
+  /**
+   * 估算步骤执行时间
+   */
+  estimateStepTime(agentInfo, taskAnalysis) {
+    const baseTimes = {
+      searcher: 30000, // 30秒
+      retriever: 45000, // 45秒
+      analyzer: 60000, // 60秒
+      reporter: 45000  // 45秒
+    };
+    
+    const complexityMultiplier = {
+      simple: 0.7,
+      moderate: 1.0,
+      complex: 1.5,
+      expert: 2.0
+    };
+    
+    const baseTime = baseTimes[agentInfo.agentId] || 30000;
+    const multiplier = complexityMultiplier[taskAnalysis.complexity] || 1.0;
+    
+    return Math.round(baseTime * multiplier);
+  }
+
+  /**
+   * 判断是否可以并行执行
+   */
+  canExecuteInParallel(agentId, selectedAgents) {
+    // 只有检索员和分析员在特定条件下可以并行
+    if (agentId === 'retriever' || agentId === 'analyzer') {
+      const hasSearcher = selectedAgents.some(a => a.agentId === 'searcher');
+      return hasSearcher; // 如果有搜索员，检索员和分析员可以并行
+    }
+    return false;
+  }
+
+  /**
+   * 识别关键路径
+   */
+  identifyCriticalPath(steps) {
+    return steps.filter(step => !step.canExecuteInParallel);
+  }
+
+  /**
+   * 执行智能工作流
+   */
+  async executeIntelligentWorkflow(query, context = {}) {
     const workflowId = this.generateWorkflowId();
     
     try {
@@ -174,45 +547,41 @@ export class MultiAgentManager {
         query,
         context,
         startTime: new Date(),
-        status: 'running',
+        status: 'analyzing',
         stages: []
       };
       
-      logger.info(`🚀 启动多智能体协作工作流: ${workflowId}`);
+      logger.info(`🚀 启动智能多智能体工作流: ${workflowId}`);
       this.notifyProgress('workflow_start', { workflowId, query });
       
-      // 阶段1: 需求分析与任务分解
-      const taskBreakdown = await this.analyzeAndBreakdownTask(query, context);
-      this.notifyProgress('task_breakdown', taskBreakdown);
+      // 阶段1: 智能任务分析和智能体选择
+      const { taskAnalysis, selectedAgents, executionPlan } = await this.analyzeTaskAndSelectAgents(query, context);
       
-      // 阶段2: 网络搜索
-      const searchResults = await this.executeSearchPhase(taskBreakdown);
-      this.notifyProgress('search_complete', { resultsCount: searchResults.length });
+      this.currentWorkflow.status = 'running';
+      this.currentWorkflow.taskAnalysis = taskAnalysis;
+      this.currentWorkflow.selectedAgents = selectedAgents;
+      this.currentWorkflow.executionPlan = executionPlan;
       
-      // 阶段3: 信息检索与整理
-      const retrievedData = await this.executeRetrievalPhase(searchResults);
-      this.notifyProgress('retrieval_complete', { dataCount: retrievedData.length });
+      this.notifyProgress('agent_selection', { 
+        selectedAgents: selectedAgents.map(a => ({ id: a.agentId, name: a.capabilities.name, score: a.score })),
+        executionPlan 
+      });
       
-      // 阶段4: 数据分析
-      const analysisResults = await this.executeAnalysisPhase(retrievedData, taskBreakdown);
-      this.notifyProgress('analysis_complete', { analysisCount: analysisResults.length });
-      
-      // 阶段5: 报告生成
-      const finalReport = await this.executeReportPhase(analysisResults, taskBreakdown);
-      this.notifyProgress('report_complete', { reportLength: finalReport.content.length });
+      // 阶段2: 执行智能体工作流
+      const result = await this.executeAgentWorkflow(selectedAgents, executionPlan, taskAnalysis);
       
       // 完成工作流
       this.currentWorkflow.status = 'completed';
       this.currentWorkflow.endTime = new Date();
-      this.currentWorkflow.result = finalReport;
+      this.currentWorkflow.result = result;
       
       this.workflowHistory.push(this.currentWorkflow);
       
-      logger.success(`✅ 多智能体协作工作流完成: ${workflowId}`);
-      return finalReport;
+      logger.success(`✅ 智能多智能体工作流完成: ${workflowId}`);
+      return result;
       
     } catch (error) {
-      logger.error(`❌ 多智能体工作流失败: ${error.message}`);
+      logger.error(`❌ 智能工作流失败: ${error.message}`);
       
       if (this.currentWorkflow) {
         this.currentWorkflow.status = 'failed';
@@ -226,6 +595,304 @@ export class MultiAgentManager {
       this.currentWorkflow = null;
       this.clearSharedMemory();
     }
+  }
+
+  /**
+   * 执行智能体工作流
+   */
+  async executeAgentWorkflow(selectedAgents, executionPlan, taskAnalysis) {
+    const results = {};
+    const parallelTasks = [];
+    const sequentialTasks = [];
+    
+    // 分离并行和顺序任务
+    for (const step of executionPlan.steps) {
+      if (step.canExecuteInParallel) {
+        parallelTasks.push(step);
+      } else {
+        sequentialTasks.push(step);
+      }
+    }
+    
+    // 执行顺序任务
+    for (const step of sequentialTasks) {
+      const stepResult = await this.executeAgentStep(step, taskAnalysis, results);
+      results[step.agentId] = stepResult;
+    }
+    
+    // 执行并行任务
+    if (parallelTasks.length > 0) {
+      const parallelResults = await Promise.all(
+        parallelTasks.map(step => this.executeAgentStep(step, taskAnalysis, results))
+      );
+      
+      parallelTasks.forEach((step, index) => {
+        results[step.agentId] = parallelResults[index];
+      });
+    }
+    
+    // 组装最终结果
+    return this.assembleFinalResult(results, taskAnalysis);
+  }
+
+  /**
+   * 执行单个智能体步骤
+   */
+  async executeAgentStep(step, taskAnalysis, previousResults) {
+    const agentInfo = this.currentWorkflow.selectedAgents.find(a => a.agentId === step.agentId);
+    
+    this.addStage(step.agentId, 'running', { agentName: agentInfo.capabilities.name });
+    
+    try {
+      // 通知智能体开始执行
+      this.notifyAgentProgress(step.agentId, 'start', {
+        agentName: agentInfo.capabilities.name,
+        task: step.task,
+        matchScore: agentInfo.score,
+        matchReason: agentInfo.matchReason
+      });
+      
+      // 准备输入数据
+      const inputData = this.prepareAgentInput(step, previousResults, taskAnalysis);
+      
+      // 执行智能体任务
+      const result = await agentInfo.agent.execute(inputData);
+      
+      // 通知智能体执行完成
+      this.notifyAgentProgress(step.agentId, 'completed', {
+        agentName: agentInfo.capabilities.name,
+        task: step.task,
+        results: this.summarizeAgentResults(result, step.agentId)
+      });
+      
+      this.completeStage(step.agentId, { result });
+      
+      return result;
+      
+    } catch (error) {
+      this.notifyAgentProgress(step.agentId, 'failed', {
+        agentName: agentInfo.capabilities.name,
+        task: step.task,
+        error: error.message
+      });
+      
+      this.failStage(step.agentId, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * 准备智能体输入数据
+   */
+  prepareAgentInput(step, previousResults, taskAnalysis) {
+    const baseInput = {
+      topic: taskAnalysis.primaryObjective,
+      complexity: taskAnalysis.complexity,
+      requirements: taskAnalysis.requiredCapabilities
+    };
+    
+    // 根据智能体类型添加特定输入
+    switch (step.agentId) {
+      case 'searcher':
+        return {
+          ...baseInput,
+          queries: this.generateSearchQueries(taskAnalysis),
+          timeframe: taskAnalysis.timeframe || 'recent',
+          scope: taskAnalysis.complexity === 'simple' ? 'focused' : 'comprehensive'
+        };
+        
+      case 'retriever':
+        return {
+          ...baseInput,
+          searchResults: previousResults.searcher?.results || [],
+          requiredDataTypes: taskAnalysis.dataRequirements?.inputTypes || []
+        };
+        
+      case 'analyzer':
+        return {
+          ...baseInput,
+          data: previousResults.retriever?.data || previousResults.searcher?.results || [],
+          analysisRequirements: taskAnalysis.subTasks?.map(st => st.task) || []
+        };
+        
+      case 'reporter':
+        return {
+          ...baseInput,
+          analysisResults: previousResults.analyzer || previousResults.retriever || previousResults.searcher,
+          structure: this.planReportStructure(taskAnalysis),
+          originalQuery: this.currentWorkflow.query
+        };
+        
+      default:
+        return baseInput;
+    }
+  }
+
+  /**
+   * 组装最终结果
+   */
+  assembleFinalResult(results, taskAnalysis) {
+    // 根据任务类型组装不同的结果格式
+    switch (taskAnalysis.taskType) {
+      case 'information_gathering':
+        return {
+          type: 'information_gathering',
+          content: results.searcher || results.retriever,
+          summary: this.generateSummary(results, taskAnalysis),
+          metadata: {
+            taskType: taskAnalysis.taskType,
+            complexity: taskAnalysis.complexity,
+            agentsUsed: Object.keys(results)
+          }
+        };
+        
+      case 'data_analysis':
+        return {
+          type: 'data_analysis',
+          content: results.analyzer,
+          summary: this.generateSummary(results, taskAnalysis),
+          metadata: {
+            taskType: taskAnalysis.taskType,
+            complexity: taskAnalysis.complexity,
+            agentsUsed: Object.keys(results)
+          }
+        };
+        
+      case 'report_generation':
+        return {
+          type: 'report_generation',
+          content: results.reporter,
+          summary: this.generateSummary(results, taskAnalysis),
+          metadata: {
+            taskType: taskAnalysis.taskType,
+            complexity: taskAnalysis.complexity,
+            agentsUsed: Object.keys(results)
+          }
+        };
+        
+      case 'comprehensive_research':
+      default:
+        return {
+          type: 'comprehensive_research',
+          content: results.reporter || results.analyzer || results.retriever || results.searcher,
+          summary: this.generateSummary(results, taskAnalysis),
+          metadata: {
+            taskType: taskAnalysis.taskType,
+            complexity: taskAnalysis.complexity,
+            agentsUsed: Object.keys(results)
+          }
+        };
+    }
+  }
+
+  /**
+   * 生成结果摘要
+   */
+  generateSummary(results, taskAnalysis) {
+    const agentNames = {
+      searcher: '网络搜索员',
+      retriever: '信息检索员', 
+      analyzer: '数据分析员',
+      reporter: '报告撰写员'
+    };
+    
+    const usedAgents = Object.keys(results).map(id => agentNames[id]).join('、');
+    
+    return `通过${usedAgents}的协作，完成了${taskAnalysis.primaryObjective}任务。`;
+  }
+
+  // 回退方法
+  fallbackTaskAnalysis(query) {
+    return {
+      taskType: 'comprehensive_research',
+      complexity: 'moderate',
+      primaryObjective: query,
+      requiredCapabilities: ['web_search', 'content_extraction', 'data_analysis', 'report_writing'],
+      dataRequirements: {
+        inputTypes: ['text_query'],
+        outputTypes: ['reports'],
+        dataVolume: 'medium'
+      },
+      subTasks: [
+        { task: '信息收集', priority: 'high', estimatedEffort: 'medium' },
+        { task: '数据分析', priority: 'high', estimatedEffort: 'medium' },
+        { task: '报告生成', priority: 'high', estimatedEffort: 'medium' }
+      ]
+    };
+  }
+
+  getFallbackAgentSelection(query) {
+    return {
+      taskAnalysis: this.fallbackTaskAnalysis(query),
+      selectedAgents: [
+        { agentId: 'searcher', agent: this.agents.searcher, capabilities: this.agentCapabilities.searcher, score: 0.8, executionOrder: 1 },
+        { agentId: 'retriever', agent: this.agents.retriever, capabilities: this.agentCapabilities.retriever, score: 0.8, executionOrder: 2 },
+        { agentId: 'analyzer', agent: this.agents.analyzer, capabilities: this.agentCapabilities.analyzer, score: 0.8, executionOrder: 3 },
+        { agentId: 'reporter', agent: this.agents.reporter, capabilities: this.agentCapabilities.reporter, score: 0.8, executionOrder: 4 }
+      ],
+      executionPlan: {
+        steps: [
+          { agentId: 'searcher', agentName: '网络搜索员', task: '执行网络搜索', dependencies: [], estimatedTime: 30000 },
+          { agentId: 'retriever', agentName: '信息检索员', task: '提取和结构化信息', dependencies: ['searcher'], estimatedTime: 45000 },
+          { agentId: 'analyzer', agentName: '数据分析员', task: '分析数据并生成洞察', dependencies: ['retriever'], estimatedTime: 60000 },
+          { agentId: 'reporter', agentName: '报告撰写员', task: '生成专业报告', dependencies: ['analyzer'], estimatedTime: 45000 }
+        ],
+        totalEstimatedTime: 180000,
+        canParallelize: false
+      }
+    };
+  }
+
+  validateAndEnhanceTaskAnalysis(analysis, query) {
+    // 验证必需字段
+    const requiredFields = ['taskType', 'complexity', 'primaryObjective'];
+    for (const field of requiredFields) {
+      if (!analysis[field]) {
+        analysis[field] = this.getDefaultValue(field, query);
+      }
+    }
+    
+    // 增强分析结果
+    analysis.timeframe = analysis.timeframe || 'recent';
+    analysis.scope = analysis.scope || 'comprehensive';
+    
+    return analysis;
+  }
+
+  getDefaultValue(field, query) {
+    const defaults = {
+      taskType: 'comprehensive_research',
+      complexity: 'moderate',
+      primaryObjective: query
+    };
+    return defaults[field] || '';
+  }
+
+  getMatchReason(capabilities, taskAnalysis) {
+    const matches = capabilities.capabilities.filter(cap => 
+      taskAnalysis.requiredCapabilities?.includes(cap)
+    );
+    return `匹配能力: ${matches.join(', ')}`;
+  }
+
+  summarizeAgentResults(result, agentId) {
+    const summaries = {
+      searcher: { resultsCount: result.results?.length || 0, queriesUsed: result.metadata?.queriesUsed || 0 },
+      retriever: { dataCount: result.data?.length || 0, extractedDocs: result.metadata?.extractedDocs || 0 },
+      analyzer: { insightsCount: result.insights?.length || 0, predictionsCount: result.predictions?.length || 0 },
+      reporter: { reportSections: result.sections?.length || 0, wordCount: result.metadata?.totalWordCount || 0 }
+    };
+    return summaries[agentId] || { status: 'completed' };
+  }
+
+  // 保持向后兼容的方法
+  async shouldActivateMultiAgent(query, llm) {
+    const { taskAnalysis } = await this.analyzeTaskAndSelectAgents(query);
+    return taskAnalysis.complexity !== 'simple';
+  }
+
+  async executeWorkflow(query, context = {}) {
+    return this.executeIntelligentWorkflow(query, context);
   }
 
   /**
