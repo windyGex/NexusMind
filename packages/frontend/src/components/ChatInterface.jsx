@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Input, Button, Card, Avatar, Typography, Space, Spin, Tag, Collapse } from 'antd';
-import { SendOutlined, UserOutlined, RobotOutlined, ToolOutlined, ExclamationCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, StopOutlined, DownOutlined } from '@ant-design/icons';
+import { Input, Button, Card, Avatar, Typography, Space, Spin, Tag, Collapse, Upload, message, Dropdown, Menu } from 'antd';
+import { SendOutlined, UserOutlined, RobotOutlined, ToolOutlined, ExclamationCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, StopOutlined, DownOutlined, UploadOutlined, FileOutlined, FolderOutlined, ReloadOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -30,8 +30,13 @@ const ChatInterface = ({
   const [inputValue, setInputValue] = useState('');
   const [expandedTools, setExpandedTools] = useState(new Set());
   const [showJsonData, setShowJsonData] = useState(false);
+  const [fileList, setFileList] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]); // 添加已上传文件列表状态
+  const [loadingFiles, setLoadingFiles] = useState(false); // 添加加载状态
   const messagesEndRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // 优化滚动函数，避免频繁滚动导致的界面跳跃
   const scrollToBottom = () => {
@@ -83,6 +88,79 @@ const ChatInterface = ({
       handleSend();
     }
   };
+
+  // 文件上传处理
+  const handleFileUpload = async () => {
+    if (fileList.length === 0) {
+      message.warning('请先选择文件');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // 创建FormData对象
+      const formData = new FormData();
+      fileList.forEach((file) => {
+        formData.append('files', file.originFileObj);
+      });
+
+      // 发送文件到后端
+      const response = await fetch('/api/files/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        message.success(`成功上传 ${result.uploadedCount} 个文件`);
+        setFileList([]);
+        
+        // 刷新文件列表
+        await fetchUploadedFiles();
+        
+        // 不再发送消息到后端，只在当前会话展示
+        // const fileNames = result.files.map(f => f.originalName).join(', ');
+        // onSendMessage(`我已上传了以下文件到.nexus-mind目录: ${fileNames}`);
+      } else {
+        const error = await response.json();
+        message.error(`上传失败: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('上传错误:', error);
+      message.error('文件上传失败');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 文件选择处理
+  const handleFileChange = ({ fileList: newFileList }) => {
+    setFileList(newFileList);
+  };
+
+  // 获取已上传文件列表
+  const fetchUploadedFiles = async () => {
+    setLoadingFiles(true);
+    try {
+      const response = await fetch('/api/files/list');
+      if (response.ok) {
+        const result = await response.json();
+        setUploadedFiles(result.files || []);
+      } else {
+        message.error('获取文件列表失败');
+      }
+    } catch (error) {
+      console.error('获取文件列表错误:', error);
+      message.error('获取文件列表失败');
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+  // 组件挂载时获取文件列表
+  useEffect(() => {
+    fetchUploadedFiles();
+  }, []);
 
   const renderMessageContent = (message) => {
     switch (message.type) {
@@ -429,65 +507,90 @@ const ChatInterface = ({
                         }}
                       >
                         <div style={{ 
-                          width: '16px', 
-                          height: '16px', 
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
+                          width: '20px', 
+                          height: '20px', 
+                          borderRadius: '50%', 
+                          backgroundColor: isError 
+                            ? '#dc2626' 
+                            : isCompleted 
+                            ? '#16a34a' 
+                            : isCurrentStep 
+                            ? '#f59e0b' 
+                            : '#d1d5db',
+                          display: 'flex', 
+                          alignItems: 'center', 
                           justifyContent: 'center',
-                          fontSize: '10px',
                           marginRight: '8px',
-                          backgroundColor: isError ? '#ef4444' : isCompleted ? '#10b981' : isCurrentStep ? '#3b82f6' : '#d1d5db',
+                          fontSize: '10px',
                           color: 'white'
                         }}>
-                          {isError ? '❌' : isCompleted ? '✓' : isCurrentStep ? '▶' : step.stepNumber}
+                          {isError ? '✗' : isCompleted ? '✓' : isCurrentStep ? '●' : index + 1}
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={{ 
-                            fontSize: '11px', 
-                            fontWeight: isCurrentStep ? 'bold' : 'normal',
-                            color: isError ? '#ef4444' : isCurrentStep ? '#3b82f6' : '#374151'
-                          }}>
-                            {step.stepName}
-                          </Text>
-                          <Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>
-                            {step.type === 'tool_call' ? '📦 工具调用' : 
-                             step.type === 'reasoning' ? '🧠 推理分析' : 
-                             step.type === 'synthesis' ? '🔗 结果综合' : step.type}
-                            {step.tool && ` - ${step.tool}`}
-                          </Text>
-                        </div>
+                        <Text 
+                          type={isError ? 'danger' : isCompleted ? 'success' : isCurrentStep ? 'warning' : 'secondary'} 
+                          style={{ 
+                            fontSize: '12px',
+                            textDecoration: isCompleted ? 'line-through' : 'none'
+                          }}
+                        >
+                          {step.description}
+                        </Text>
                       </div>
                     );
                   })}
                 </div>
                 
-                {/* 进度条 */}
-                <div style={{ 
-                  width: '100%', 
-                  backgroundColor: '#e2e8f0', 
-                  borderRadius: '4px',
-                  height: '6px',
-                  marginTop: '8px',
-                  overflow: 'hidden'
-                }}>
-                  <div style={{
-                    width: `${((message.data.completedSteps || 0) / (message.data.totalSteps || 1)) * 100}%`,
-                    height: '100%',
-                    backgroundColor: message.data.currentStepInfo?.status === 'error' ? '#ef4444' : '#1890ff',
-                    transition: 'width 0.3s ease',
-                    borderRadius: '4px'
-                  }} />
-                </div>
+                {/* 当前步骤信息 */}
+                {message.data.currentStepInfo && (
+                  <div style={{ 
+                    marginTop: '8px',
+                    padding: '8px',
+                    backgroundColor: '#e0f2fe',
+                    borderRadius: '4px',
+                    border: '1px solid #bae6fd'
+                  }}>
+                    <Text type="secondary" style={{ fontSize: '11px' }}>
+                      当前步骤: {message.data.currentStepInfo.description}
+                    </Text>
+                    {message.data.currentStepInfo.status === 'running' && (
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        marginTop: '4px' 
+                      }}>
+                        <Spin size="small" />
+                        <Text type="secondary" style={{ fontSize: '11px', marginLeft: '4px' }}>
+                          执行中...
+                        </Text>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             </Card>
           );
         }
-        // 其他阶段不显示任何内容
         return null;
 
       default:
-        return <Text>{message.content}</Text>;
+        return (
+          <Card 
+            size="small" 
+            style={{ 
+              maxWidth: '90%', 
+              backgroundColor: '#ffffff',
+              padding: '8px 16px'
+            }}
+            bodyStyle={{ 
+              padding: '8px',
+              lineHeight: '1.6'
+            }}
+          >
+            <Text style={{ fontSize: '14px', color: '#2c3e50' }}>
+              {message.content}
+            </Text>
+          </Card>
+        );
     }
   };
 
@@ -496,7 +599,9 @@ const ChatInterface = ({
       case 'user':
         return <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />;
       case 'assistant':
+        return <Avatar icon={<RobotOutlined />} style={{ backgroundColor: '#52c41a' }} />;
       case 'thinking':
+        return <Avatar icon={<RobotOutlined />} style={{ backgroundColor: '#1890ff' }} />;
       case 'tool_execution':
         return <Avatar icon={<RobotOutlined />} style={{ backgroundColor: '#52c41a' }} />;
       case 'system':
@@ -639,7 +744,152 @@ const ChatInterface = ({
       </div>
 
       <div className="chat-input-container">
+        {/* 文件上传区域 */}
+        {fileList.length > 0 && (
+          <div style={{ 
+            marginBottom: '12px',
+            padding: '12px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px dashed #d9d9d9'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '8px'
+            }}>
+              <Text strong style={{ fontSize: '13px' }}>待上传文件</Text>
+              <Button 
+                type="text" 
+                size="small" 
+                onClick={() => setFileList([])}
+                style={{ fontSize: '12px' }}
+              >
+                清除
+              </Button>
+            </div>
+            
+            <div style={{ 
+              maxHeight: '120px', 
+              overflowY: 'auto',
+              marginBottom: '8px'
+            }}>
+              {fileList.map((file) => (
+                <div 
+                  key={file.uid} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: '4px 0',
+                    fontSize: '12px'
+                  }}
+                >
+                  <FileOutlined style={{ 
+                    marginRight: '6px', 
+                    color: '#1890ff' 
+                  }} />
+                  <Text ellipsis style={{ flex: 1 }}>
+                    {file.name}
+                  </Text>
+                  <Text type="secondary" style={{ marginLeft: '8px' }}>
+                    {file.size ? `${(file.size / 1024).toFixed(1)}KB` : ''}
+                  </Text>
+                </div>
+              ))}
+            </div>
+            
+            <Button
+              type="primary"
+              size="small"
+              onClick={handleFileUpload}
+              loading={uploading}
+              style={{ 
+                fontSize: '12px',
+                height: '28px'
+              }}
+            >
+              上传文件
+            </Button>
+          </div>
+        )}
+
         <Space.Compact style={{ width: '100%' }}>
+          <Upload
+            beforeUpload={() => false} // 阻止自动上传
+            onChange={handleFileChange}
+            fileList={fileList}
+            multiple
+            showUploadList={false}
+            ref={fileInputRef}
+          >
+            <Button
+              icon={<UploadOutlined />}
+              style={{
+                borderRadius: '20px 0 0 20px',
+                borderRight: 'none'
+              }}
+            />
+          </Upload>
+          
+          {/* 文件列表下拉菜单 */}
+          <Dropdown
+            overlay={
+              <Menu>
+                <Menu.Item
+                  key="refresh"
+                  icon={<ReloadOutlined />}
+                  onClick={fetchUploadedFiles}
+                >
+                  刷新文件列表
+                </Menu.Item>
+                <Menu.Divider />
+                {loadingFiles ? (
+                  <Menu.Item key="loading">
+                    <Spin size="small" /> 加载中...
+                  </Menu.Item>
+                ) : uploadedFiles.length > 0 ? (
+                  uploadedFiles.map((file) => (
+                    <Menu.Item
+                      key={file.name}
+                      icon={file.isDirectory ? <FolderOutlined /> : <FileOutlined />}
+                      title={`${file.name} (${file.isDirectory ? '文件夹' : `${(file.size / 1024).toFixed(1)}KB`})`}
+                      onClick={() => {
+                        if (!file.isDirectory) {
+                          // 下载文件
+                          const downloadUrl = `/api/files/download/${encodeURIComponent(file.name)}`;
+                          window.open(downloadUrl, '_blank');
+                        }
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {file.name}
+                        </span>
+                        <span style={{ color: '#999', fontSize: '12px' }}>
+                          {file.isDirectory ? '文件夹' : `${(file.size / 1024).toFixed(1)}KB`}
+                        </span>
+                      </div>
+                    </Menu.Item>
+                  ))
+                ) : (
+                  <Menu.Item key="empty" disabled>
+                    暂无文件
+                  </Menu.Item>
+                )}
+              </Menu>
+            }
+            trigger={['click']}
+          >
+            <Button
+              icon={<FolderOutlined />}
+              style={{
+                borderRadius: '0',
+                borderRight: 'none'
+              }}
+            />
+          </Dropdown>
+          
           <TextArea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -649,7 +899,7 @@ const ChatInterface = ({
             disabled={isProcessing}
             style={{ 
               resize: 'none',
-              borderRadius: '20px 0 0 20px',
+              borderRadius: '0',
               borderRight: 'none'
             }}
           />

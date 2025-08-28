@@ -8,6 +8,10 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 import logger from './utils/logger.js';
+import multer from 'multer';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
 
 // 加载环境变量
 dotenv.config();
@@ -25,6 +29,12 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
+
+// 添加UTF-8编码支持
+app.use((req, res, next) => {
+  req.headers['content-type'] = req.headers['content-type'] || 'application/json; charset=utf-8';
+  next();
+});
 
 // 根据环境配置日志中间件
 if (process.env.NODE_ENV === 'development' && !process.env.QUIET) {
@@ -992,6 +1002,163 @@ app.get('/api/universal-agent/workflow', (req, res) => {
   }
 });
 
+
+
+// 配置multer用于文件上传
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // 确保.nexus-mind目录存在
+    const nexusMindDir = path.join(os.homedir(), '.nexus-mind');
+    fs.mkdir(nexusMindDir, { recursive: true })
+      .then(() => cb(null, nexusMindDir))
+      .catch(err => cb(err, nexusMindDir));
+  },
+  filename: function (req, file, cb) {
+    // 处理中文文件名编码问题
+    let filename = file.originalname;
+    
+    // 如果文件名包含乱码特征（如包含Ã¥Ã¤Â¹ÂÃ§Â±Â»Ã§Ââ¢ï¿½），尝试解码
+    if (filename.includes('Ã') || filename.includes('æ') || filename.includes('è')) {
+      try {
+        // 尝试UTF-8解码
+        filename = Buffer.from(filename, 'binary').toString('utf8');
+      } catch (e) {
+        // 如果解码失败，保持原始文件名
+        console.warn('文件名解码失败:', e.message);
+      }
+    }
+    
+    cb(null, filename);
+  }
+});
+
+// 添加busboy配置来正确处理UTF-8文件名
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 30 * 1024 * 1024 // 30MB限制
+  }
+});
+
+// 添加文件上传API路由
+app.post('/api/files/upload', upload.array('files'), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '没有文件被上传' 
+      });
+    }
+
+    const uploadedFiles = req.files.map(file => ({
+      originalName: file.originalname,
+      fileName: file.filename,
+      size: file.size,
+      path: file.path,
+      mimeType: file.mimetype
+    }));
+
+    logger.info(`成功上传 ${req.files.length} 个文件到 .nexus-mind 目录`);
+
+    res.json({
+      success: true,
+      message: '文件上传成功',
+      uploadedCount: req.files.length,
+      files: uploadedFiles
+    });
+  } catch (error) {
+    logger.error('文件上传失败:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: '文件上传失败',
+      error: error.message 
+    });
+  }
+});
+
+// 添加获取.nexus-mind目录文件列表的API
+app.get('/api/files/list', async (req, res) => {
+  try {
+    const nexusMindDir = path.join(os.homedir(), '.nexus-mind');
+    
+    // 确保目录存在
+    try {
+      await fs.access(nexusMindDir);
+    } catch (error) {
+      // 如果目录不存在，创建它
+      await fs.mkdir(nexusMindDir, { recursive: true });
+    }
+
+    const files = await fs.readdir(nexusMindDir);
+    const fileList = [];
+
+    for (const file of files) {
+      const filePath = path.join(nexusMindDir, file);
+      const stats = await fs.stat(filePath);
+      
+      fileList.push({
+        name: file,
+        isDirectory: stats.isDirectory(),
+        size: stats.size,
+        created: stats.birthtime,
+        modified: stats.mtime
+      });
+    }
+
+    res.json({
+      success: true,
+      directory: nexusMindDir,
+      files: fileList,
+      count: fileList.length
+    });
+  } catch (error) {
+    logger.error('获取文件列表失败:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: '获取文件列表失败',
+      error: error.message 
+    });
+  }
+});
+
+// 添加文件下载API
+app.get('/api/files/download/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const nexusMindDir = path.join(os.homedir(), '.nexus-mind');
+    const filePath = path.join(nexusMindDir, filename);
+    
+    // 检查文件是否存在
+    try {
+      await fs.access(filePath);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: '文件不存在'
+      });
+    }
+    
+    // 检查是否为文件（而不是目录）
+    const stats = await fs.stat(filePath);
+    if (stats.isDirectory()) {
+      return res.status(400).json({
+        success: false,
+        message: '不能下载目录'
+      });
+    }
+    
+    // 发送文件
+    res.download(filePath, filename);
+  } catch (error) {
+    logger.error('文件下载失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '文件下载失败',
+      error: error.message
+    });
+  }
+});
+
 // 错误处理中间件
 app.use((err, req, res, next) => {
   logger.error('服务器错误:', err);
@@ -1036,5 +1203,3 @@ process.on('SIGINT', () => {
     process.exit(0);
   });
 });
-
-// 通用智能体相关功能已移除，网页抓取功能已整合到主Agent中 

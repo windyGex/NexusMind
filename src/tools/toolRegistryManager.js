@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { webScrapingToolRegistry } from './webScrapingToolRegistry.js';
 import { searchAnalysisTools } from './searchAnalysisToolRegistry.js';
+import { fileOperationToolRegistry } from './fileOperationToolRegistry.js';
+import { codeExecutionToolRegistry } from './codeExecutionToolRegistry.js';
 
 /**
  * 统一工具注册管理器
@@ -129,7 +131,9 @@ export function getAllTools() {
   return {
     ...baseTools,
     ...webScrapingToolRegistry,
-    ...searchAnalysisTools
+    ...searchAnalysisTools,
+    ...fileOperationToolRegistry,
+    ...codeExecutionToolRegistry
   };
 }
 

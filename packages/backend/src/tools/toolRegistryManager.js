@@ -1,4 +1,5 @@
 import { webScrapingTools } from './webScrapingTools.js';
+import { codeExecutionTools } from '../../../../src/tools/codeExecutionTools.js';
 
 /**
  * 后端工具注册管理器
@@ -17,6 +18,14 @@ export function getAllBackendTools() {
     allTools[tool.name] = {
       ...tool,
       category: tool.category || 'web-scraping'
+    };
+  });
+  
+  // 注册代码执行工具
+  Object.values(codeExecutionTools).forEach(tool => {
+    allTools[tool.name] = {
+      ...tool,
+      category: tool.category || 'code-execution'
     };
   });
   

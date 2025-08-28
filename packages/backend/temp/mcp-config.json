@@ -8,14 +8,6 @@
       "apiKey": "df2d1657542aabd58302835c17737791",
       "status": "unknown",
       "toolsCount": 0
-    },
-    {
-      "id": "febase",
-      "name": "大前端研发",
-      "serverUrl": "http://mcp-gateway.qa.ft.igame.163.com/mcp?appName=febase",
-      "type": "streamable-http",
-      "status": "unknown",
-      "toolsCount": 0
     }
   ],
   "lastUpdated": "2025-08-19T07:18:13.576Z"
