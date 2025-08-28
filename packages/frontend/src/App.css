@@ -21,6 +21,7 @@
   border-radius: 8px;
   margin: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  scroll-behavior: smooth; /* 保持平滑滚动 */
 }
 
 .message-item {
@@ -472,6 +473,11 @@
 .message-item .user-timestamp {
   text-align: right;
   margin-top: 4px;
+}
+
+/* 流式输出优化 */
+.streaming-content {
+  transition: all 0.1s ease-out; /* 减少过渡时间 */
 }
 
 /* 响应式设计 */

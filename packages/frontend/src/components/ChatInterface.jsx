@@ -31,16 +31,44 @@ const ChatInterface = ({
   const [expandedTools, setExpandedTools] = useState(new Set());
   const [showJsonData, setShowJsonData] = useState(false);
   const messagesEndRef = useRef(null);
+  const scrollTimeoutRef = useRef(null);
+
+  // 优化滚动函数，避免频繁滚动导致的界面跳跃
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView();
+    }
+  };
+
+  // 节流滚动函数，避免频繁触发
+  const throttledScrollToBottom = () => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      scrollToBottom();
+    }, 50); // 50ms节流
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    throttledScrollToBottom();
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, [messages]);
 
   // 监听流式消息的变化，实时滚动到底部
   useEffect(() => {
     if (streamingMessage && streamingMessage.content) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      throttledScrollToBottom();
     }
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, [streamingMessage]);
 
   const handleSend = () => {
@@ -93,7 +121,7 @@ const ChatInterface = ({
               lineHeight: '1.6'
             }}
           >
-            <MarkdownRenderer content={message.content} />
+            <MarkdownRenderer content={message.content} isStreaming={message.isStreaming} />
           </Card>
         );
 
@@ -573,6 +601,7 @@ const ChatInterface = ({
                     <MarkdownRenderer 
                       content={streamingMessage.content} 
                       showCursor={true}
+                      isStreaming={true}
                     />
                   </Card>
                   

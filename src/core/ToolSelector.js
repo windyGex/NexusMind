@@ -154,8 +154,6 @@ ${toolsList}
     const investmentKeywords = [
       '股票', '投资', '值得投资', '推荐', '分析', '建议', '买入', '卖出', '持有',
       '2025年', '最值得', '投资机会', '投资建议', '股票推荐', '投资分析',
-      '市场', '行情', '趋势', '上涨', '下跌', '突破', '支撑', '阻力',
-      '技术分析', '基本面', '财务', '盈利', '增长', '风险', '收益'
     ];
     
     let keywords = text.toLowerCase()
@@ -225,10 +223,7 @@ ${toolsList}
     // 股票投资相关
     if (taskText.includes('股票') || taskText.includes('投资') || taskText.includes('值得投资') || 
         taskText.includes('推荐') || taskText.includes('分析') || taskText.includes('建议')) {
-      if (tool.name.includes('analyze_stock_investment') || tool.name.includes('scrape_webpage') || 
-          tool.name.includes('generate_investment_report')) {
-        matchScore += 3; // 股票投资工具优先级更高
-      }
+      // 移除了对股票投资工具的特殊处理
     }
     
     // 网页抓取相关

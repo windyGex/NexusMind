@@ -12,10 +12,11 @@ const MarkdownRenderer = ({
   content, 
   style = {}, 
   showCursor = false,
-  className = '' 
+  className = '',
+  isStreaming = false
 }) => {
   return (
-    <div className={className} style={style}>
+    <div className={`${className} ${isStreaming ? 'streaming-content' : ''}`} style={style}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
