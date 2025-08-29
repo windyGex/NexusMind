@@ -65,7 +65,7 @@ export const codeExecutionTools = {
       }
     },
     execute: async (args) => {
-      const { code, language, timeout = 5000, work_dir } = args;
+      const { code, language, timeout = 50000, work_dir } = args;
       
       // 验证参数
       if (!code) {

@@ -12,16 +12,16 @@ const { TextArea } = Input;
 const { Text } = Typography;
 const { Panel } = Collapse;
 
-const ChatInterface = ({ 
-  messages, 
-  isProcessing, 
-  thinking, 
-  currentTool, 
+const ChatInterface = ({
+  messages,
+  isProcessing,
+  thinking,
+  currentTool,
   planSolveStatus,
   planSolveProgress,
   streamingMessage,
   agentStatus,
-  onSendMessage, 
+  onSendMessage,
   onAbort,
   onResetProgress,
   isConnected,
@@ -114,10 +114,10 @@ const ChatInterface = ({
         const result = await response.json();
         message.success(`成功上传 ${result.uploadedCount} 个文件`);
         setFileList([]);
-        
+
         // 刷新文件列表
         await fetchUploadedFiles();
-        
+
         // 不再发送消息到后端，只在当前会话展示
         // const fileNames = result.files.map(f => f.originalName).join(', ');
         // onSendMessage(`我已上传了以下文件到.nexus-mind目录: ${fileNames}`);
@@ -166,15 +166,15 @@ const ChatInterface = ({
     switch (message.type) {
       case 'user':
         return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '90%', 
+          <Card
+            size="small"
+            style={{
+              maxWidth: '90%',
               backgroundColor: '#e6f7ff',
               marginLeft: 'auto',
               marginRight: 0
             }}
-            bodyStyle={{ 
+            bodyStyle={{
               padding: '8px',
               lineHeight: '1.5'
             }}
@@ -187,14 +187,14 @@ const ChatInterface = ({
 
       case 'assistant':
         return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '90%', 
+          <Card
+            size="small"
+            style={{
+              maxWidth: '90%',
               backgroundColor: '#f6ffed',
               padding: '8px 16px'
             }}
-            bodyStyle={{ 
+            bodyStyle={{
               padding: '8px',
               lineHeight: '1.6'
             }}
@@ -205,11 +205,11 @@ const ChatInterface = ({
 
       case 'thinking':
         return (
-          <div style={{ 
+          <div style={{
             maxWidth: '95%',
             marginBottom: '8px'
           }}>
-            <div style={{ 
+            <div style={{
               padding: '8px 12px',
               backgroundColor: '#f8fafc',
               borderLeft: '3px solid #3b82f6',
@@ -219,7 +219,7 @@ const ChatInterface = ({
               lineHeight: '1.5',
               fontStyle: 'italic'
             }}>
-              <Text style={{ 
+              <Text style={{
                 fontSize: '13px',
                 color: '#374151',
                 whiteSpace: 'pre-wrap',
@@ -236,39 +236,39 @@ const ChatInterface = ({
         const isCompleted = status === 'completed';
         const isError = status === 'error';
         const isRunning = status === 'running';
-        
-        const cardStyle = isError 
+
+        const cardStyle = isError
           ? { backgroundColor: '#f0f9ff', borderColor: '#ef4444' }
-          : isCompleted 
-          ? { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }
-          : { backgroundColor: '#f0f9ff', borderColor: '#fbbf24' };
-        
-        const iconStyle = isError 
+          : isCompleted
+            ? { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }
+            : { backgroundColor: '#f0f9ff', borderColor: '#fbbf24' };
+
+        const iconStyle = isError
           ? { color: '#dc2626' }
-          : isCompleted 
-          ? { color: '#16a34a' }
-          : { color: '#f59e0b' };
-        
-        const titleIcon = isError 
+          : isCompleted
+            ? { color: '#16a34a' }
+            : { color: '#f59e0b' };
+
+        const titleIcon = isError
           ? <ExclamationCircleOutlined style={iconStyle} />
-          : isCompleted 
-          ? <CheckCircleOutlined style={iconStyle} />
-          : <ToolOutlined style={iconStyle} />;
-        
-        const statusTag = isError 
+          : isCompleted
+            ? <CheckCircleOutlined style={iconStyle} />
+            : <ToolOutlined style={iconStyle} />;
+
+        const statusTag = isError
           ? <Tag color="error">失败</Tag>
-          : isCompleted 
-          ? <Tag color="success">完成</Tag>
-          : <Tag color="processing" icon={<Spin size="small" />}>执行中</Tag>;
-        
+          : isCompleted
+            ? <Tag color="success">完成</Tag>
+            : <Tag color="processing" icon={<Spin size="small" />}>执行中</Tag>;
+
         return (
-          <Card 
-            size="small" 
-            style={{ 
+          <Card
+            size="small"
+            style={{
               maxWidth: '95%',
               ...cardStyle
             }}
-            bodyStyle={{ 
+            bodyStyle={{
               padding: '8px 12px',
               lineHeight: '1.2',
               minWidth: '400px',
@@ -276,9 +276,9 @@ const ChatInterface = ({
               overflow: 'hidden'
             }}
           >
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
               height: '100%'
             }}>
@@ -289,12 +289,12 @@ const ChatInterface = ({
                 </Text>
                 {statusTag}
               </Space>
-              
+
               {(args || (isCompleted && result) || (isError && error)) && (
-                <Button 
-                  type="text" 
+                <Button
+                  type="text"
                   size="small"
-                  icon={<DownOutlined style={{ 
+                  icon={<DownOutlined style={{
                     transform: expandedTools.has(message.id) ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.2s ease'
                   }} />}
@@ -308,8 +308,8 @@ const ChatInterface = ({
                     }
                     setExpandedTools(newExpanded);
                   }}
-                  style={{ 
-                    fontSize: '11px', 
+                  style={{
+                    fontSize: '11px',
                     color: '#8c8c8c',
                     padding: '2px 4px',
                     height: '20px',
@@ -320,13 +320,13 @@ const ChatInterface = ({
                 </Button>
               )}
             </div>
-            
+
             {expandedTools.has(message.id) && (
-              <div className="tool-execution-details" style={{ 
+              <div className="tool-execution-details" style={{
                 marginTop: '8px',
               }}>
                 {args && (
-                  <Collapse 
+                  <Collapse
                     ghost
                     size="small"
                     defaultActiveKey={[]}
@@ -340,8 +340,8 @@ const ChatInterface = ({
                         ),
                         children: (
                           <div className="json-viewer">
-                            <pre style={{ 
-                              margin: 0, 
+                            <pre style={{
+                              margin: 0,
                               fontSize: '12px',
                               whiteSpace: 'pre-wrap',
                               wordBreak: 'break-word'
@@ -359,9 +359,9 @@ const ChatInterface = ({
                     }}
                   />
                 )}
-                
+
                 {isCompleted && result && (
-                  <Collapse 
+                  <Collapse
                     ghost
                     size="small"
                     defaultActiveKey={[]}
@@ -375,8 +375,8 @@ const ChatInterface = ({
                         ),
                         children: (
                           <div className="json-viewer">
-                            <pre style={{ 
-                              margin: 0, 
+                            <pre style={{
+                              margin: 0,
                               fontSize: '12px',
                               whiteSpace: 'pre-wrap',
                               wordBreak: 'break-word',
@@ -395,9 +395,9 @@ const ChatInterface = ({
                     }}
                   />
                 )}
-                
+
                 {isError && error && (
-                  <div style={{ 
+                  <div style={{
                     backgroundColor: '#fef2f2',
                     padding: '6px 10px',
                     borderRadius: '4px',
@@ -409,7 +409,7 @@ const ChatInterface = ({
                     </Text>
                   </div>
                 )}
-                
+
                 {completedAt && (
                   <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px' }}>
                     执行耗时: {Math.round((completedAt - timestamp) / 1000 * 100) / 100}秒
@@ -422,14 +422,14 @@ const ChatInterface = ({
 
       case 'system':
         return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '90%', 
-              backgroundColor: '#f3f4f6', 
-              borderColor: '#d1d5db' 
+          <Card
+            size="small"
+            style={{
+              maxWidth: '90%',
+              backgroundColor: '#f3f4f6',
+              borderColor: '#d1d5db'
             }}
-            bodyStyle={{ 
+            bodyStyle={{
               padding: '12px 16px',
               lineHeight: '1.5'
             }}
@@ -442,14 +442,14 @@ const ChatInterface = ({
 
       case 'error':
         return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '90%', 
-              backgroundColor: '#fee2e2', 
-              borderColor: '#ef4444' 
+          <Card
+            size="small"
+            style={{
+              maxWidth: '90%',
+              backgroundColor: '#fee2e2',
+              borderColor: '#ef4444'
             }}
-            bodyStyle={{ 
+            bodyStyle={{
               padding: '12px 16px',
               lineHeight: '1.5'
             }}
@@ -467,25 +467,23 @@ const ChatInterface = ({
         // 只显示有步骤清单的执行阶段
         if (message.data && message.data.steps && message.phase === 'plan_execution') {
           return (
-            <Card 
-              size="small" 
-              style={{ 
-                maxWidth: '95%',
+            <Card
+              size="small"
+              style={{
                 backgroundColor: '#f0f9ff',
                 borderColor: '#bae6fd'
               }}
-              bodyStyle={{ 
+              bodyStyle={{
                 padding: '10px 16px',
                 lineHeight: '1.4',
-                minWidth: '400px'
               }}
             >
               {/* 执行步骤清单 */}
-              <>
+              <div style={{ minWidth: '400px'}}>
                 <Text type="secondary" style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', display: 'block' }}>
                   执行步骤清单:
                 </Text>
-                <div style={{ 
+                <div style={{
                   backgroundColor: '#f8f9fa',
                   border: '1px solid #e9ecef',
                   borderRadius: '4px',
@@ -495,78 +493,68 @@ const ChatInterface = ({
                     const isCurrentStep = message.data.currentStep === step.stepNumber;
                     const isCompleted = message.data.completedSteps >= step.stepNumber;
                     const isError = message.data.currentStepInfo?.status === 'error' && message.data.currentStep === step.stepNumber;
-                    
+
                     return (
-                      <div 
-                        key={step.stepNumber} 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
+                      <div
+                        key={step.stepNumber}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
                           padding: '4px 0',
                           borderBottom: index < message.data.steps.length - 1 ? '1px solid #e9ecef' : 'none'
                         }}
                       >
-                        <div style={{ 
-                          width: '20px', 
-                          height: '20px', 
-                          borderRadius: '50%', 
-                          backgroundColor: isError 
-                            ? '#dc2626' 
-                            : isCompleted 
-                            ? '#16a34a' 
-                            : isCurrentStep 
-                            ? '#f59e0b' 
-                            : '#d1d5db',
-                          display: 'flex', 
-                          alignItems: 'center', 
+                        <div style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
                           justifyContent: 'center',
-                          marginRight: '8px',
                           fontSize: '10px',
+                          marginRight: '8px',
+                          backgroundColor: isError ? '#ef4444' : isCompleted ? '#10b981' : isCurrentStep ? '#3b82f6' : '#d1d5db',
                           color: 'white'
                         }}>
-                          {isError ? '✗' : isCompleted ? '✓' : isCurrentStep ? '●' : index + 1}
+                          {isError ? '❌' : isCompleted ? '✓' : isCurrentStep ? '▶' : step.stepNumber}
                         </div>
-                        <Text 
-                          type={isError ? 'danger' : isCompleted ? 'success' : isCurrentStep ? 'warning' : 'secondary'} 
-                          style={{ 
-                            fontSize: '12px',
-                            textDecoration: isCompleted ? 'line-through' : 'none'
-                          }}
-                        >
-                          {step.description}
-                        </Text>
+                        <div>
+                          <Text style={{
+                            fontSize: '11px',
+                            fontWeight: isCurrentStep ? 'bold' : 'normal',
+                            color: isError ? '#ef4444' : isCurrentStep ? '#3b82f6' : '#374151'
+                          }}>
+                            {step.stepName}
+                          </Text>
+                          <br/>
+                          <Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>
+                            {step.type === 'tool_call' ? '📦 工具调用' :
+                              step.type === 'reasoning' ? '🧠 推理分析' :
+                                step.type === 'synthesis' ? '🔗 结果综合' : step.type}
+                            {step.tool && ` - ${step.tool}`}
+                          </Text>
+                          </div>
                       </div>
                     );
                   })}
                 </div>
-                
-                {/* 当前步骤信息 */}
-                {message.data.currentStepInfo && (
-                  <div style={{ 
-                    marginTop: '8px',
-                    padding: '8px',
-                    backgroundColor: '#e0f2fe',
-                    borderRadius: '4px',
-                    border: '1px solid #bae6fd'
-                  }}>
-                    <Text type="secondary" style={{ fontSize: '11px' }}>
-                      当前步骤: {message.data.currentStepInfo.description}
-                    </Text>
-                    {message.data.currentStepInfo.status === 'running' && (
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        marginTop: '4px' 
-                      }}>
-                        <Spin size="small" />
-                        <Text type="secondary" style={{ fontSize: '11px', marginLeft: '4px' }}>
-                          执行中...
-                        </Text>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
+                <div style={{
+                  width: '100%',
+                  backgroundColor: '#e2e8f0',
+                  borderRadius: '4px',
+                  height: '6px',
+                  marginTop: '8px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    width: `${((message.data.completedSteps || 0) / (message.data.totalSteps || 1)) * 100}%`,
+                    height: '100%',
+                    backgroundColor: message.data.currentStepInfo?.status === 'error' ? '#ef4444' : '#1890ff',
+                    transition: 'width 0.3s ease',
+                    borderRadius: '4px'
+                  }} />
+                </div>
+              </div>
             </Card>
           );
         }
@@ -574,14 +562,14 @@ const ChatInterface = ({
 
       default:
         return (
-          <Card 
-            size="small" 
-            style={{ 
-              maxWidth: '90%', 
+          <Card
+            size="small"
+            style={{
+              maxWidth: '90%',
               backgroundColor: '#ffffff',
               padding: '8px 16px'
             }}
-            bodyStyle={{ 
+            bodyStyle={{
               padding: '8px',
               lineHeight: '1.6'
             }}
@@ -614,12 +602,12 @@ const ChatInterface = ({
 
   return (
     <div className="chat-container">
-      <div className="messages-container" style={{ 
+      <div className="messages-container" style={{
         padding: '20px'
       }}>
         {messages.length === 0 && (
-          <div style={{ 
-            textAlign: 'center', 
+          <div style={{
+            textAlign: 'center',
             padding: '40px 20px',
             color: '#8c8c8c'
           }}>
@@ -634,14 +622,14 @@ const ChatInterface = ({
 
         {messages.map((message, index) => (
           <div key={message.id || index} style={{ marginBottom: '16px' }}>
-            <div style={{ 
-              display: 'flex', 
+            <div style={{
+              display: 'flex',
               justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start',
               gap: '12px'
             }}>
               {message.type !== 'user' && renderAvatar(message)}
-              
-              <div style={{ 
+
+              <div style={{
                 maxWidth: message.type === 'user' ? '80%' : '100%',
                 minWidth: message.type === 'user' ? 'auto' : '200px',
               }}>
@@ -659,9 +647,9 @@ const ChatInterface = ({
                 ) : (
                   renderMessageContent(message)
                 )}
-                
+
                 {message.timestamp && (
-                  <div style={{ 
+                  <div style={{
                     textAlign: message.type === 'user' ? 'right' : 'left',
                     marginTop: '4px'
                   }}>
@@ -671,7 +659,7 @@ const ChatInterface = ({
                   </div>
                 )}
               </div>
-              
+
               {message.type === 'user' && renderAvatar(message)}
             </div>
           </div>
@@ -679,39 +667,39 @@ const ChatInterface = ({
 
         {(isProcessing || (streamingMessage && streamingMessage.isStreaming)) && (
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ 
-              display: 'flex', 
+            <div style={{
+              display: 'flex',
               justifyContent: 'flex-start',
               gap: '12px'
             }}>
               <Avatar icon={<RobotOutlined />} style={{ backgroundColor: '#52c41a' }} />
-              
+
               {/* 如果有流式消息内容，显示实时内容，否则显示状态提示 */}
               {streamingMessage && streamingMessage.content ? (
-                <div style={{ 
+                <div style={{
                   maxWidth: '90%',
                   minWidth: '200px'
                 }}>
-                  <Card 
-                    size="small" 
-                    style={{ 
+                  <Card
+                    size="small"
+                    style={{
                       backgroundColor: '#f6f6f6',
                       padding: '8px 16px'
                     }}
-                    bodyStyle={{ 
+                    bodyStyle={{
                       padding: '10px',
                       lineHeight: '1.6'
                     }}
                   >
-                    <MarkdownRenderer 
-                      content={streamingMessage.content} 
+                    <MarkdownRenderer
+                      content={streamingMessage.content}
                       showCursor={true}
                       isStreaming={true}
                     />
                   </Card>
-                  
+
                   {/* 显示"正在生成..."状态 */}
-                  <div style={{ 
+                  <div style={{
                     marginTop: '4px',
                     textAlign: 'left'
                   }}>
@@ -722,7 +710,7 @@ const ChatInterface = ({
                   </div>
                 </div>
               ) : (
-                <div style={{ 
+                <div style={{
                   padding: '8px 16px',
                   backgroundColor: '#f8f9fa',
                   borderRadius: '18px',
@@ -746,48 +734,48 @@ const ChatInterface = ({
       <div className="chat-input-container">
         {/* 文件上传区域 */}
         {fileList.length > 0 && (
-          <div style={{ 
+          <div style={{
             marginBottom: '12px',
             padding: '12px',
             backgroundColor: '#f8f9fa',
             borderRadius: '8px',
             border: '1px dashed #d9d9d9'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: '8px'
             }}>
               <Text strong style={{ fontSize: '13px' }}>待上传文件</Text>
-              <Button 
-                type="text" 
-                size="small" 
+              <Button
+                type="text"
+                size="small"
                 onClick={() => setFileList([])}
                 style={{ fontSize: '12px' }}
               >
                 清除
               </Button>
             </div>
-            
-            <div style={{ 
-              maxHeight: '120px', 
+
+            <div style={{
+              maxHeight: '120px',
               overflowY: 'auto',
               marginBottom: '8px'
             }}>
               {fileList.map((file) => (
-                <div 
-                  key={file.uid} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <div
+                  key={file.uid}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
                     padding: '4px 0',
                     fontSize: '12px'
                   }}
                 >
-                  <FileOutlined style={{ 
-                    marginRight: '6px', 
-                    color: '#1890ff' 
+                  <FileOutlined style={{
+                    marginRight: '6px',
+                    color: '#1890ff'
                   }} />
                   <Text ellipsis style={{ flex: 1 }}>
                     {file.name}
@@ -798,13 +786,13 @@ const ChatInterface = ({
                 </div>
               ))}
             </div>
-            
+
             <Button
               type="primary"
               size="small"
               onClick={handleFileUpload}
               loading={uploading}
-              style={{ 
+              style={{
                 fontSize: '12px',
                 height: '28px'
               }}
@@ -831,7 +819,7 @@ const ChatInterface = ({
               }}
             />
           </Upload>
-          
+
           {/* 文件列表下拉菜单 */}
           <Dropdown
             overlay={
@@ -889,7 +877,7 @@ const ChatInterface = ({
               }}
             />
           </Dropdown>
-          
+
           <TextArea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -897,13 +885,13 @@ const ChatInterface = ({
             placeholder="输入您的问题..."
             autoSize={{ minRows: 1, maxRows: 4 }}
             disabled={isProcessing}
-            style={{ 
+            style={{
               resize: 'none',
               borderRadius: '0',
               borderRight: 'none'
             }}
           />
-          
+
           <div style={{ display: 'flex', gap: '8px' }}>
             {streamingMessage && (
               <Button
@@ -918,7 +906,7 @@ const ChatInterface = ({
                 title="停止生成"
               />
             )}
-            
+
             <Button
               type="primary"
               icon={<SendOutlined />}
@@ -932,14 +920,14 @@ const ChatInterface = ({
             />
           </div>
         </Space.Compact>
-        
-        <div style={{ 
-          marginTop: '8px', 
+
+        <div style={{
+          marginTop: '8px',
           textAlign: 'center'
         }}>
-          <Button 
-            type="text" 
-            size="small" 
+          <Button
+            type="text"
+            size="small"
             style={{ fontSize: '12px', color: '#8c8c8c' }}
           >
             清空对话
