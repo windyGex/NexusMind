@@ -1,45 +1,390 @@
 import { MemoryManager } from './MemoryManager.js';
 import { LLMClient } from './LLMClient.js';
-import { ToolRegistry } from './ToolRegistry.js';
-import { ToolSelector } from './ToolSelector.js';
-import logger from '../../utils/logger.js';
+import { Memory } from './Memory.js';
+import toolRegistryManager from '../tools/toolRegistryManager.js';
+import { CodeWritingAgentManager } from '../agents/CodeWritingAgentManager.js';
 
 /**
- * 自主智能体核心类
- * 支持ReAct决策方法，集成短期记忆和工具调用
+ * Agent类
+ * 核心智能体实现，支持ReAct和PlanSolve模式
  */
 export class Agent {
-  constructor(config = {}) {
-    this.name = config.name || 'NexusMind';
-    this.memory = new MemoryManager(config.memory);
-    this.llm = new LLMClient(config.llm);
-    this.tools = new ToolRegistry();
-    this.toolSelector = new ToolSelector(config.toolSelector);
-    
-    this.maxIterations = config.maxIterations || 10;
-    this.thinkingMode = config.thinkingMode || 'react'; // 支持 'react' 和 'plan_solve' 模式
-    this.planSolveConfig = config.planSolve || {
-      maxPlanSteps: 8,
-      enablePlanRefinement: true,
-      detailedReasoning: true
-    };
-    
-    this.conversationHistory = [];
-    this.currentTask = null;
-    this.currentPlan = null; // 用于存储Plan & Solve模式的计划
-    
-    // MCP相关属性
+  constructor(options = {}) {
+    this.id = options.id || Math.random().toString(36).substr(2, 9);
+    this.name = options.name || 'Agent';
+    this.role = options.role || '智能助手';
+    this.description = options.description || '通用智能体';
+    this.maxIterations = options.maxIterations || 5;
+    this.llmClient = new LLMClient(options.llmConfig);
+    this.memory = new Memory();
+    this.tools = toolRegistryManager;
     this.mcpServerManager = null;
-    this.availableMCPTools = [];
+    this.codeWritingAgentManager = new CodeWritingAgentManager();
     
-    // 协作相关属性
-    this.collaborationEnabled = config.collaborationEnabled || false;
-    this.agentManager = null;
-    this.role = config.role || 'general';
-    this.collaborationHistory = [];
-    this.peerAgents = new Map();
+    // Agent状态
+    this.isProcessing = false;
+    this.currentTask = null;
+    this.thinkingHistory = [];
   }
+  
+  /**
+   * 设置MCP服务器管理器
+   * @param {MCPServerManager} mcpServerManager - MCP服务器管理器实例
+   */
+  setMCPServerManager(mcpServerManager) {
+    this.mcpServerManager = mcpServerManager;
+  }
+  
+  /**
+   * 更新MCP工具列表
+   */
+  async updateMCPTools() {
+    if (this.mcpServerManager) {
+      try {
+        const mcpTools = await this.mcpServerManager.getAllAvailableTools();
+        for (const tool of mcpTools) {
+          this.tools.registerTool(tool.name, tool);
+        }
+      } catch (error) {
+        console.error('更新MCP工具失败:', error);
+      }
+    }
+  }
+  
+  /**
+   * ReAct模式决策方法
+   * @param {string} task - 任务描述
+   * @param {object} options - 选项
+   * @returns {Promise<object>} 执行结果
+   */
+  async react(task, options = {}) {
+    this.isProcessing = true;
+    this.currentTask = task;
+    this.thinkingHistory = [];
+    
+    try {
+      let iterations = 0;
+      let finalAnswer = null;
+      
+      while (iterations < this.maxIterations) {
+        iterations++;
+        
+        // 思考步骤
+        const thought = await this.think(task, this.thinkingHistory);
+        this.thinkingHistory.push({ type: 'thought', content: thought });
+        
+        // 决策步骤
+        const action = await this.decide(thought, this.thinkingHistory);
+        this.thinkingHistory.push({ type: 'action', content: action });
+        
+        // 执行步骤
+        const observation = await this.act(action);
+        this.thinkingHistory.push({ type: 'observation', content: observation });
+        
+        // 评估是否需要继续
+        const evaluation = await this.evaluate(task, thought, action, observation);
+        if (evaluation.isComplete) {
+          finalAnswer = evaluation.answer;
+          break;
+        }
+        
+        // 更新任务状态
+        task = evaluation.nextTask;
+      }
+      
+      return {
+        success: true,
+        answer: finalAnswer || '未能找到满意答案',
+        iterations,
+        thinkingHistory: this.thinkingHistory
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        iterations,
+        thinkingHistory: this.thinkingHistory
+      };
+    } finally {
+      this.isProcessing = false;
+      this.currentTask = null;
+    }
+  }
+  
+  /**
+   * Plan & Solve模式决策方法
+   * @param {string} task - 任务描述
+   * @param {object} options - 选项
+   * @returns {Promise<object>} 执行结果
+   */
+  async planSolve(task, options = {}) {
+    this.isProcessing = true;
+    this.currentTask = task;
+    this.thinkingHistory = [];
+    
+    try {
+      // 1. 任务分析
+      const taskAnalysis = await this.analyzeTask(task);
+      
+      // 2. 制定计划
+      const plan = await this.createPlan(taskAnalysis);
+      
+      // 3. 执行计划
+      const executionResult = await this.executePlan(plan, options);
+      
+      // 4. 结果评估
+      const finalResult = await this.evaluateResult(task, executionResult);
+      
+      return {
+        success: true,
+        result: finalResult,
+        taskAnalysis,
+        plan,
+        executionResult,
+        thinkingHistory: this.thinkingHistory
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        thinkingHistory: this.thinkingHistory
+      };
+    } finally {
+      this.isProcessing = false;
+      this.currentTask = null;
+    }
+  }
+  
+  /**
+   * 任务分析
+   * @param {string} task - 任务描述
+   * @returns {Promise<object>} 分析结果
+   */
+  async analyzeTask(task) {
+    const prompt = `作为${this.role}，请分析以下任务并提供详细分析：
+任务：${task}
 
+请从以下角度分析：
+1. 任务目标和要求
+2. 涉及的关键概念和领域
+3. 需要的资源和工具
+4. 潜在的挑战和解决方案
+5. 成功标准
+
+请提供结构化分析结果。`;
+    
+    const analysis = await this.llmClient.generate({
+      prompt,
+      options: {
+        streaming: false,
+        needSendToFrontend: false
+      }
+    });
+    
+    return {
+      task,
+      analysis
+    };
+  }
+  
+  /**
+   * 制定计划
+   * @param {object} taskAnalysis - 任务分析结果
+   * @returns {Promise<object>} 计划
+   */
+  async createPlan(taskAnalysis) {
+    const prompt = `基于以下任务分析，制定详细的执行计划：
+分析结果：${JSON.stringify(taskAnalysis, null, 2)}
+
+请制定一个结构化的执行计划，包括：
+1. 主要步骤
+2. 每个步骤的目标
+3. 需要的工具和资源
+4. 预期结果
+5. 时间估算
+
+请以JSON格式返回计划。`;
+    
+    const plan = await this.llmClient.generate({
+      prompt,
+      options: {
+        streaming: false,
+        needSendToFrontend: false
+      }
+    });
+    
+    return {
+      taskAnalysis,
+      plan
+    };
+  }
+  
+  /**
+   * 执行计划
+   * @param {object} plan - 计划
+   * @param {object} options - 选项
+   * @returns {Promise<object>} 执行结果
+   */
+  async executePlan(plan, options = {}) {
+    const steps = plan.plan.steps || [];
+    const results = [];
+    
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      
+      // 执行单个步骤
+      const stepResult = await this.executeStep(step, options);
+      results.push({
+        step: i + 1,
+        description: step.description,
+        result: stepResult
+      });
+    }
+    
+    return {
+      plan,
+      results
+    };
+  }
+  
+  /**
+   * 执行单个步骤
+   * @param {object} step - 步骤
+   * @param {object} options - 选项
+   * @returns {Promise<object>} 步骤执行结果
+   */
+  async executeStep(step, options = {}) {
+    // 根据步骤类型执行不同操作
+    if (step.type === 'tool_use') {
+      return await this.executeToolStep(step, options);
+    } else if (step.type === 'reasoning') {
+      return await this.executeReasoningStep(step, options);
+    } else if (step.type === 'synthesis') {
+      return await this.executeSynthesisStep(step, options);
+    } else {
+      // 默认执行推理步骤
+      return await this.executeReasoningStep(step, options);
+    }
+  }
+  
+  /**
+   * 执行工具步骤
+   * @param {object} step - 步骤
+   * @param {object} options - 选项
+   * @returns {Promise<object>} 工具执行结果
+   */
+  async executeToolStep(step, options = {}) {
+    const { tool, args } = step;
+    
+    try {
+      // 执行工具
+      const result = await this.tools.executeTool(tool, args);
+      return {
+        success: true,
+        tool,
+        args,
+        result
+      };
+    } catch (error) {
+      return {
+        success: false,
+        tool,
+        args,
+        error: error.message
+      };
+    }
+  }
+  
+  /**
+   * 执行推理步骤
+   * @param {object} step - 步骤
+   * @param {object} options - 选项
+   * @returns {Promise<object>} 推理结果
+   */
+  async executeReasoningStep(step, options = {}) {
+    const prompt = `作为${this.role}，请基于以下信息进行推理：
+任务：${this.currentTask}
+步骤：${step.description}
+上下文：${JSON.stringify(step.context || {}, null, 2)}
+
+请提供详细的推理过程和结论。`;
+    
+    const reasoning = await this.llmClient.generate({
+      prompt,
+      options: {
+        streaming: false,
+        needSendToFrontend: false
+      }
+    });
+    
+    return {
+      step: step.description,
+      reasoning
+    };
+  }
+  
+  /**
+   * 执行综合步骤
+   * @param {object} step - 步骤
+   * @param {object} options - 选项
+   * @returns {Promise<object>} 综合结果
+   */
+  async executeSynthesisStep(step, options = {}) {
+    const prompt = `作为${this.role}，请综合以下信息生成最终答案：
+任务：${this.currentTask}
+步骤：${step.description}
+相关信息：${JSON.stringify(step.info || {}, null, 2)}
+
+请提供完整、结构化的最终答案。`;
+    
+    const synthesis = await this.llmClient.generate({
+      prompt,
+      options: {
+        streaming: true,
+        needSendToFrontend: true
+      }
+    });
+    
+    return {
+      step: step.description,
+      synthesis
+    };
+  }
+  
+  /**
+   * 结果评估
+   * @param {string} task - 任务描述
+   * @param {object} executionResult - 执行结果
+   * @returns {Promise<object>} 评估结果
+   */
+  async evaluateResult(task, executionResult) {
+    const prompt = `作为${this.role}，请评估以下执行结果是否满足原始任务要求：
+原始任务：${task}
+执行结果：${JSON.stringify(executionResult, null, 2)}
+
+请提供：
+1. 结果质量评估
+2. 是否满足任务要求
+3. 改进建议（如果需要）
+4. 最终答案
+
+请以结构化格式返回评估结果。`;
+    
+    const evaluation = await this.llmClient.generate({
+      prompt,
+      options: {
+        streaming: true,
+        needSendToFrontend: true
+      }
+    });
+    
+    return {
+      task,
+      executionResult,
+      evaluation
+    };
+  }
+  
   /**
    * 处理用户输入并生成响应
    */
@@ -452,7 +797,7 @@ ${memory.map(m => `- ${m.content}`).join('\n')}
       // 尝试清理并解析JSON
       let cleanJson = response.content.trim();
       
-      // 移除可能的markdown代码块标记
+      // 移除可能的``json\n?``格式
       cleanJson = cleanJson.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       
       // 移除前后的非 JSON内容
@@ -1108,11 +1453,11 @@ ${currentThought ? `之前的思考过程:\n${currentThought}\n` : ''}
   "reasoning": "详细的推理过程，包括问题分析、策略制定、工具选择理由等",
   "action": "工具名称 或 null",
   "args": "工具参数，JSON对象格式 或 null",
-  "finalAnswer": "如果任务完成，给出完整、准确的最终答案 或 null，输出markdown格式, 尽量充分的展示完整的内容，比如图片或者表格等",
-  "shouldStop": 如果任务完成返回true, 否则返回false
-}
+  "finalAnswer": "如果任务完成，给出完整、准确的最终答案 或 null，输出```
 
-重要提示：
+```
+
+注意：
 - 优先考虑用户的核心需求
 - 工具参数必须是有效的JSON对象格式
 - 最终答案应该完整、准确、有用

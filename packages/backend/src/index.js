@@ -111,14 +111,35 @@ async function registerWebScrapingTools(agent) {
     
     // 注册所有后端工具
     for (const [name, tool] of Object.entries(allTools)) {
+      // 为工具生成显示名称
+      const displayToolName = tool.name || name;
+      
       agent.tools.registerTool(name, {
-        name: tool.name,
+        name: displayToolName,
         description: tool.description,
         category: tool.category,
         parameters: tool.parameters,
-        execute: tool.execute
+        execute: async (args) => {
+          try {
+            // 发送工具开始执行消息
+            const toolId = Math.random().toString(36).substr(2, 9);
+            const startTime = Date.now();
+            
+            // 执行工具
+            const result = await tool.execute(args);
+            
+            // 计算执行时间
+            const endTime = Date.now();
+            const executionTime = endTime - startTime;
+            
+            return result;
+          } catch (error) {
+            logger.error(`工具执行失败: ${error.message}`);
+            throw error;
+          }
+        }
       });
-      logger.debug(`已注册工具: ${tool.name} (${tool.category})`);
+      logger.debug(`已注册工具: ${displayToolName} (${tool.category})`);
     }
     
     logger.success(`成功注册了 ${Object.keys(allTools).length} 个工具`);
@@ -651,6 +672,95 @@ async function handleChatMessage(ws, data, clientId) {
         message: `处理失败: ${error.message}`
       }));
     }
+  }
+}
+
+// 处理工具执行的WebSocket消息
+async function handleToolExecution(clientId, message) {
+  const { toolName, args } = message;
+  
+  logger.debug(`执行工具: ${toolName}`, args);
+  
+  // 获取客户端任务状态
+  const clientTask = clientTasks.get(clientId);
+  if (!clientTask) {
+    logger.warn(`未找到客户端任务状态: ${clientId}`);
+    return;
+  }
+  
+  // 创建AbortController用于取消操作
+  const abortController = new AbortController();
+  clientTask.abortController = abortController;
+  clientTask.isProcessing = true;
+  
+  try {
+    // 发送工具开始执行消息
+    const toolId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+    
+    // 发送工具开始消息到前端
+    const ws = clients.get(clientId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'tool_execution',
+        status: 'running',
+        tool: toolName,
+        args,
+        timestamp: startTime,
+        id: toolId
+      }));
+    }
+    
+    // 检查Agent是否可用
+    if (!agent) {
+      throw new Error('Agent未初始化');
+    }
+    
+    // 执行工具
+    const result = await agent.tools.executeTool(toolName, args);
+    
+    // 计算执行时间
+    const endTime = Date.now();
+    const executionTime = endTime - startTime;
+    
+    // 发送工具执行完成消息到前端
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'tool_execution',
+        status: 'completed',
+        tool: toolName,
+        args,
+        result,
+        timestamp: startTime,
+        completedAt: endTime,
+        executionTime,
+        id: toolId
+      }));
+    }
+    
+    logger.success(`工具执行完成: ${toolName} (耗时: ${executionTime}ms)`);
+    return result;
+  } catch (error) {
+    logger.error(`工具执行失败: ${error.message}`);
+    
+    // 发送工具执行错误消息到前端
+    const ws = clients.get(clientId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'tool_execution',
+        status: 'error',
+        tool: toolName,
+        args,
+        error: error.message,
+        timestamp: Date.now()
+      }));
+    }
+    
+    throw error;
+  } finally {
+    // 清理任务状态
+    clientTask.isProcessing = false;
+    clientTask.abortController = null;
   }
 }
 

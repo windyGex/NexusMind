@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>首页 - 健康饮食管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+        }
+        
+        .card {
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+        
+        .progress-ring circle {
+            transition: stroke-dashoffset 0.5s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Header -->
+    <div class="bg-white p-4 flex justify-between items-center">
+        <div>
+            <h1 class="text-xl font-bold">健康饮食助手</h1>
+            <p class="text-gray-500 text-sm">你好，张医生推荐</p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+            <i class="fas fa-user text-gray-600"></i>
+        </div>
+    </div>
+
+    <!-- Health Summary -->
+    <div class="m-4">
+        <div class="card bg-white p-4">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold">今日健康概览</h2>
+                <span class="text-blue-500 text-sm">查看详情</span>
+            </div>
+            
+            <div class="flex justify-around items-center">
+                <div class="text-center">
+                    <div class="relative w-20 h-20 mx-auto">
+                        <svg class="progress-ring" width="80" height="80">
+                            <circle cx="40" cy="40" r="35" fill="none" stroke="#e6e6e6" stroke-width="8"></circle>
+                            <circle cx="40" cy="40" r="35" fill="none" stroke="#34c759" stroke-width="8" 
+                                    stroke-dasharray="220" stroke-dashoffset="44" 
+                                    stroke-linecap="round" transform="rotate(-90 40 40)"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-lg font-bold">80%</span>
+                            <span class="text-xs text-gray-500">目标完成</span>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-sm">饮食计划</p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-500">72</div>
+                    <p class="text-sm text-gray-500">血糖(mg/dL)</p>
+                    <div class="flex items-center justify-center mt-1">
+                        <i class="fas fa-arrow-up text-green-500 text-xs"></i>
+                        <span class="text-green-500 text-xs ml-1">正常</span>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <div class="text-2xl font-bold">168</div>
+                    <p class="text-sm text-gray-500">体重(kg)</p>
+                    <div class="flex items-center justify-center mt-1">
+                        <i class="fas fa-arrow-down text-red-500 text-xs"></i>
+                        <span class="text-red-500 text-xs ml-1">-1.2kg</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="mx-4 mb-4">
+        <h2 class="font-bold mb-3 px-1">快速操作</h2>
+        <div class="grid grid-cols-4 gap-3">
+            <div class="card bg-white p-3 flex flex-col items-center">
+                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                    <i class="fas fa-utensils text-blue-500"></i>
+                </div>
+                <span class="text-xs text-center">记录饮食</span>
+            </div>
+            
+            <div class="card bg-white p-3 flex flex-col items-center">
+                <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                    <i class="fas fa-dumbbell text-green-500"></i>
+                </div>
+                <span class="text-xs text-center">运动记录</span>
+            </div>
+            
+            <div class="card bg-white p-3 flex flex-col items-center">
+                <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mb-2">
+                    <i class="fas fa-capsules text-purple-500"></i>
+                </div>
+                <span class="text-xs text-center">用药提醒</span>
+            </div>
+            
+            <div class="card bg-white p-3 flex flex-col items-center">
+                <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mb-2">
+                    <i class="fas fa-weight-scale text-yellow-500"></i>
+                </div>
+                <span class="text-xs text-center">体重记录</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Plan -->
+    <div class="mx-4 mb-4">
+        <div class="flex justify-between items-center mb-3 px-1">
+            <h2 class="font-bold">今日饮食计划</h2>
+            <span class="text-blue-500 text-sm">查看全部</span>
+        </div>
+        
+        <div class="card bg-white p-4">
+            <div class="flex items-center mb-3">
+                <div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-sun text-orange-500"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold">早餐</h3>
+                    <p class="text-sm text-gray-500">已完成</p>
+                </div>
+                <div class="ml-auto text-green-500">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+            
+            <div class="flex items-center mb-3">
+                <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-cloud-sun text-blue-500"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold">午餐</h3>
+                    <p class="text-sm text-gray-500">进行中</p>
+                </div>
+                <div class="ml-auto text-blue-500">
+                    <i class="fas fa-clock"></i>
+                </div>
+            </div>
+            
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center mr-3">
+                    <i class="fas fa-moon text-gray-500"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold">晚餐</h3>
+                    <p class="text-sm text-gray-500">未开始</p>
+                </div>
+                <div class="ml-auto text-gray-400">
+                    <i class="far fa-circle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Tips -->
+    <div class="mx-4 mb-6">
+        <h2 class="font-bold mb-3 px-1">健康小贴士</h2>
+        <div class="card bg-gradient-to-r from-blue-500 to-purple-600 p-4 text-white">
+            <div class="flex items-start">
+                <div class="mr-3 mt-1">
+                    <i class="fas fa-lightbulb text-yellow-300 text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold">控制碳水摄入</h3>
+                    <p class="text-sm opacity-90 mt-1">建议每餐碳水化合物摄入量不超过150g，有助于血糖稳定。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

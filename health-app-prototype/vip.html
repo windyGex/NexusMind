@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP会员 - 健康饮食管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+        }
+        
+        .card {
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+        
+        .vip-header {
+            background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
+            color: #000;
+        }
+        
+        .plan-card {
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .plan-card.recommended {
+            border-color: #ffd700;
+            position: relative;
+        }
+        
+        .plan-card.recommended::before {
+            content: "推荐";
+            position: absolute;
+            top: -12px;
+            right: 20px;
+            background: #ffd700;
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .feature-item i {
+            color: #4ade80;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Header -->
+    <div class="vip-header p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold">VIP会员</h1>
+            <i class="fas fa-crown text-2xl"></i>
+        </div>
+        <p class="opacity-90">解锁更多高级功能，享受专属健康服务</p>
+    </div>
+
+    <!-- VIP Benefits -->
+    <div class="m-4">
+        <div class="card bg-white p-4 mb-4">
+            <h2 class="font-bold mb-3">VIP专属权益</h2>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div class="flex items-center p-3 bg-blue-50 rounded-lg">
+                    <i class="fas fa-user-md text-blue-500 mr-2"></i>
+                    <span class="text-sm">专属营养师</span>
+                </div>
+                
+                <div class="flex items-center p-3 bg-green-50 rounded-lg">
+                    <i class="fas fa-chart-line text-green-500 mr-2"></i>
+                    <span class="text-sm">深度分析</span>
+                </div>
+                
+                <div class="flex items-center p-3 bg-purple-50 rounded-lg">
+                    <i class="fas fa-utensils text-purple-500 mr-2"></i>
+                    <span class="text-sm">定制食谱</span>
+                </div>
+                
+                <div class="flex items-center p-3 bg-yellow-50 rounded-lg">
+                    <i class="fas fa-bell text-yellow-500 mr-2"></i>
+                    <span class="text-sm">优先提醒</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Membership Plans -->
+    <div class="mx-4 mb-4">
+        <h2 class="font-bold mb-3 px-1">会员套餐</h2>
+        
+        <div class="space-y-4">
+            <!-- Monthly Plan -->
+            <div class="plan-card card bg-white p-5">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="font-bold text-lg">月度会员</h3>
+                        <p class="text-gray-500 text-sm">适合短期体验</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold">¥18<span class="text-sm font-normal">/月</span></p>
+                        <p class="text-gray-500 text-sm line-through">¥25</p>
+                    </div>
+                </div>
+                
+                <div class="mb-5">
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>个性化饮食计划</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>健康数据追踪</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>基础营养分析</span>
+                    </div>
+                </div>
+                
+                <button class="w-full py-3 bg-gray-100 text-gray-800 rounded-lg font-medium">
+                    立即购买
+                </button>
+            </div>
+            
+            <!-- Annual Plan (Recommended) -->
+            <div class="plan-card card bg-white p-5 recommended">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="font-bold text-lg">年度会员</h3>
+                        <p class="text-gray-500 text-sm">超值推荐</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold">¥128<span class="text-sm font-normal">/年</span></p>
+                        <p class="text-gray-500 text-sm line-through">¥216</p>
+                    </div>
+                </div>
+                
+                <div class="mb-5">
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>个性化饮食计划</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>健康数据追踪</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>深度营养分析</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>专属营养师咨询</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>智能食谱推荐</span>
+                    </div>
+                </div>
+                
+                <button class="w-full py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black rounded-lg font-bold">
+                    立即购买
+                </button>
+            </div>
+            
+            <!-- Lifetime Plan -->
+            <div class="plan-card card bg-white p-5">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="font-bold text-lg">终身会员</h3>
+                        <p class="text-gray-500 text-sm">一次购买，终身享用</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold">¥298</p>
+                        <p class="text-gray-500 text-sm line-through">¥598</p>
+                    </div>
+                </div>
+                
+                <div class="mb-5">
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>所有年度会员权益</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>优先客服支持</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>新功能优先体验</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>定期健康报告</span>
+                    </div>
+                </div>
+                
+                <button class="w-full py-3 bg-gray-800 text-white rounded-lg font-medium">
+                    立即购买
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="mx-4 mb-6">
+        <div class="card bg-white p-4">
+            <h2 class="font-bold mb-3">常见问题</h2>
+            
+            <div class="space-y-3">
+                <div class="border-b border-gray-100 pb-3">
+                    <h3 class="font-medium">VIP会员和普通用户有什么区别？</h3>
+                    <p class="text-sm text-gray-600 mt-1">VIP会员享有专属营养师、深度营养分析、智能食谱推荐等高级功能，普通用户仅能使用基础功能。</p>
+                </div>
+                
+                <div class="border-b border-gray-100 pb-3">
+                    <h3 class="font-medium">如何取消订阅？</h3>
+                    <p class="text-sm text-gray-600 mt-1">您可以在会员中心的订阅管理中随时取消自动续费，已购买的会员权益在有效期内仍可正常使用。</p>
+                </div>
+                
+                <div>
+                    <h3 class="font-medium">支持哪些支付方式？</h3>
+                    <p class="text-sm text-gray-600 mt-1">我们支持微信支付、支付宝、Apple Pay等多种支付方式，确保您的支付安全。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

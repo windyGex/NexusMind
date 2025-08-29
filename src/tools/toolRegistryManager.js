@@ -3,13 +3,114 @@ import { webScrapingToolRegistry } from './webScrapingToolRegistry.js';
 import { searchAnalysisTools } from './searchAnalysisToolRegistry.js';
 import { fileOperationToolRegistry } from './fileOperationToolRegistry.js';
 import { codeExecutionToolRegistry } from './codeExecutionToolRegistry.js';
+import allTools from './index.js';
 
 /**
  * 统一工具注册管理器
- * 集中管理所有工具的注册和导出
+ * 负责管理和注册所有工具
  */
 
-// 基础工具定义
+class ToolRegistryManager {
+  constructor() {
+    this.tools = new Map();
+    this.categories = new Set();
+    this.initializeTools();
+  }
+  
+  /**
+   * 初始化所有工具
+   */
+  initializeTools() {
+    // 注册所有工具
+    for (const [name, tool] of Object.entries(allTools)) {
+      this.registerTool(name, tool);
+    }
+  }
+  
+  /**
+   * 注册工具
+   * @param {string} name - 工具名称
+   * @param {object} tool - 工具定义
+   */
+  registerTool(name, tool) {
+    this.tools.set(name, {
+      name,
+      ...tool
+    });
+    
+    // 记录工具类别
+    if (tool.category) {
+      this.categories.add(tool.category);
+    }
+  }
+  
+  /**
+   * 获取工具
+   * @param {string} name - 工具名称
+   * @returns {object|null} 工具定义或null
+   */
+  getTool(name) {
+    return this.tools.get(name) || null;
+  }
+  
+  /**
+   * 获取所有工具
+   * @returns {Map} 所有工具的Map
+   */
+  getAllTools() {
+    return this.tools;
+  }
+  
+  /**
+   * 根据类别获取工具
+   * @param {string} category - 工具类别
+   * @returns {array} 指定类别的工具列表
+   */
+  getToolsByCategory(category) {
+    return Array.from(this.tools.values()).filter(tool => tool.category === category);
+  }
+  
+  /**
+   * 获取所有工具类别
+   * @returns {Set} 所有工具类别的Set
+   */
+  getAllCategories() {
+    return this.categories;
+  }
+  
+  /**
+   * 执行工具
+   * @param {string} name - 工具名称
+   * @param {object} args - 工具参数
+   * @returns {Promise<object>} 工具执行结果
+   */
+  async executeTool(name, args) {
+    const tool = this.getTool(name);
+    
+    if (!tool) {
+      throw new Error(`工具 "${name}" 未找到`);
+    }
+    
+    if (!tool.execute) {
+      throw new Error(`工具 "${name}" 没有实现execute方法`);
+    }
+    
+    try {
+      // 执行工具
+      const result = await tool.execute(args);
+      return result;
+    } catch (error) {
+      throw new Error(`执行工具 "${name}" 失败: ${error.message}`);
+    }
+  }
+}
+
+// 导出默认实例
+export default new ToolRegistryManager();
+
+/**
+ * 基础工具定义
+ */
 const baseTools = {
   web_search: {
     name: 'web_search',
@@ -174,10 +275,3 @@ export function getToolByName(name) {
   const allTools = getAllTools();
   return allTools[name];
 }
-
-export default {
-  getAllTools,
-  getToolsByCategory,
-  getToolCategories,
-  getToolByName
-};
